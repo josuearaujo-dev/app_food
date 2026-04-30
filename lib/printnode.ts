@@ -120,6 +120,7 @@ export function buildKitchenReceiptText(input: {
   taxAmount?: number
   total: number
   currency: string
+  paymentLine?: string
 }) {
   const lines: string[] = []
   lines.push('CADU CAKES & LANCHES')
@@ -134,6 +135,9 @@ export function buildKitchenReceiptText(input: {
   )
   if (input.fulfillmentType === 'delivery' && input.address?.trim()) {
     lines.push(`Endereco: ${input.address.trim()}`)
+  }
+  if (input.paymentLine?.trim()) {
+    lines.push(`Pagamento: ${input.paymentLine.trim()}`)
   }
   lines.push('------------------------------')
 

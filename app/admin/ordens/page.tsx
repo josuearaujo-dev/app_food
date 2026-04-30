@@ -29,6 +29,8 @@ type KitchenOrder = {
   cliente_telefone: string | null
   tipo_atendimento: 'take_out' | 'delivery' | null
   endereco_entrega: string | null
+  origem_pagamento: string | null
+  status_pagamento: string | null
   status_producao: KitchenStatus
   pedido_itens: OrderItem[]
 }
@@ -111,7 +113,7 @@ export default function AdminOrdensPage() {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_email, cliente_telefone, tipo_atendimento, endereco_entrega, status_producao, pedido_itens(nome_item, quantidade, observacao, opcoes_selecionadas)'
+        'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_email, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, status_producao, pedido_itens(nome_item, quantidade, observacao, opcoes_selecionadas)'
       )
       .order('criado_em', { ascending: false })
 
@@ -296,6 +298,9 @@ export default function AdminOrdensPage() {
                             {t.paymentDeliveryFee}: ${Number(order.taxa_entrega ?? 0).toFixed(2)}
                           </p>
                         ) : null}
+                        <p className="mt-1 text-[10px] font-semibold text-foreground">
+                          {formatPaymentLabel(order)}
+                        </p>
                         {(order.cliente_nome || order.cliente_email || order.cliente_telefone) && (
                           <div className="mt-2 space-y-0.5 border-t border-border pt-2 text-[11px] text-muted-foreground">
                             {order.cliente_nome && (
@@ -367,4 +372,11 @@ export default function AdminOrdensPage() {
       </section>
     </main>
   )
+}
+
+function formatPaymentLabel(order: Pick<KitchenOrder, 'origem_pagamento' | 'status_pagamento'>): string {
+  if (order.origem_pagamento === 'cash_on_delivery' || order.status_pagamento === 'pay_on_delivery') {
+    return 'Pagamento: Dinheiro na entrega'
+  }
+  return 'Pagamento: PayPal'
 }

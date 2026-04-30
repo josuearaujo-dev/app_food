@@ -61,6 +61,14 @@ type ExtraGroupForm = {
   options: OptionLine[]
 }
 
+type ExtraTemplate = {
+  id: string
+  nome: string
+  minEscolhas: number | null
+  maxEscolhas: number | null
+  options: OptionLine[]
+}
+
 function sameCategoriaKey(
   a: string | null | undefined,
   b: string | null | undefined
@@ -118,6 +126,8 @@ export default function AdminPage() {
     categoria_id: '', disponivel: true, destaque: false, ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
+  const [extraTemplates, setExtraTemplates] = useState<ExtraTemplate[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
 
   // Modal categoria
   const [modalCat, setModalCat] = useState(false)
@@ -136,8 +146,46 @@ export default function AdminPage() {
       supabase.from('categorias').select('*').order('ordem'),
       supabase.from('itens_cardapio').select('*, categorias(id, nome, icone, ordem, ativo)').order('ordem'),
     ])
+
+    let templates: ExtraTemplate[] = []
+    try {
+      const { data: tplGroups, error: errG } = await supabase
+        .from('extra_grupos_predefinidos')
+        .select('id, nome, min_escolhas, max_escolhas')
+        .eq('ativo', true)
+        .order('nome')
+      const { data: tplOptions, error: errO } = await supabase
+        .from('extra_grupo_opcoes_predefinidas')
+        .select('grupo_id, label, price_delta, detail_info, ordem')
+        .eq('ativo', true)
+        .order('ordem')
+
+      if (!errG && !errO && tplGroups) {
+        const byTplGroup = new Map<string, OptionLine[]>()
+        ;(tplOptions ?? []).forEach((op) => {
+          const line: OptionLine = {
+            label: String(op.label ?? ''),
+            priceDelta: Number(op.price_delta ?? 0),
+            info: String(op.detail_info ?? ''),
+            ordem: Number(op.ordem ?? 0),
+          }
+          byTplGroup.set(op.grupo_id, [...(byTplGroup.get(op.grupo_id) ?? []), line])
+        })
+        templates = tplGroups.map((g) => ({
+          id: g.id,
+          nome: g.nome,
+          minEscolhas: g.min_escolhas == null ? null : Number(g.min_escolhas),
+          maxEscolhas: g.max_escolhas == null ? null : Number(g.max_escolhas),
+          options: byTplGroup.get(g.id) ?? [],
+        }))
+      }
+    } catch {
+      templates = []
+    }
+
     setCategorias(cats ?? [])
     setItens(its ?? [])
+    setExtraTemplates(templates)
     setLoading(false)
   }, [supabase])
 
@@ -491,6 +539,76 @@ export default function AdminPage() {
     }))
   }
 
+  function importExtraTemplate(templateId: string) {
+    const template = extraTemplates.find((tpl) => tpl.id === templateId)
+    if (!template) return
+    setFormItem((prev) => ({
+      ...prev,
+      extra_groups: [
+        ...prev.extra_groups,
+        {
+          key: crypto.randomUUID(),
+          nome: template.nome,
+          minEscolhas: template.minEscolhas,
+          maxEscolhas: template.maxEscolhas,
+          options: template.options.map((op, idx) => ({
+            label: op.label,
+            priceDelta: op.priceDelta,
+            info: op.info,
+            ordem: idx,
+          })),
+        },
+      ],
+    }))
+  }
+
+  async function salvarGrupoComoPredefinido(groupIndex: number) {
+    const group = formItem.extra_groups[groupIndex]
+    if (!group) return
+    const nome = group.nome.trim()
+    const lines = normalizeOptionLines(group.options)
+    if (!nome || lines.length === 0) return
+
+    let min =
+      group.minEscolhas == null ? null : Math.max(0, Math.floor(Number(group.minEscolhas)))
+    let max =
+      group.maxEscolhas == null ? null : Math.max(0, Math.floor(Number(group.maxEscolhas)))
+    if (min !== null && Number.isNaN(min)) min = null
+    if (max !== null && Number.isNaN(max)) max = null
+    if (min !== null && max !== null && max < min) max = min
+
+    const { data: upserted } = await supabase
+      .from('extra_grupos_predefinidos')
+      .upsert(
+        {
+          nome,
+          min_escolhas: min,
+          max_escolhas: max,
+          ativo: true,
+        },
+        { onConflict: 'nome' }
+      )
+      .select('id')
+      .single()
+
+    const groupId = upserted?.id
+    if (!groupId) return
+
+    await supabase.from('extra_grupo_opcoes_predefinidas').delete().eq('grupo_id', groupId)
+    await supabase.from('extra_grupo_opcoes_predefinidas').insert(
+      lines.map((line) => ({
+        grupo_id: groupId,
+        label: line.label,
+        price_delta: line.priceDelta,
+        detail_info: line.info || null,
+        ordem: line.ordem,
+        ativo: true,
+      }))
+    )
+
+    await fetchData()
+  }
+
   function removeExtraGroup(index: number) {
     setFormItem((prev) => ({
       ...prev,
@@ -571,6 +689,7 @@ export default function AdminPage() {
       destaque: false,
       ordem: outros.length + 1,
     })
+    setSelectedTemplateId('')
     setModalItem(true)
   }
 
@@ -599,6 +718,7 @@ export default function AdminPage() {
       destaque: item.destaque,
       ordem: posicao,
     })
+    setSelectedTemplateId('')
     setModalItem(true)
   }
 
@@ -1475,6 +1595,39 @@ export default function AdminPage() {
                 + Grupo
               </button>
             </div>
+
+            <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card/40 p-2.5">
+              <div className="min-w-[220px] flex-1">
+                <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                  Importar grupo pré-cadastrado
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/30"
+                >
+                  <option value="">Selecione um grupo...</option>
+                  {extraTemplates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedTemplateId) return
+                  importExtraTemplate(selectedTemplateId)
+                  setSelectedTemplateId('')
+                }}
+                disabled={!selectedTemplateId}
+                className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Importar
+              </button>
+            </div>
+
             {formItem.extra_groups.map((eg, gi) => (
               <div key={eg.key} className="space-y-2 rounded-xl border border-border bg-card/50 p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -1528,6 +1681,19 @@ export default function AdminPage() {
                     className="mt-6 shrink-0 rounded-lg bg-red-50 px-2 py-1 text-xs font-semibold text-red-600"
                   >
                     Remover
+                  </button>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      salvarGrupoComoPredefinido(gi).catch(() => {
+                        /* no-op */
+                      })
+                    }}
+                    className="rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-foreground"
+                  >
+                    Salvar como pré-cadastrado
                   </button>
                 </div>
                 <OptionEditor

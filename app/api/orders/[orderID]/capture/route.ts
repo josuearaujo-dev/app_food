@@ -322,6 +322,7 @@ export async function POST(
             taxAmount,
             total: totalValue,
             currency: '$',
+            paymentLine: 'Pago via PayPal',
           })
           await createPrintNodeRawJob({
             apiKey: printCfg.apiKey,

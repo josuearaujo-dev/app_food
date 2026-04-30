@@ -11,7 +11,7 @@ import {
   clearCheckoutCustomer,
   type CheckoutCustomer,
 } from '@/lib/checkout-customer'
-import { ArrowLeft, CreditCard, Wallet } from 'lucide-react'
+import { ArrowLeft, CreditCard, HandCoins, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { ORDER_TAX_RATE, calculateOrderTax } from '@/lib/order-tax'
@@ -90,7 +90,7 @@ export default function PagamentoPage() {
   const [deliveryLocations, setDeliveryLocations] = useState<Array<{ id: string; taxaEntrega: number }>>([])
   const [cardFieldsEligible, setCardFieldsEligible] = useState(false)
   const [cardFieldsLoading, setCardFieldsLoading] = useState(false)
-  const [method, setMethod] = useState<'paypal' | 'card'>('card')
+  const [method, setMethod] = useState<'paypal' | 'card' | 'cash'>('card')
   const [salvarCartaoEstePedido, setSalvarCartaoEstePedido] = useState(false)
   const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(null)
   const isRenderingRef = useRef(false)
@@ -299,7 +299,53 @@ export default function PagamentoPage() {
     setResultMessage(`Pagamento ${transaction?.status ?? 'OK'}: ${transaction?.id ?? '-'}`)
   }
 
+  async function handleCashPayment() {
+    setPaypalError(null)
+    const response = await fetch('/api/orders/cash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: customerPayload(),
+        promoCode: promoCode.trim() || null,
+        cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
+          id: item.id,
+          combo_id: item.comboId ?? null,
+          name: item.nome,
+          quantity,
+          unitAmount: unitPrice,
+          categoria_id: item.categoria_id,
+          observation,
+          selectedOptions,
+        })),
+      }),
+    })
+
+    const cashData = (await response.json()) as {
+      error?: string
+      order_number?: string
+      local_order_id?: string
+    }
+
+    if (!response.ok) {
+      throw new Error(cashData?.error ?? 'Falha ao criar pedido para pagamento em dinheiro.')
+    }
+
+    const orderNumber =
+      cashData?.order_number ??
+      cashData?.local_order_id?.replace(/-/g, '').slice(-8).toUpperCase() ??
+      'N/A'
+
+    setSuccessOrderNumber(orderNumber)
+    clearCheckoutCustomer()
+    clearCart()
+    setResultMessage(lang === 'pt' ? 'Pedido criado para pagar na entrega.' : 'Order created for pay on delivery.')
+  }
+
   useEffect(() => {
+    if (method === 'cash') {
+      setPaypalError(null)
+      return
+    }
     if (!hasValidPayPalClientId) {
       setPaypalError('Configure NEXT_PUBLIC_PAYPAL_CLIENT_ID no ambiente atual (.env ou .env.test).')
       return
@@ -692,7 +738,7 @@ export default function PagamentoPage() {
 
           <div className="space-y-4 md:sticky md:top-24">
             <div className="rounded-3xl border border-border bg-card p-2 shadow-sm">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setMethod('card')}
@@ -719,6 +765,20 @@ export default function PagamentoPage() {
               <span className="inline-flex items-center gap-1.5">
                 <Wallet size={14} />
                 {t.paymentMethodPayPal}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMethod('cash')}
+              className={`h-11 rounded-2xl text-sm font-semibold transition-colors ${
+                method === 'cash'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-muted-foreground'
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <HandCoins size={14} />
+                {lang === 'pt' ? 'Dinheiro' : 'Cash'}
               </span>
             </button>
           </div>
@@ -764,6 +824,28 @@ export default function PagamentoPage() {
           <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">{t.paymentPaypalSecureTitle}</p>
           <p className="mb-3 text-[11px] leading-snug text-muted-foreground">{t.paymentPaypalIntro}</p>
           <div id="paypal-button-container" />
+            </div>
+
+            <div className={`${method === 'cash' ? '' : 'hidden'} rounded-3xl border border-border bg-card p-4 shadow-sm`}>
+          <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+            {lang === 'pt' ? 'Pagamento em dinheiro' : 'Cash payment'}
+          </p>
+          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+            {lang === 'pt'
+              ? 'Você paga somente quando receber o pedido. Ao confirmar, sua ordem entra na fila da cozinha com forma de pagamento marcada como dinheiro na entrega.'
+              : 'You pay only when receiving the order. Once confirmed, your order goes to kitchen with payment marked as cash on delivery.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              handleCashPayment().catch((error) => {
+                setPaypalError(error instanceof Error ? error.message : 'Falha ao criar pedido em dinheiro.')
+              })
+            }}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm"
+          >
+            {lang === 'pt' ? 'Confirmar pedido (pagar na entrega)' : 'Confirm order (pay on delivery)'}
+          </button>
             </div>
 
             {paypalError && <p className="text-xs text-red-500">{paypalError}</p>}
