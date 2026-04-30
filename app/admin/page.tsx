@@ -134,6 +134,16 @@ export default function AdminPage() {
   } | null>(null)
   const extraMasterToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [modalLibraryExtra, setModalLibraryExtra] = useState(false)
+  const [formLibraryExtra, setFormLibraryExtra] = useState<{
+    id: string
+    nome: string
+    minEscolhas: number | null
+    maxEscolhas: number | null
+    options: OptionLine[]
+  } | null>(null)
+  const [salvandoLibraryExtra, setSalvandoLibraryExtra] = useState(false)
+
   function showExtraMasterToast(kind: 'success' | 'error', text: string) {
     if (extraMasterToastTimerRef.current) {
       clearTimeout(extraMasterToastTimerRef.current)
@@ -655,6 +665,134 @@ export default function AdminPage() {
       'success',
       `Grupo “${nome}” salvo na biblioteca de pré-cadastro. Você pode importá-lo em outros produtos.`
     )
+  }
+
+  function openEditLibraryTemplate(tpl: ExtraTemplate) {
+    setFormLibraryExtra({
+      id: tpl.id,
+      nome: tpl.nome,
+      minEscolhas: tpl.minEscolhas,
+      maxEscolhas: tpl.maxEscolhas,
+      options: tpl.options.map((o, idx) => ({
+        label: o.label,
+        priceDelta: o.priceDelta,
+        info: o.info,
+        ordem: idx,
+      })),
+    })
+    setModalLibraryExtra(true)
+  }
+
+  function addLibraryOptionLine() {
+    setFormLibraryExtra((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        options: [
+          ...prev.options,
+          { label: '', priceDelta: 0, info: '', ordem: prev.options.length },
+        ],
+      }
+    })
+  }
+
+  function updateLibraryOptionLine(index: number, patch: Partial<OptionLine>) {
+    setFormLibraryExtra((prev) => {
+      if (!prev) return prev
+      const options = prev.options.map((line, i) => (i === index ? { ...line, ...patch } : line))
+      return { ...prev, options }
+    })
+  }
+
+  function removeLibraryOptionLine(index: number) {
+    setFormLibraryExtra((prev) => {
+      if (!prev) return prev
+      return { ...prev, options: prev.options.filter((_, i) => i !== index) }
+    })
+  }
+
+  async function salvarBibliotecaExtra() {
+    if (!formLibraryExtra) return
+    const nome = formLibraryExtra.nome.trim()
+    const lines = normalizeOptionLines(formLibraryExtra.options)
+    if (!nome || lines.length === 0) {
+      showExtraMasterToast(
+        'error',
+        'Preencha o nome do grupo e pelo menos uma opção com nome antes de salvar.'
+      )
+      return
+    }
+
+    let min =
+      formLibraryExtra.minEscolhas == null
+        ? null
+        : Math.max(0, Math.floor(Number(formLibraryExtra.minEscolhas)))
+    let max =
+      formLibraryExtra.maxEscolhas == null
+        ? null
+        : Math.max(0, Math.floor(Number(formLibraryExtra.maxEscolhas)))
+    if (min !== null && Number.isNaN(min)) min = null
+    if (max !== null && Number.isNaN(max)) max = null
+    if (min !== null && max !== null && max < min) max = min
+
+    setSalvandoLibraryExtra(true)
+    try {
+      const { error: upErr } = await supabase
+        .from('extra_grupos_predefinidos')
+        .update({
+          nome,
+          min_escolhas: min,
+          max_escolhas: max,
+        })
+        .eq('id', formLibraryExtra.id)
+
+      if (upErr) {
+        showExtraMasterToast('error', upErr.message)
+        return
+      }
+
+      await supabase.from('extra_grupo_opcoes_predefinidas').delete().eq('grupo_id', formLibraryExtra.id)
+      const { error: insErr } = await supabase.from('extra_grupo_opcoes_predefinidas').insert(
+        lines.map((line) => ({
+          grupo_id: formLibraryExtra.id,
+          label: line.label,
+          price_delta: line.priceDelta,
+          detail_info: line.info || null,
+          ordem: line.ordem,
+          ativo: true,
+        }))
+      )
+
+      if (insErr) {
+        showExtraMasterToast('error', insErr.message)
+        return
+      }
+
+      await fetchData()
+      setModalLibraryExtra(false)
+      setFormLibraryExtra(null)
+      showExtraMasterToast('success', `Grupo “${nome}” da biblioteca foi atualizado.`)
+    } finally {
+      setSalvandoLibraryExtra(false)
+    }
+  }
+
+  async function excluirBibliotecaExtra(id: string, nome: string) {
+    if (!confirm(`Excluir o grupo “${nome}” da biblioteca de pré-cadastro? Esta ação não pode ser desfeita.`)) {
+      return
+    }
+    const { error } = await supabase.from('extra_grupos_predefinidos').delete().eq('id', id)
+    if (error) {
+      showExtraMasterToast('error', error.message)
+      return
+    }
+    if (formLibraryExtra?.id === id) {
+      setModalLibraryExtra(false)
+      setFormLibraryExtra(null)
+    }
+    if (selectedTemplateId === id) setSelectedTemplateId('')
+    await fetchData()
+    showExtraMasterToast('success', `Grupo “${nome}” removido da biblioteca.`)
   }
 
   function removeExtraGroup(index: number) {
@@ -1688,6 +1826,43 @@ export default function AdminPage() {
               </button>
             </div>
 
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-xs font-semibold text-foreground">Biblioteca — gerenciar grupos</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                Edite ou exclua grupos já salvos como pré-cadastro. Excluir não remove grupos já importados nos produtos.
+              </p>
+              {extraTemplates.length === 0 ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">Nenhum grupo na biblioteca ainda.</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {extraTemplates.map((tpl) => (
+                    <li
+                      key={tpl.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-background px-2.5 py-2"
+                    >
+                      <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{tpl.nome}</span>
+                      <div className="flex shrink-0 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditLibraryTemplate(tpl)}
+                          className="rounded-md bg-secondary px-2 py-1 text-[11px] font-semibold text-foreground"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => excluirBibliotecaExtra(tpl.id, tpl.nome)}
+                          className="rounded-md bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             {formItem.extra_groups.map((eg, gi) => (
               <div key={eg.key} className="space-y-2 rounded-xl border border-border bg-card/50 p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -1827,6 +2002,72 @@ export default function AdminPage() {
             <Toggle label={t.fieldAvailable} value={formItem.disponivel} onChange={(v) => setFormItem({ ...formItem, disponivel: v })} />
             <Toggle label={t.fieldFeatured} value={formItem.destaque} onChange={(v) => setFormItem({ ...formItem, destaque: v })} />
           </div>
+        </Modal>
+      )}
+
+      {modalLibraryExtra && formLibraryExtra && (
+        <Modal
+          titulo="Editar grupo da biblioteca"
+          titleId="library-extra-modal-title"
+          overlayClassName="z-[60]"
+          labelSave={t.save}
+          labelSaving={t.saving}
+          onFechar={() => {
+            setModalLibraryExtra(false)
+            setFormLibraryExtra(null)
+          }}
+          onSalvar={() => {
+            salvarBibliotecaExtra().catch(() => {
+              showExtraMasterToast('error', 'Erro inesperado ao salvar a biblioteca.')
+            })
+          }}
+          salvando={salvandoLibraryExtra}
+        >
+          <CampoTexto
+            label="Nome do grupo"
+            value={formLibraryExtra.nome}
+            onChange={(v) => setFormLibraryExtra((p) => (p ? { ...p, nome: v } : p))}
+            placeholder="Ex: Cobertura, Sabor"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <CampoTexto
+              label="Mín. escolhas"
+              value={formLibraryExtra.minEscolhas == null ? '' : String(formLibraryExtra.minEscolhas)}
+              onChange={(v) => {
+                const t = v.trim()
+                setFormLibraryExtra((p) => {
+                  if (!p) return p
+                  if (t === '') return { ...p, minEscolhas: null }
+                  const n = parseInt(t, 10)
+                  return { ...p, minEscolhas: Number.isNaN(n) ? null : Math.max(0, n) }
+                })
+              }}
+              inputMode="numeric"
+              placeholder="vazio = sem mínimo"
+            />
+            <CampoTexto
+              label="Máx. escolhas"
+              value={formLibraryExtra.maxEscolhas == null ? '' : String(formLibraryExtra.maxEscolhas)}
+              onChange={(v) => {
+                const t = v.trim()
+                setFormLibraryExtra((p) => {
+                  if (!p) return p
+                  if (t === '') return { ...p, maxEscolhas: null }
+                  const n = parseInt(t, 10)
+                  return { ...p, maxEscolhas: Number.isNaN(n) ? null : Math.max(0, n) }
+                })
+              }}
+              inputMode="numeric"
+              placeholder="vazio = sem máximo"
+            />
+          </div>
+          <OptionEditor
+            title="Opções do grupo"
+            options={formLibraryExtra.options}
+            onAdd={addLibraryOptionLine}
+            onUpdate={(index, patch) => updateLibraryOptionLine(index, patch)}
+            onRemove={(index) => removeLibraryOptionLine(index)}
+          />
         </Modal>
       )}
 
@@ -2030,12 +2271,33 @@ function EmptyState({ icon, titulo, descricao, acao, onAcao }: {
   )
 }
 
-function Modal({ titulo, children, onFechar, onSalvar, salvando, labelSave, labelSaving }: {
-  titulo: string; children: React.ReactNode; onFechar: () => void; onSalvar: () => void; salvando: boolean; labelSave: string; labelSaving: string
+function Modal({
+  titulo,
+  children,
+  onFechar,
+  onSalvar,
+  salvando,
+  labelSave,
+  labelSaving,
+  titleId = 'admin-modal-title',
+  overlayClassName = 'z-50',
+}: {
+  titulo: string
+  children: React.ReactNode
+  onFechar: () => void
+  onSalvar: () => void
+  salvando: boolean
+  labelSave: string
+  labelSaving: string
+  titleId?: string
+  overlayClassName?: string
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4"
+      className={cn(
+        'fixed inset-0 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4',
+        overlayClassName
+      )}
       onClick={onFechar}
       role="presentation"
     >
@@ -2044,10 +2306,10 @@ function Modal({ titulo, children, onFechar, onSalvar, salvando, labelSave, labe
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="admin-modal-title"
+        aria-labelledby={titleId}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-4 pb-3 pt-5 md:px-6 md:pb-4 md:pt-5">
-          <h2 id="admin-modal-title" className="text-base font-bold text-foreground md:text-lg">
+          <h2 id={titleId} className="text-base font-bold text-foreground md:text-lg">
             {titulo}
           </h2>
           <button
