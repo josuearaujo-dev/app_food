@@ -128,6 +128,22 @@ export default function AdminPage() {
   const [salvandoItem, setSalvandoItem] = useState(false)
   const [extraTemplates, setExtraTemplates] = useState<ExtraTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [extraMasterToast, setExtraMasterToast] = useState<{
+    kind: 'success' | 'error'
+    text: string
+  } | null>(null)
+  const extraMasterToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showExtraMasterToast(kind: 'success' | 'error', text: string) {
+    if (extraMasterToastTimerRef.current) {
+      clearTimeout(extraMasterToastTimerRef.current)
+    }
+    setExtraMasterToast({ kind, text })
+    extraMasterToastTimerRef.current = setTimeout(() => {
+      setExtraMasterToast(null)
+      extraMasterToastTimerRef.current = null
+    }, 5000)
+  }
 
   // Modal categoria
   const [modalCat, setModalCat] = useState(false)
@@ -190,6 +206,16 @@ export default function AdminPage() {
   }, [supabase])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    if (!modalItem) {
+      setExtraMasterToast(null)
+      if (extraMasterToastTimerRef.current) {
+        clearTimeout(extraMasterToastTimerRef.current)
+        extraMasterToastTimerRef.current = null
+      }
+    }
+  }, [modalItem])
 
   // Reset tab label when lang changes
   useEffect(() => { setTab(t.tabItems) }, [lang, t.tabItems])
@@ -567,7 +593,13 @@ export default function AdminPage() {
     if (!group) return
     const nome = group.nome.trim()
     const lines = normalizeOptionLines(group.options)
-    if (!nome || lines.length === 0) return
+    if (!nome || lines.length === 0) {
+      showExtraMasterToast(
+        'error',
+        'Preencha o nome do grupo e pelo menos uma opção com nome antes de salvar como pré-cadastro.'
+      )
+      return
+    }
 
     let min =
       group.minEscolhas == null ? null : Math.max(0, Math.floor(Number(group.minEscolhas)))
@@ -577,7 +609,7 @@ export default function AdminPage() {
     if (max !== null && Number.isNaN(max)) max = null
     if (min !== null && max !== null && max < min) max = min
 
-    const { data: upserted } = await supabase
+    const { data: upserted, error: upErr } = await supabase
       .from('extra_grupos_predefinidos')
       .upsert(
         {
@@ -591,11 +623,18 @@ export default function AdminPage() {
       .select('id')
       .single()
 
-    const groupId = upserted?.id
-    if (!groupId) return
+    if (upErr || !upserted?.id) {
+      showExtraMasterToast(
+        'error',
+        upErr?.message ?? 'Não foi possível salvar o grupo na biblioteca. Verifique se a migração 036 foi aplicada.'
+      )
+      return
+    }
+
+    const groupId = upserted.id
 
     await supabase.from('extra_grupo_opcoes_predefinidas').delete().eq('grupo_id', groupId)
-    await supabase.from('extra_grupo_opcoes_predefinidas').insert(
+    const { error: insErr } = await supabase.from('extra_grupo_opcoes_predefinidas').insert(
       lines.map((line) => ({
         grupo_id: groupId,
         label: line.label,
@@ -606,7 +645,16 @@ export default function AdminPage() {
       }))
     )
 
+    if (insErr) {
+      showExtraMasterToast('error', insErr.message)
+      return
+    }
+
     await fetchData()
+    showExtraMasterToast(
+      'success',
+      `Grupo “${nome}” salvo na biblioteca de pré-cadastro. Você pode importá-lo em outros produtos.`
+    )
   }
 
   function removeExtraGroup(index: number) {
@@ -1580,6 +1628,18 @@ export default function AdminPage() {
           />
 
           <div className="space-y-3 border-t border-border pt-3">
+            {extraMasterToast && (
+              <div
+                role="status"
+                className={
+                  extraMasterToast.kind === 'success'
+                    ? 'rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-medium text-green-900'
+                    : 'rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-900'
+                }
+              >
+                {extraMasterToast.text}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-foreground">Extras personalizados</p>
@@ -1688,7 +1748,7 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => {
                       salvarGrupoComoPredefinido(gi).catch(() => {
-                        /* no-op */
+                        showExtraMasterToast('error', 'Erro inesperado ao salvar o grupo na biblioteca.')
                       })
                     }}
                     className="rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-foreground"
