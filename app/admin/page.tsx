@@ -132,17 +132,13 @@ export default function AdminPage() {
     kind: 'success' | 'error'
     text: string
   } | null>(null)
-  const extraMasterToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function showExtraMasterToast(kind: 'success' | 'error', text: string) {
-    if (extraMasterToastTimerRef.current) {
-      clearTimeout(extraMasterToastTimerRef.current)
-    }
     setExtraMasterToast({ kind, text })
-    extraMasterToastTimerRef.current = setTimeout(() => {
-      setExtraMasterToast(null)
-      extraMasterToastTimerRef.current = null
-    }, 5000)
+  }
+
+  function dismissExtraMasterToast() {
+    setExtraMasterToast(null)
   }
 
   // Modal categoria
@@ -210,10 +206,6 @@ export default function AdminPage() {
   useEffect(() => {
     if (!modalItem) {
       setExtraMasterToast(null)
-      if (extraMasterToastTimerRef.current) {
-        clearTimeout(extraMasterToastTimerRef.current)
-        extraMasterToastTimerRef.current = null
-      }
     }
   }, [modalItem])
 
@@ -586,6 +578,10 @@ export default function AdminPage() {
         },
       ],
     }))
+    showExtraMasterToast(
+      'success',
+      `O grupo “${template.nome}” foi importado para este produto. Ele aparece na lista de extras abaixo; ajuste se precisar e salve o produto.`
+    )
   }
 
   async function salvarGrupoComoPredefinido(groupIndex: number) {
@@ -653,7 +649,7 @@ export default function AdminPage() {
     await fetchData()
     showExtraMasterToast(
       'success',
-      `Grupo “${nome}” salvo na biblioteca de pré-cadastro. Você pode importá-lo em outros produtos.`
+      `O pré-cadastro “${nome}” foi salvo na biblioteca. Você pode importá-lo em outros produtos pelo seletor “Importar grupo pré-cadastrado”.`
     )
   }
 
@@ -1640,18 +1636,6 @@ export default function AdminPage() {
           />
 
           <div className="space-y-3 border-t border-border pt-3">
-            {extraMasterToast && (
-              <div
-                role="status"
-                className={
-                  extraMasterToast.kind === 'success'
-                    ? 'rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-medium text-green-900'
-                    : 'rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-900'
-                }
-              >
-                {extraMasterToast.text}
-              </div>
-            )}
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-foreground">Extras personalizados</p>
@@ -1876,6 +1860,43 @@ export default function AdminPage() {
           />
           <Toggle label={t.fieldActive} value={formCat.ativo} onChange={(v) => setFormCat({ ...formCat, ativo: v })} />
         </Modal>
+      )}
+
+      {extraMasterToast && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+          onClick={dismissExtraMasterToast}
+          role="presentation"
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="extra-popup-title"
+            aria-describedby="extra-popup-desc"
+            className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              id="extra-popup-title"
+              className={cn(
+                'text-lg font-bold',
+                extraMasterToast.kind === 'success' ? 'text-foreground' : 'text-red-800'
+              )}
+            >
+              {extraMasterToast.kind === 'success' ? 'Concluído' : 'Atenção'}
+            </h3>
+            <p id="extra-popup-desc" className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {extraMasterToast.text}
+            </p>
+            <button
+              type="button"
+              onClick={dismissExtraMasterToast}
+              className="mt-5 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-opacity active:opacity-90"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </main>
   )
