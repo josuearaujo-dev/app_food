@@ -31,6 +31,7 @@ interface Item {
   nome: string
   nome_en: string | null
   descricao: string | null
+  descricao_en: string | null
   preco: number
   imagem_url: string | null
   quantidade_info: string | null
@@ -118,7 +119,7 @@ export default function AdminPage() {
   const [modalItem, setModalItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<Item | null>(null)
   const [formItem, setFormItem] = useState({
-    nome: '', nome_en: '', descricao: '', preco: '', imagem_url: '',
+    nome: '', nome_en: '', descricao: '', descricao_en: '', preco: '', imagem_url: '',
     quantidade_info: '', tamanhos_disponiveis: '', ingredientes_info: '', alergenicos_alerta: '',
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
@@ -719,6 +720,7 @@ export default function AdminPage() {
       nome: '',
       nome_en: '',
       descricao: '',
+      descricao_en: '',
       preco: '',
       imagem_url: '',
       quantidade_info: '',
@@ -748,6 +750,7 @@ export default function AdminPage() {
       nome: item.nome,
       nome_en: item.nome_en ?? '',
       descricao: item.descricao ?? '',
+      descricao_en: item.descricao_en ?? '',
       preco: item.preco.toString(),
       imagem_url: item.imagem_url ?? '',
       quantidade_info: item.quantidade_info ?? '',
@@ -786,6 +789,7 @@ export default function AdminPage() {
       nome: formItem.nome.trim(),
       nome_en: formItem.nome_en.trim() || null,
       descricao: formItem.descricao.trim() || null,
+      descricao_en: formItem.descricao_en.trim() || null,
       preco: parseFloat(formItem.preco.replace(',', '.')),
       imagem_url: formItem.imagem_url.trim() || null,
       quantidade_info: formItem.quantidade_info.trim() || null,
@@ -1600,6 +1604,13 @@ export default function AdminPage() {
             multiline
           />
           <CampoTexto
+            label={lang === 'pt' ? 'Descrição (inglês)' : 'Description (English)'}
+            value={formItem.descricao_en}
+            onChange={(v) => setFormItem({ ...formItem, descricao_en: v })}
+            placeholder={lang === 'pt' ? 'Ex.: Grilled chicken with salad' : 'Example: Grilled chicken with salad'}
+            multiline
+          />
+          <CampoTexto
             label={t.fieldPrice}
             value={formItem.preco}
             onChange={(v) => setFormItem({ ...formItem, preco: v })}
@@ -1845,7 +1856,7 @@ export default function AdminPage() {
         >
           <CampoTexto label={t.fieldName} value={formCat.nome} onChange={(v) => setFormCat({ ...formCat, nome: v })} placeholder={t.placeholderName} />
           <CampoTexto
-            label={lang === 'pt' ? 'Nome (inglês)' : 'Name (English)'}
+            label={lang === 'pt' ? 'Nome da categoria (inglês)' : 'Category name (English)'}
             value={formCat.nome_en}
             onChange={(v) => setFormCat({ ...formCat, nome_en: v })}
             placeholder={lang === 'pt' ? 'Ex.: Burgers' : 'Example: Burgers'}
