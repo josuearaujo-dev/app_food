@@ -1,5 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { encodeKitchenReceiptEscPos, receiptSeparatorLine } from '@/lib/escpos-receipt'
+import {
+  encodeKitchenReceiptEscPos,
+  RECEIPT_ITEM_LINE_PREFIX,
+  receiptSeparatorLine,
+} from '@/lib/escpos-receipt'
 
 const PRINTNODE_API_BASE = 'https://api.printnode.com'
 
@@ -144,7 +148,7 @@ export function buildKitchenReceiptText(input: {
   lines.push(receiptSeparatorLine())
 
   for (const item of input.items) {
-    lines.push(`${item.quantity}x ${item.name}`)
+    lines.push(`${RECEIPT_ITEM_LINE_PREFIX}${item.quantity}x ${item.name}`)
     lines.push(
       `  ${input.currency}${item.unitAmount.toFixed(2)}  ->  ${input.currency}${item.subtotal.toFixed(2)}`
     )
