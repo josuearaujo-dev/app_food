@@ -1,4 +1,4 @@
-/** Largura em caracteres para bobina 80mm (Font A ESC/POS; RONGTA, Epson, etc.). */
+/** Largura em caracteres para bobina 80mm (Font A ESC/POS). */
 export const KITCHEN_RECEIPT_CHARS_PER_LINE = (() => {
   const n = Number(process.env.PRINTNODE_RECEIPT_CHARS_PER_LINE ?? 48)
   if (!Number.isFinite(n)) return 48
@@ -7,6 +7,55 @@ export const KITCHEN_RECEIPT_CHARS_PER_LINE = (() => {
 
 export function receiptSeparatorLine(): string {
   return '-'.repeat(KITCHEN_RECEIPT_CHARS_PER_LINE)
+}
+
+export const RECEIPT_MARKERS = {
+  TITLE: '@@TITLE@@',
+  REPRINT: '@@REPRINT@@',
+  SECTION: '@@SECTION@@',
+  LABEL: '@@LBL@@',
+  LABEL_ONLY: '@@LBLONLY@@',
+  SEP: '@@SEP@@',
+  ITEM: '@@ITEM@@',
+  ROW: '@@ROW@@',
+  TOTAL: '@@TOTAL@@',
+} as const
+
+/** @deprecated use RECEIPT_MARKERS.ITEM */
+export const RECEIPT_ITEM_LINE_PREFIX = RECEIPT_MARKERS.ITEM
+
+const ESC = '\x1B'
+const GS = '\x1D'
+
+const ESC_MODE_NORMAL = '\x00'
+const ESC_MODE_ITEM_EMPHASIS = '\x38'
+
+function escSelectPrintMode(mode: number): string {
+  return ESC + '!' + String.fromCharCode(mode)
+}
+
+function escBoldOn(): string {
+  return ESC + 'E' + '\x01'
+}
+
+function escBoldOff(): string {
+  return ESC + 'E' + '\x00'
+}
+
+function escUnderlineOn(): string {
+  return ESC + '-' + '\x01'
+}
+
+function escUnderlineOff(): string {
+  return ESC + '-' + '\x00'
+}
+
+function escAlignCenter(): string {
+  return ESC + 'a' + '\x01'
+}
+
+function escAlignLeft(): string {
+  return ESC + 'a' + '\x00'
 }
 
 /** Quebra linha para caber na largura da bobina 80mm. */
@@ -27,61 +76,184 @@ export function wrapReceiptLine(text: string, width = KITCHEN_RECEIPT_CHARS_PER_
   return out
 }
 
-const ESC = '\x1B'
-const GS = '\x1D'
-
-/** Marcador interno: linha de item (quantidade + nome) — removido antes de imprimir. */
-export const RECEIPT_ITEM_LINE_PREFIX = '@@ITEM@@'
-
-/** ESC ! — negrito + altura e largura duplas (itens do pedido). */
-const ESC_MODE_NORMAL = '\x00'
-const ESC_MODE_ITEM_EMPHASIS = '\x38'
-
-function escSelectPrintMode(mode: number): string {
-  return ESC + '!' + String.fromCharCode(mode)
+function splitMarker(line: string, marker: string): string | null {
+  if (!line.startsWith(marker)) return null
+  return line.slice(marker.length)
 }
 
-function stripItemLineMarker(line: string): { isItem: boolean; text: string } {
-  if (line.startsWith(RECEIPT_ITEM_LINE_PREFIX)) {
-    return { isItem: true, text: line.slice(RECEIPT_ITEM_LINE_PREFIX.length) }
+function splitPipePair(payload: string): { left: string; right: string } | null {
+  const idx = payload.indexOf('|')
+  if (idx === -1) return null
+  return {
+    left: payload.slice(0, idx),
+    right: payload.slice(idx + 1),
   }
-  if (/^\d+x\s+\S/.test(line) && !/^\s/.test(line)) {
-    return { isItem: true, text: line }
-  }
-  return { isItem: false, text: line }
 }
 
-function appendEncodedLines(
-  parts: string[],
-  line: string,
-  width: number,
-  style: 'normal' | 'header' | 'item'
-) {
-  if (style === 'header') {
-    parts.push(ESC + 'a' + '\x01')
+/** Label a esquerda, valor a direita (mesma linha; continuação só do lado esquerdo). */
+function formatLeftRightLines(left: string, right: string, width: number): string[] {
+  const rightPart = right.trim()
+  const rightLen = rightPart.length
+  const maxLeft = Math.max(8, width - rightLen - 1)
+
+  if (left.length <= maxLeft && rightLen > 0) {
+    const gap = width - left.length - rightLen
+    return [left + (gap > 0 ? ' '.repeat(gap) : ' ') + rightPart]
   }
 
-  const wrapWidth = style === 'item' ? Math.max(16, Math.floor(width / 2)) : width
-  const wrapped = line.trim() === '' ? [''] : wrapReceiptLine(line, wrapWidth)
+  const wrapped = wrapReceiptLine(left, maxLeft)
+  if (wrapped.length === 0) return rightPart ? [rightPart.padStart(width)] : ['']
 
+  const lines = [...wrapped]
+  if (rightLen > 0) {
+    const first = lines[0]
+    const gap = width - first.length - rightLen
+    lines[0] = first + (gap > 0 ? ' '.repeat(gap) : ' ') + rightPart
+  }
+  return lines
+}
+
+function appendPlainLines(parts: string[], text: string, width: number) {
+  const wrapped = text.trim() === '' ? [''] : wrapReceiptLine(text, width)
   for (const w of wrapped) {
-    if (style === 'item') {
-      parts.push(escSelectPrintMode(ESC_MODE_ITEM_EMPHASIS))
-    }
     parts.push(w + '\n')
-    if (style === 'item') {
-      parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
-    }
+  }
+}
+
+function appendBoldLabelValue(parts: string[], label: string, value: string, width: number) {
+  const wrapped = wrapReceiptLine(`${label}${value}`, width)
+  for (const line of wrapped) {
+    const labelLen = Math.min(label.length, line.length)
+    const labelPart = line.slice(0, labelLen)
+    const valuePart = line.slice(labelLen)
+    parts.push(escBoldOn())
+    parts.push(labelPart)
+    parts.push(escBoldOff())
+    parts.push(valuePart + '\n')
+  }
+}
+
+function appendSectionTitle(parts: string[], title: string, width: number) {
+  const wrapped = wrapReceiptLine(title, width)
+  for (const line of wrapped) {
+    parts.push(escUnderlineOn())
+    parts.push(escBoldOn())
+    parts.push(line + '\n')
+    parts.push(escBoldOff())
+    parts.push(escUnderlineOff())
+  }
+}
+
+function appendItemLines(parts: string[], left: string, right: string, width: number) {
+  const colWidth = Math.max(16, Math.floor(width / 2))
+  const physical = formatLeftRightLines(left, right, colWidth)
+  for (const line of physical) {
+    parts.push(escSelectPrintMode(ESC_MODE_ITEM_EMPHASIS))
+    parts.push(line + '\n')
+    parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
+  }
+}
+
+function appendRowLines(parts: string[], left: string, right: string, width: number, bold: boolean) {
+  const physical = formatLeftRightLines(left, right, width)
+  for (const line of physical) {
+    if (bold) parts.push(escBoldOn())
+    parts.push(line + '\n')
+    if (bold) parts.push(escBoldOff())
+  }
+}
+
+function encodeReceiptLine(parts: string[], line: string, width: number) {
+  const trimmed = line.trimEnd()
+
+  const title = splitMarker(trimmed, RECEIPT_MARKERS.TITLE)
+  if (title != null) {
+    parts.push(escAlignCenter())
+    appendPlainLines(parts, title, width)
+    parts.push(escAlignLeft())
+    return
   }
 
-  if (style === 'header') {
-    parts.push(ESC + 'a' + '\x00')
+  const reprint = splitMarker(trimmed, RECEIPT_MARKERS.REPRINT)
+  if (reprint != null) {
+    parts.push(escAlignCenter())
+    appendPlainLines(parts, reprint, width)
+    parts.push(escAlignLeft())
+    return
   }
+
+  const section = splitMarker(trimmed, RECEIPT_MARKERS.SECTION)
+  if (section != null) {
+    appendSectionTitle(parts, section, width)
+    return
+  }
+
+  const labelOnly = splitMarker(trimmed, RECEIPT_MARKERS.LABEL_ONLY)
+  if (labelOnly != null) {
+    parts.push(escBoldOn())
+    appendPlainLines(parts, labelOnly, width)
+    parts.push(escBoldOff())
+    return
+  }
+
+  const label = splitMarker(trimmed, RECEIPT_MARKERS.LABEL)
+  if (label != null) {
+    const pair = splitPipePair(label)
+    if (pair) {
+      appendBoldLabelValue(parts, pair.left, pair.right, width)
+      return
+    }
+    parts.push(escBoldOn())
+    appendPlainLines(parts, label, width)
+    parts.push(escBoldOff())
+    return
+  }
+
+  if (trimmed === RECEIPT_MARKERS.SEP || trimmed.startsWith(RECEIPT_MARKERS.SEP)) {
+    appendPlainLines(parts, receiptSeparatorLine(), width)
+    return
+  }
+
+  const item = splitMarker(trimmed, RECEIPT_MARKERS.ITEM)
+  if (item != null) {
+    const pair = splitPipePair(item)
+    if (pair) {
+      appendItemLines(parts, pair.left.trim(), pair.right.trim(), width)
+      return
+    }
+    appendItemLines(parts, item.trim(), '', width)
+    return
+  }
+
+  const total = splitMarker(trimmed, RECEIPT_MARKERS.TOTAL)
+  if (total != null) {
+    const pair = splitPipePair(total)
+    if (pair) {
+      appendRowLines(parts, pair.left, pair.right, width, true)
+      return
+    }
+    parts.push(escBoldOn())
+    appendPlainLines(parts, total, width)
+    parts.push(escBoldOff())
+    return
+  }
+
+  const row = splitMarker(trimmed, RECEIPT_MARKERS.ROW)
+  if (row != null) {
+    const pair = splitPipePair(row)
+    if (pair) {
+      appendRowLines(parts, pair.left, pair.right, width, false)
+      return
+    }
+    appendPlainLines(parts, row, width)
+    return
+  }
+
+  appendPlainLines(parts, trimmed, width)
 }
 
 /**
- * Converte texto do cupom em bytes ESC/POS: init, alinhamento, feed e corte.
- * Necessario para impressoras termicas (ex.: RONGTA 80mm) cortarem a bobina.
+ * Converte texto do cupom (com marcadores) em bytes ESC/POS.
  */
 export function encodeKitchenReceiptEscPos(plainText: string): Buffer {
   const width = KITCHEN_RECEIPT_CHARS_PER_LINE
@@ -90,16 +262,9 @@ export function encodeKitchenReceiptEscPos(plainText: string): Buffer {
 
   parts.push(ESC + '@')
 
-  lines.forEach((line, index) => {
-    const { isItem, text } = stripItemLineMarker(line)
-    if (isItem) {
-      appendEncodedLines(parts, text, width, 'item')
-      return
-    }
-
-    const isHeaderBlock = index < 3 && line.trim().length > 0
-    appendEncodedLines(parts, line, width, isHeaderBlock ? 'header' : 'normal')
-  })
+  for (const line of lines) {
+    encodeReceiptLine(parts, line, width)
+  }
 
   parts.push(ESC + 'd' + '\x06')
   parts.push(GS + 'V' + '\x00')

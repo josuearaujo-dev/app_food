@@ -1,11 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import {
-  encodeKitchenReceiptEscPos,
-  RECEIPT_ITEM_LINE_PREFIX,
-  receiptSeparatorLine,
-} from '@/lib/escpos-receipt'
+import { encodeKitchenReceiptEscPos, RECEIPT_MARKERS } from '@/lib/escpos-receipt'
 
 const PRINTNODE_API_BASE = 'https://api.printnode.com'
+
+const KITCHEN_TIMEZONE = 'America/Los_Angeles'
 
 export type PrintNodeConfig = {
   enabled: boolean
@@ -104,6 +102,40 @@ export async function createPrintNodeRawJob(input: {
   return id
 }
 
+function formatReceiptMoney(currency: string, amount: number, negative = false): string {
+  const sym = currency.trim() || '$'
+  const prefix = negative && amount > 0 ? '- ' : ''
+  return `${prefix}${sym} ${amount.toFixed(2)}`
+}
+
+function formatReceiptDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const datePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: KITCHEN_TIMEZONE,
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(d)
+  const timePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: KITCHEN_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(d)
+    .toLowerCase()
+  return `${datePart} - ${timePart}`
+}
+
+function fulfillmentLabel(type: 'take_out' | 'delivery'): string {
+  return type === 'delivery' ? 'Entrega normal' : 'Retirada na loja'
+}
+
+function markerLine(marker: string, payload: string) {
+  return `${marker}${payload}`
+}
+
 export function buildKitchenReceiptText(input: {
   orderNumber: string
   createdAtISO: string
@@ -129,32 +161,51 @@ export function buildKitchenReceiptText(input: {
   reprint?: boolean
 }) {
   const lines: string[] = []
-  lines.push('CADU CAKES & LANCHES')
-  lines.push(input.reprint ? 'REIMPRESSAO (2a VIA)' : 'PEDIDO CONFIRMADO')
-  lines.push(receiptSeparatorLine())
-  lines.push(`Pedido: #${input.orderNumber}`)
-  lines.push(`Data: ${new Date(input.createdAtISO).toLocaleString('pt-BR')}`)
-  lines.push(`Cliente: ${input.customerName}`)
-  lines.push(`Telefone: ${input.customerPhone}`)
+  const cur = input.currency.trim() || '$'
+
+  lines.push(markerLine(RECEIPT_MARKERS.TITLE, 'CADU CAKES E LANCHES'))
+  if (input.reprint) {
+    lines.push(markerLine(RECEIPT_MARKERS.REPRINT, 'REIMPRESSAO (2a VIA)'))
+  }
+
+  lines.push(markerLine(RECEIPT_MARKERS.SECTION, 'INFORMACOES DO PEDIDO'))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Codigo do pedido:|#${input.orderNumber}`))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL_ONLY, 'Data do pedido:'))
+  lines.push(formatReceiptDate(input.createdAtISO))
   lines.push(
-    `Atendimento: ${input.fulfillmentType === 'delivery' ? 'DELIVERY' : 'RETIRADA'}`
+    markerLine(
+      RECEIPT_MARKERS.LABEL,
+      `Forma de entrega:|${fulfillmentLabel(input.fulfillmentType)}`
+    )
   )
-  if (input.fulfillmentType === 'delivery' && input.address?.trim()) {
-    lines.push(`Endereco: ${input.address.trim()}`)
-  }
   if (input.paymentLine?.trim()) {
-    lines.push(`Pagamento: ${input.paymentLine.trim()}`)
+    lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Formas de pagamento:|${input.paymentLine.trim()}`))
   }
-  lines.push(receiptSeparatorLine())
+
+  lines.push(RECEIPT_MARKERS.SEP)
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Cliente:|${input.customerName || '-'}`))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Telefone/WhatsApp:|${input.customerPhone || '-'}`))
+  if (input.fulfillmentType === 'delivery' && input.address?.trim()) {
+    lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Endereco de entrega:|${input.address.trim()}`))
+  }
+
+  lines.push(RECEIPT_MARKERS.SEP)
+  lines.push(markerLine(RECEIPT_MARKERS.SECTION, 'ITENS DO PEDIDO'))
 
   for (const item of input.items) {
-    lines.push(`${RECEIPT_ITEM_LINE_PREFIX}${item.quantity}x ${item.name}`)
+    const itemName = item.name.trim().toUpperCase()
+    const qtyLabel = `(${item.quantity}X)`
     lines.push(
-      `  ${input.currency}${item.unitAmount.toFixed(2)}  ->  ${input.currency}${item.subtotal.toFixed(2)}`
+      markerLine(
+        RECEIPT_MARKERS.ITEM,
+        `${qtyLabel} ${itemName}|${formatReceiptMoney(cur, item.subtotal)}`
+      )
     )
+
     if (item.options?.length) {
       for (const op of item.options) {
-        const label = op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
+        const label =
+          op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
         lines.push(`  - ${label}`)
       }
     }
@@ -163,13 +214,24 @@ export function buildKitchenReceiptText(input: {
     }
   }
 
-  lines.push(receiptSeparatorLine())
-  lines.push(`Subtotal: ${input.currency}${input.subtotal.toFixed(2)}`)
-  if (input.discount > 0) lines.push(`Desconto: -${input.currency}${input.discount.toFixed(2)}`)
-  if (input.deliveryFee > 0) lines.push(`Entrega: ${input.currency}${input.deliveryFee.toFixed(2)}`)
-  if ((input.taxAmount ?? 0) > 0) lines.push(`Imposto: ${input.currency}${(input.taxAmount ?? 0).toFixed(2)}`)
-  lines.push(`TOTAL: ${input.currency}${input.total.toFixed(2)}`)
-  lines.push(receiptSeparatorLine())
-  lines.push('Fim do pedido')
+  lines.push(RECEIPT_MARKERS.SEP)
+  lines.push(markerLine(RECEIPT_MARKERS.ROW, `Subtotal:|${formatReceiptMoney(cur, input.subtotal)}`))
+  if (input.deliveryFee > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Taxa de entrega:|${formatReceiptMoney(cur, input.deliveryFee)}`)
+    )
+  }
+  if ((input.taxAmount ?? 0) > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Imposto:|${formatReceiptMoney(cur, input.taxAmount ?? 0)}`)
+    )
+  }
+  if (input.discount > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Desconto:|${formatReceiptMoney(cur, input.discount, true)}`)
+    )
+  }
+  lines.push(markerLine(RECEIPT_MARKERS.TOTAL, `Total:|${formatReceiptMoney(cur, input.total)}`))
+
   return lines.join('\n')
 }
