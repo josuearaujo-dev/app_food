@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChefHat } from 'lucide-react'
+import { ArrowLeft, ChefHat, Printer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
@@ -98,6 +98,12 @@ export default function AdminOrdensPage() {
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [hiddenDeliveredIds, setHiddenDeliveredIds] = useState<Set<string>>(new Set())
+  const [reprintingId, setReprintingId] = useState<string | null>(null)
+  const [reprintNotice, setReprintNotice] = useState<{
+    orderId: string
+    kind: 'ok' | 'err'
+    text: string
+  } | null>(null)
 
   const statusColumns = useMemo(
     () =>
@@ -170,6 +176,35 @@ export default function AdminOrdensPage() {
 
   function showAllDeliveredAgain() {
     persistHiddenDelivered(new Set())
+  }
+
+  async function handleReprint(orderId: string) {
+    setReprintingId(orderId)
+    setReprintNotice(null)
+    try {
+      const response = await fetch(`/api/admin/orders/${orderId}/reprint`, {
+        method: 'POST',
+      })
+      const data = (await response.json()) as { error?: string; orderNumber?: string }
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Falha ao reimprimir.')
+      }
+      setReprintNotice({
+        orderId,
+        kind: 'ok',
+        text: data.orderNumber
+          ? `${t.kitchenReprintOk} (#${data.orderNumber})`
+          : t.kitchenReprintOk,
+      })
+    } catch (e) {
+      setReprintNotice({
+        orderId,
+        kind: 'err',
+        text: e instanceof Error ? e.message : 'Falha ao reimprimir.',
+      })
+    } finally {
+      setReprintingId(null)
+    }
   }
 
   return (
@@ -336,6 +371,26 @@ export default function AdminOrdensPage() {
                             </button>
                           ))}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleReprint(order.id)}
+                          disabled={reprintingId === order.id}
+                          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Printer size={13} aria-hidden />
+                          {reprintingId === order.id ? t.kitchenReprinting : t.kitchenReprint}
+                        </button>
+                        {reprintNotice?.orderId === order.id && (
+                          <p
+                            className={`mt-1.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
+                              reprintNotice.kind === 'ok'
+                                ? 'bg-emerald-50 text-emerald-800'
+                                : 'bg-red-50 text-red-700'
+                            }`}
+                          >
+                            {reprintNotice.text}
+                          </p>
+                        )}
                         <div className="mt-2 space-y-1">
                           {order.pedido_itens?.map((it, i) => (
                             <div key={`${order.id}-${i}`} className="text-xs">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isAdminAppUser } from '@/lib/admin-access'
+import { receiptSeparatorLine } from '@/lib/escpos-receipt'
 import { createPrintNodeRawJob, getPrintNodeConfig } from '@/lib/printnode'
 
 type TestBody = {
@@ -31,11 +32,10 @@ export async function POST(request: Request) {
     const text = [
       'CADU CAKES & LANCHES',
       'Teste de impressao PrintNode',
-      '------------------------------',
+      receiptSeparatorLine(),
       `Data: ${new Date().toLocaleString('pt-BR')}`,
       `Admin: ${user?.email ?? '-'}`,
       'Configuracao valida!',
-      '\n\n\n',
     ].join('\n')
 
     const printJobId = await createPrintNodeRawJob({

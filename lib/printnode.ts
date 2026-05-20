@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { encodeKitchenReceiptEscPos, receiptSeparatorLine } from '@/lib/escpos-receipt'
 
 const PRINTNODE_API_BASE = 'https://api.printnode.com'
 
@@ -80,7 +81,7 @@ export async function createPrintNodeRawJob(input: {
       printerId: input.printerId,
       title: input.title,
       contentType: 'raw_base64',
-      content: Buffer.from(input.content, 'utf8').toString('base64'),
+      content: encodeKitchenReceiptEscPos(input.content).toString('base64'),
       source: input.source ?? 'Cadu Cakes & Lanches',
     }),
     cache: 'no-store',
@@ -121,11 +122,12 @@ export function buildKitchenReceiptText(input: {
   total: number
   currency: string
   paymentLine?: string
+  reprint?: boolean
 }) {
   const lines: string[] = []
   lines.push('CADU CAKES & LANCHES')
-  lines.push('PEDIDO CONFIRMADO')
-  lines.push('------------------------------')
+  lines.push(input.reprint ? 'REIMPRESSAO (2a VIA)' : 'PEDIDO CONFIRMADO')
+  lines.push(receiptSeparatorLine())
   lines.push(`Pedido: #${input.orderNumber}`)
   lines.push(`Data: ${new Date(input.createdAtISO).toLocaleString('pt-BR')}`)
   lines.push(`Cliente: ${input.customerName}`)
@@ -139,7 +141,7 @@ export function buildKitchenReceiptText(input: {
   if (input.paymentLine?.trim()) {
     lines.push(`Pagamento: ${input.paymentLine.trim()}`)
   }
-  lines.push('------------------------------')
+  lines.push(receiptSeparatorLine())
 
   for (const item of input.items) {
     lines.push(`${item.quantity}x ${item.name}`)
@@ -157,14 +159,13 @@ export function buildKitchenReceiptText(input: {
     }
   }
 
-  lines.push('------------------------------')
+  lines.push(receiptSeparatorLine())
   lines.push(`Subtotal: ${input.currency}${input.subtotal.toFixed(2)}`)
   if (input.discount > 0) lines.push(`Desconto: -${input.currency}${input.discount.toFixed(2)}`)
   if (input.deliveryFee > 0) lines.push(`Entrega: ${input.currency}${input.deliveryFee.toFixed(2)}`)
   if ((input.taxAmount ?? 0) > 0) lines.push(`Imposto: ${input.currency}${(input.taxAmount ?? 0).toFixed(2)}`)
   lines.push(`TOTAL: ${input.currency}${input.total.toFixed(2)}`)
-  lines.push('------------------------------')
+  lines.push(receiptSeparatorLine())
   lines.push('Fim do pedido')
-  lines.push('\n\n\n')
   return lines.join('\n')
 }
