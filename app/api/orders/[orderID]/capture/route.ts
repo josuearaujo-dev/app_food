@@ -240,7 +240,7 @@ export async function POST(
             taxa_entrega: deliveryFee,
             origem_pagamento: 'paypal',
             cliente_nome: customer.nome,
-            cliente_email: customer.email,
+            cliente_email: customer.email || null,
             cliente_telefone: customer.telefone,
             cliente_user_id: customer.userId,
             tipo_atendimento: customer.fulfillmentType,

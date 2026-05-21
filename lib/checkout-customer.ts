@@ -33,7 +33,7 @@ export function isValidCheckoutCustomer(c: CheckoutCustomer | null): boolean {
   const email = c.email.trim()
   const tel = normalizePhone(c.telefone)
   if (nome.length < 2) return false
-  if (!email.includes('@') || email.length < 5) return false
+  if (email && (!email.includes('@') || email.length < 5)) return false
   if (tel.length < 8) return false
   if (c.fulfillmentType !== 'take_out' && c.fulfillmentType !== 'delivery') return false
   if (c.fulfillmentType === 'delivery') {
@@ -134,7 +134,9 @@ export function parseCustomerPayload(
   const consentiuSalvarCartao = readBool(c.consentiuSalvarCartao)
 
   if (nome.length < 2) return { ok: false, message: 'Nome inválido.' }
-  if (!email.includes('@') || email.length < 5) return { ok: false, message: 'E-mail inválido.' }
+  if (email && (!email.includes('@') || email.length < 5)) {
+    return { ok: false, message: 'E-mail inválido.' }
+  }
   if (telefone.length < 8) return { ok: false, message: 'Telefone inválido.' }
   if (fulfillmentType === 'delivery') {
     if (!localidadeEntregaIdRaw || !localidadeEntregaNomeRaw) {

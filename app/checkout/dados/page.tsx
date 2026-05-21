@@ -200,12 +200,12 @@ export default function CheckoutDadosPage() {
         setErro(t.checkoutErrPhone)
         return
       }
-      if (!em.includes('@') || em.length < 5) {
+      if (em && (!em.includes('@') || em.length < 5)) {
         setErro(t.checkoutErrEmail)
         return
       }
     } else {
-      if (n.length < 2 || telDigits.length < 8 || !em.includes('@') || em.length < 5) {
+      if (n.length < 2 || telDigits.length < 8 || (em && (!em.includes('@') || em.length < 5))) {
         setErro(
           lang === 'pt'
             ? 'Seu cadastro está incompleto. Atualize seus dados da conta para continuar.'
@@ -394,7 +394,7 @@ export default function CheckoutDadosPage() {
 
               <div>
                 <label htmlFor="email" className="mb-1 block text-xs font-semibold">
-                  {t.profileEmail}
+                  {t.profileEmail} <span className="font-normal text-muted-foreground">({lang === 'pt' ? 'opcional' : 'optional'})</span>
                 </label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-3 top-3 text-muted-foreground" />
@@ -403,7 +403,6 @@ export default function CheckoutDadosPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
                     autoComplete="email"
                     className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                   />

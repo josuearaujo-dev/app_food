@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         taxa_entrega: deliveryFee,
         origem_pagamento: 'cash_on_delivery',
         cliente_nome: customer.nome,
-        cliente_email: customer.email,
+        cliente_email: customer.email || null,
         cliente_telefone: customer.telefone,
         cliente_user_id: customer.userId,
         tipo_atendimento: customer.fulfillmentType,

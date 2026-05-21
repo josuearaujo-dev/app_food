@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isAdminAppUser } from '@/lib/admin-access'
-import { buildKitchenReceiptText, createPrintNodeRawJob, getPrintNodeConfig } from '@/lib/printnode'
+import { buildKitchenReceiptExampleText } from '@/lib/kitchen-receipt-example'
+import { createPrintNodeRawJob, getPrintNodeConfig } from '@/lib/printnode'
 
 type TestBody = {
   printerId?: number
@@ -28,29 +29,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'printerId invalido.' }, { status: 400 })
     }
 
-    const text = buildKitchenReceiptText({
-      orderNumber: 'TESTE01',
-      createdAtISO: new Date().toISOString(),
-      customerName: 'Teste Admin',
-      customerPhone: '(000) 000-0000',
-      fulfillmentType: 'delivery',
-      address: '11 Abbott st - Danbury/CT',
-      items: [
-        {
-          name: 'Bife a cavalo (prato do dia)',
-          quantity: 1,
-          unitAmount: 14.99,
-          subtotal: 14.99,
-        },
-      ],
-      subtotal: 14.99,
-      discount: 0,
-      deliveryFee: 5,
-      taxAmount: 1.1,
-      total: 21.09,
-      currency: '$',
-      paymentLine: 'Dinheiro',
-    })
+    const text = buildKitchenReceiptExampleText()
 
     const printJobId = await createPrintNodeRawJob({
       apiKey: cfg.apiKey,

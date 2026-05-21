@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 type PrinterOption = {
@@ -196,6 +197,12 @@ export function AdminPrintNodePanel() {
           >
             {testing ? 'Enviando teste...' : 'Teste de impressao'}
           </button>
+          <Link
+            href="/admin/impressao"
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+          >
+            Ver exemplo
+          </Link>
         </div>
 
         {error ? (

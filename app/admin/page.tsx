@@ -1006,6 +1006,12 @@ export default function AdminPage() {
           Ordens
         </Link>
         <Link
+          href="/admin/impressao"
+          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
+        >
+          Impressão
+        </Link>
+        <Link
           href="/admin/delivery"
           className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
         >
@@ -1073,6 +1079,12 @@ export default function AdminPage() {
                   className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
                 >
                   Entregas
+                </Link>
+                <Link
+                  href="/admin/impressao"
+                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
+                >
+                  Impressão
                 </Link>
                 <Link
                   href="/admin/extras-biblioteca"
