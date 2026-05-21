@@ -5,8 +5,9 @@ export const KITCHEN_RECEIPT_CHARS_PER_LINE = (() => {
   return Math.min(64, Math.max(32, Math.floor(n)))
 })()
 
+/** Linha em branco; na impressora vira traco continuo via sublinhado ESC/POS. */
 export function receiptSeparatorLine(): string {
-  return '='.repeat(KITCHEN_RECEIPT_CHARS_PER_LINE)
+  return ' '.repeat(KITCHEN_RECEIPT_CHARS_PER_LINE)
 }
 
 export const RECEIPT_MARKERS = {
@@ -43,20 +44,23 @@ function escBoldOff(): string {
   return ESC + 'E' + '\x00'
 }
 
-function escDoubleStrikeOn(): string {
-  return ESC + 'G' + '\x01'
-}
-
-function escDoubleStrikeOff(): string {
-  return ESC + 'G' + '\x00'
-}
-
 function escUnderlineOn(): string {
   return ESC + '-' + '\x01'
 }
 
+/** Sublinhado duplo (mais grosso) em impressoras ESC/POS compativeis. */
+function escUnderlineThickOn(): string {
+  return ESC + '-' + '\x02'
+}
+
 function escUnderlineOff(): string {
   return ESC + '-' + '\x00'
+}
+
+function appendSeparatorLine(parts: string[], width: number) {
+  parts.push(escUnderlineThickOn())
+  appendPlainLines(parts, receiptSeparatorLine(), width)
+  parts.push(escUnderlineOff())
 }
 
 function escAlignCenter(): string {
@@ -220,11 +224,7 @@ function encodeReceiptLine(parts: string[], line: string, width: number) {
   }
 
   if (trimmed === RECEIPT_MARKERS.SEP || trimmed.startsWith(RECEIPT_MARKERS.SEP)) {
-    parts.push(escBoldOn())
-    parts.push(escDoubleStrikeOn())
-    appendPlainLines(parts, receiptSeparatorLine(), width)
-    parts.push(escDoubleStrikeOff())
-    parts.push(escBoldOff())
+    appendSeparatorLine(parts, width)
     return
   }
 

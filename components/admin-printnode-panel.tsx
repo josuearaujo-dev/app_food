@@ -238,7 +238,7 @@ export function AdminPrintNodePanel() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-background p-3">
+          <div id="categorias-via-extra" className="rounded-2xl border border-border bg-background p-3 scroll-mt-24">
             <p className="text-xs font-semibold text-foreground">
               Categorias com 1 via extra
             </p>

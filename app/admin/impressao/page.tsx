@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Printer, RefreshCw, Send } from 'lucide-react'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
 import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
+import { RECEIPT_MARKERS } from '@/lib/escpos-receipt'
 import { useLang } from '@/lib/lang-context'
 
 const PREVIEW_MARKERS = [
@@ -19,8 +20,6 @@ const PREVIEW_MARKERS = [
 ]
 
 function receiptPreviewLine(line: string) {
-  if (line === '@@SEP@@') return '='.repeat(48)
-
   let clean = line
   for (const marker of PREVIEW_MARKERS) {
     if (clean.startsWith(marker)) {
@@ -46,10 +45,7 @@ export default function AdminImpressaoPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const previewText = useMemo(
-    () => receiptText.split(/\r?\n/).map(receiptPreviewLine).join('\n'),
-    [receiptText]
-  )
+  const previewLines = useMemo(() => receiptText.split(/\r?\n/), [receiptText])
 
   const loadPreview = useCallback(async () => {
     setLoading(true)
@@ -122,6 +118,17 @@ export default function AdminImpressaoPage() {
         </div>
       </header>
 
+      <section id="config-vias" className="mx-auto max-w-5xl scroll-mt-24 px-4 pt-6">
+        <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-sm font-bold text-foreground">Configurar vias extras</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Marque abaixo quais categorias geram +1 via de impressão. Pedidos delivery somam +2 vias
+            extras (valor configurável). Depois role para ver o exemplo do cupom.
+          </p>
+        </div>
+        <AdminPrintNodePanel />
+      </section>
+
       <section className="mx-auto grid max-w-5xl gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -130,6 +137,12 @@ export default function AdminImpressaoPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Esta prévia usa o mesmo modelo enviado para a impressora da cozinha.
               </p>
+              <a
+                href="#config-vias"
+                className="mt-2 inline-block text-xs font-bold text-primary underline underline-offset-2"
+              >
+                Ir para configuração de categorias / vias
+              </a>
             </div>
             <button
               type="button"
@@ -153,9 +166,21 @@ export default function AdminImpressaoPage() {
           ) : null}
 
           <div className="mt-4 overflow-x-auto rounded-2xl bg-neutral-200 p-4">
-            <pre className="mx-auto min-h-[520px] w-[320px] whitespace-pre-wrap rounded-sm bg-white px-4 py-5 font-mono text-[11px] leading-[1.45] text-black shadow-md">
-              {previewText}
-            </pre>
+            <div className="mx-auto min-h-[520px] w-[320px] rounded-sm bg-white px-4 py-5 font-mono text-[11px] leading-[1.45] text-black shadow-md">
+              {previewLines.map((line, index) =>
+                line.trim() === RECEIPT_MARKERS.SEP ? (
+                  <div
+                    key={`sep-${index}`}
+                    className="my-1.5 h-[3px] w-full rounded-sm bg-black"
+                    aria-hidden
+                  />
+                ) : (
+                  <p key={`line-${index}`} className="whitespace-pre-wrap">
+                    {receiptPreviewLine(line)}
+                  </p>
+                )
+              )}
+            </div>
           </div>
         </div>
 
@@ -182,15 +207,14 @@ export default function AdminImpressaoPage() {
               A tela mostra a estrutura e textos do cupom. Negrito, corte e comandos ESC/POS só aparecem
               no teste físico da impressora.
             </p>
-            <Link href="/admin" className="mt-3 inline-block font-bold text-primary underline underline-offset-2">
-              Configurar PrintNode
-            </Link>
+            <a
+              href="#config-vias"
+              className="mt-3 inline-block font-bold text-primary underline underline-offset-2"
+            >
+              Configurar categorias e vias extras
+            </a>
           </div>
         </aside>
-      </section>
-
-      <section className="mx-auto max-w-5xl px-4 pb-8">
-        <AdminPrintNodePanel />
       </section>
     </main>
   )
