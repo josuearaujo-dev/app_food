@@ -223,6 +223,7 @@ export function buildKitchenReceiptText(input: {
   address?: string | null
   items: Array<{
     name: string
+    categoryName?: string | null
     quantity: number
     unitAmount: number
     subtotal: number
@@ -270,25 +271,36 @@ export function buildKitchenReceiptText(input: {
   lines.push(RECEIPT_MARKERS.SEP)
   lines.push(markerLine(RECEIPT_MARKERS.SECTION, 'ITENS DO PEDIDO'))
 
+  const groupedItems = new Map<string, typeof input.items>()
   for (const item of input.items) {
-    const itemName = item.name.trim().toUpperCase()
-    const qtyLabel = `(${item.quantity}X)`
-    lines.push(
-      markerLine(
-        RECEIPT_MARKERS.ITEM,
-        `${qtyLabel} ${itemName}|${formatReceiptMoney(cur, item.subtotal)}`
-      )
-    )
+    const categoryName = item.categoryName?.trim() || 'SEM CATEGORIA'
+    const key = categoryName.toUpperCase()
+    groupedItems.set(key, [...(groupedItems.get(key) ?? []), item])
+  }
 
-    if (item.options?.length) {
-      for (const op of item.options) {
-        const label =
-          op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
-        lines.push(`  - ${label.trim().toUpperCase()}`)
+  for (const [categoryName, categoryItems] of groupedItems) {
+    lines.push(markerLine(RECEIPT_MARKERS.SECTION, categoryName))
+
+    for (const item of categoryItems) {
+      const itemName = item.name.trim().toUpperCase()
+      const qtyLabel = `(${item.quantity}X)`
+      lines.push(
+        markerLine(
+          RECEIPT_MARKERS.ITEM,
+          `${qtyLabel} ${itemName}|${formatReceiptMoney(cur, item.subtotal)}`
+        )
+      )
+
+      if (item.options?.length) {
+        for (const op of item.options) {
+          const label =
+            op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
+          lines.push(`  - ${label.trim().toUpperCase()}`)
+        }
       }
-    }
-    if (item.observation?.trim()) {
-      lines.push(`  OBS: ${item.observation.trim().toUpperCase()}`)
+      if (item.observation?.trim()) {
+        lines.push(`  OBS: ${item.observation.trim().toUpperCase()}`)
+      }
     }
   }
 

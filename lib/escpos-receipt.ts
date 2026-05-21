@@ -5,9 +5,15 @@ export const KITCHEN_RECEIPT_CHARS_PER_LINE = (() => {
   return Math.min(64, Math.max(32, Math.floor(n)))
 })()
 
-/** Linha em branco; na impressora vira traco continuo via sublinhado ESC/POS. */
+/** Com fonte 2x largura, uma bobina 80mm comporta metade dos caracteres. */
+export const KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE = Math.max(
+  16,
+  Math.floor(KITCHEN_RECEIPT_CHARS_PER_LINE / 2)
+)
+
+/** Separador solido para bobina termica. */
 export function receiptSeparatorLine(): string {
-  return ' '.repeat(KITCHEN_RECEIPT_CHARS_PER_LINE)
+  return '_'.repeat(KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE)
 }
 
 export const RECEIPT_MARKERS = {
@@ -27,6 +33,8 @@ export const RECEIPT_ITEM_LINE_PREFIX = RECEIPT_MARKERS.ITEM
 
 const ESC = '\x1B'
 const GS = '\x1D'
+const ESC_MODE_NORMAL = 0
+const ESC_MODE_LARGE_TEXT = 0x30
 
 function escSelectPrintMode(mode: number): string {
   return ESC + '!' + String.fromCharCode(mode)
@@ -48,19 +56,16 @@ function escUnderlineOn(): string {
   return ESC + '-' + '\x01'
 }
 
-/** Sublinhado duplo (mais grosso) em impressoras ESC/POS compativeis. */
-function escUnderlineThickOn(): string {
-  return ESC + '-' + '\x02'
-}
-
 function escUnderlineOff(): string {
   return ESC + '-' + '\x00'
 }
 
 function appendSeparatorLine(parts: string[], width: number) {
-  parts.push(escUnderlineThickOn())
+  parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
+  parts.push(escBoldOn())
   appendPlainLines(parts, receiptSeparatorLine(), width)
-  parts.push(escUnderlineOff())
+  parts.push(escBoldOff())
+  parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
 }
 
 function escAlignCenter(): string {
@@ -129,49 +134,53 @@ function formatLeftRightLines(left: string, right: string, width: number): strin
 function appendPlainLines(parts: string[], text: string, width: number) {
   const wrapped = text.trim() === '' ? [''] : wrapReceiptLine(text, width)
   for (const w of wrapped) {
-    parts.push(w + '\n')
+    appendLargeBoldLine(parts, w)
   }
 }
 
+function appendLargeBoldLine(parts: string[], line: string) {
+  parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
+  parts.push(escBoldOn())
+  parts.push(line + '\n')
+  parts.push(escBoldOff())
+  parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
+}
+
 function appendBoldLabelValue(parts: string[], label: string, value: string, width: number) {
-  const wrapped = wrapReceiptLine(`${label}${value}`, width)
+  const wrapped = formatLeftRightLines(label, value, width)
   for (const line of wrapped) {
-    const labelLen = Math.min(label.length, line.length)
-    const labelPart = line.slice(0, labelLen)
-    const valuePart = line.slice(labelLen)
-    parts.push(escBoldOn())
-    parts.push(labelPart)
-    parts.push(escBoldOff())
-    parts.push(valuePart + '\n')
+    appendLargeBoldLine(parts, line)
   }
 }
 
 function appendSectionTitle(parts: string[], title: string, width: number) {
   const wrapped = wrapReceiptLine(title, width)
   for (const line of wrapped) {
+    parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
     parts.push(escUnderlineOn())
     parts.push(escBoldOn())
     parts.push(line + '\n')
     parts.push(escBoldOff())
     parts.push(escUnderlineOff())
+    parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
   }
 }
 
 function appendItemLines(parts: string[], left: string, right: string, width: number) {
   const physical = formatLeftRightLines(left, right, width)
   for (const line of physical) {
-    parts.push(escBoldOn())
-    parts.push(line + '\n')
-    parts.push(escBoldOff())
+    appendLargeBoldLine(parts, line)
   }
 }
 
 function appendRowLines(parts: string[], left: string, right: string, width: number, bold: boolean) {
   const physical = formatLeftRightLines(left, right, width)
   for (const line of physical) {
-    if (bold) parts.push(escBoldOn())
-    parts.push(line + '\n')
-    if (bold) parts.push(escBoldOff())
+    if (bold) {
+      appendLargeBoldLine(parts, line)
+    } else {
+      appendPlainLines(parts, line, width)
+    }
   }
 }
 
@@ -270,12 +279,12 @@ function encodeReceiptLine(parts: string[], line: string, width: number) {
  * Converte texto do cupom (com marcadores) em bytes ESC/POS.
  */
 export function encodeKitchenReceiptEscPos(plainText: string): Buffer {
-  const width = KITCHEN_RECEIPT_CHARS_PER_LINE
+  const width = KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE
   const lines = plainText.split(/\r?\n/)
   const parts: string[] = []
 
   parts.push(ESC + '@')
-  parts.push(escSelectPrintMode(0))
+  parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
   parts.push(escFontA())
 
   for (const line of lines) {

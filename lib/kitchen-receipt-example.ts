@@ -11,6 +11,7 @@ export function buildKitchenReceiptExampleText() {
     items: [
       {
         name: 'Bife a cavalo (prato do dia)',
+        categoryName: 'Pratos',
         quantity: 1,
         unitAmount: 14.99,
         subtotal: 14.99,
@@ -22,6 +23,7 @@ export function buildKitchenReceiptExampleText() {
       },
       {
         name: 'Coxinha de frango com catupiry',
+        categoryName: 'Salgados',
         quantity: 2,
         unitAmount: 4.5,
         subtotal: 9,

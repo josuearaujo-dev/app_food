@@ -4,6 +4,7 @@ import { computePromotionForOrderCart } from '@/lib/order-promotions'
 import { getDeliveryFeeAmount } from '@/lib/store-settings'
 import { calculateOrderTax } from '@/lib/order-tax'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchCategoryNameMap } from '@/lib/receipt-category-map'
 import {
   buildKitchenReceiptText,
   calculateKitchenReceiptCopyCount,
@@ -166,6 +167,10 @@ export async function POST(request: Request) {
     try {
       const printCfg = await getPrintNodeConfig()
       if (printCfg.enabled && printCfg.printerId) {
+        const categoryNameById = await fetchCategoryNameMap(
+          supabase,
+          safeItems.map((item) => item.categoria_id)
+        )
         const subtotal = subtotalBeforePromo(safeItems)
         const discount = Number(Math.max(0, promo.discountAmount).toFixed(2))
         const receipt = buildKitchenReceiptText({
@@ -177,6 +182,7 @@ export async function POST(request: Request) {
           address: customer.enderecoEntrega,
           items: safeItems.map((item) => ({
             name: item.name,
+            categoryName: item.categoria_id ? categoryNameById.get(item.categoria_id) : null,
             quantity: item.quantity,
             unitAmount: item.unitAmount,
             subtotal: Number((item.quantity * item.unitAmount).toFixed(2)),

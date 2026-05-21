@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Printer, RefreshCw, Send } from 'lucide-react'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
 import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
-import { RECEIPT_MARKERS } from '@/lib/escpos-receipt'
+import { KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE, RECEIPT_MARKERS } from '@/lib/escpos-receipt'
 import { useLang } from '@/lib/lang-context'
 
 const PREVIEW_MARKERS = [
@@ -33,7 +33,7 @@ function receiptPreviewLine(line: string) {
 
   const left = clean.slice(0, pipeIndex)
   const right = clean.slice(pipeIndex + 1)
-  const spaces = Math.max(1, 48 - left.length - right.length)
+  const spaces = Math.max(1, KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE - left.length - right.length)
   return `${left}${' '.repeat(spaces)}${right}`
 }
 
@@ -166,12 +166,12 @@ export default function AdminImpressaoPage() {
           ) : null}
 
           <div className="mt-4 overflow-x-auto rounded-2xl bg-neutral-200 p-4">
-            <div className="mx-auto min-h-[520px] w-[320px] rounded-sm bg-white px-4 py-5 font-mono text-[11px] leading-[1.45] text-black shadow-md">
+            <div className="mx-auto min-h-[520px] w-[360px] rounded-sm bg-white px-4 py-5 font-mono text-[18px] font-bold leading-[1.55] text-black shadow-md">
               {previewLines.map((line, index) =>
                 line.trim() === RECEIPT_MARKERS.SEP ? (
                   <div
                     key={`sep-${index}`}
-                    className="my-1.5 h-[3px] w-full rounded-sm bg-black"
+                    className="my-2 h-[4px] w-full rounded-sm bg-black"
                     aria-hidden
                   />
                 ) : (
@@ -204,8 +204,8 @@ export default function AdminImpressaoPage() {
           <div className="rounded-2xl border border-border bg-white p-4 text-xs text-muted-foreground shadow-sm">
             <p className="font-bold text-foreground">Observação</p>
             <p className="mt-1">
-              A tela mostra a estrutura e textos do cupom. Negrito, corte e comandos ESC/POS só aparecem
-              no teste físico da impressora.
+              A prévia mostra o cupom em tamanho maior e negrito, como o padrão interno enviado para
+              a impressora. Corte e comandos ESC/POS só aparecem no teste físico.
             </p>
             <a
               href="#config-vias"

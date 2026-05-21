@@ -7,6 +7,7 @@ import {
 } from '@/lib/printnode'
 
 type PedidoItemRow = {
+  item_id: string | null
   nome_item: string
   quantidade: number
   preco_unitario: number
@@ -68,7 +69,10 @@ function paymentLineForPedido(
   return 'Pago via PayPal'
 }
 
-export function buildKitchenReceiptFromPedido(order: PedidoRow, options?: { reprint?: boolean }) {
+export function buildKitchenReceiptFromPedido(
+  order: PedidoRow,
+  options?: { reprint?: boolean; categoryNameByItemId?: Map<string, string> }
+) {
   const items = order.pedido_itens ?? []
   const orderNumber = order.id.replace(/-/g, '').slice(-8).toUpperCase()
   const subtotal = items.reduce((acc, it) => acc + Number(it.subtotal ?? 0), 0)
@@ -86,6 +90,7 @@ export function buildKitchenReceiptFromPedido(order: PedidoRow, options?: { repr
     address: order.endereco_entrega,
     items: items.map((it) => ({
       name: it.nome_item,
+      categoryName: it.item_id ? options?.categoryNameByItemId?.get(it.item_id) : null,
       quantity: Number(it.quantidade) || 1,
       unitAmount: Number(it.preco_unitario) || 0,
       subtotal: Number(it.subtotal) || 0,
@@ -118,7 +123,7 @@ export async function reprintPedidoKitchen(orderId: string) {
   const { data: order, error } = await supabase
     .from('pedidos')
     .select(
-      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, pedido_itens(nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
+      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
     )
     .eq('id', orderId)
     .maybeSingle()
@@ -130,7 +135,30 @@ export async function reprintPedidoKitchen(orderId: string) {
     throw new Error('Pedido nao encontrado.')
   }
 
-  const { orderNumber, receipt } = buildKitchenReceiptFromPedido(order as PedidoRow, { reprint: true })
+  const typedOrder = order as PedidoRow
+  const itemIds = [
+    ...new Set((typedOrder.pedido_itens ?? []).map((item) => item.item_id).filter(Boolean)),
+  ] as string[]
+  const categoryNameByItemId = new Map<string, string>()
+
+  if (itemIds.length > 0) {
+    const { data: menuItems } = await supabase
+      .from('itens_cardapio')
+      .select('id, categorias(nome)')
+      .in('id', itemIds)
+
+    for (const item of (menuItems ?? []) as Array<{
+      id: string
+      categorias?: { nome?: string | null } | null
+    }>) {
+      categoryNameByItemId.set(item.id, item.categorias?.nome?.trim() || 'SEM CATEGORIA')
+    }
+  }
+
+  const { orderNumber, receipt } = buildKitchenReceiptFromPedido(typedOrder, {
+    reprint: true,
+    categoryNameByItemId,
+  })
 
   const printJobId = await createPrintNodeRawJob({
     apiKey: printCfg.apiKey,
