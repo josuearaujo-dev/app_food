@@ -5,11 +5,8 @@ export const KITCHEN_RECEIPT_CHARS_PER_LINE = (() => {
   return Math.min(64, Math.max(32, Math.floor(n)))
 })()
 
-/** Com fonte 2x largura, uma bobina 80mm comporta metade dos caracteres. */
-export const KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE = Math.max(
-  16,
-  Math.floor(KITCHEN_RECEIPT_CHARS_PER_LINE / 2)
-)
+/** Fonte maior apenas na altura: mantem a largura da bobina e evita quebras exageradas. */
+export const KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE = KITCHEN_RECEIPT_CHARS_PER_LINE
 
 /** Separador solido para bobina termica. */
 export function receiptSeparatorLine(): string {
@@ -35,7 +32,7 @@ export const RECEIPT_ITEM_LINE_PREFIX = RECEIPT_MARKERS.ITEM
 const ESC = '\x1B'
 const GS = '\x1D'
 const ESC_MODE_NORMAL = 0
-const ESC_MODE_LARGE_TEXT = 0x30
+const ESC_MODE_LARGE_TEXT = 0x10
 
 function escSelectPrintMode(mode: number): string {
   return ESC + '!' + String.fromCharCode(mode)
@@ -77,9 +74,19 @@ function escAlignLeft(): string {
   return ESC + 'a' + '\x00'
 }
 
+export function receiptPrintableText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—]/g, '-')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[^\x20-\x7E]/g, '')
+}
+
 /** Quebra linha para caber na largura da bobina 80mm. */
 export function wrapReceiptLine(text: string, width = KITCHEN_RECEIPT_CHARS_PER_LINE): string[] {
-  const trimmed = text.trimEnd()
+  const trimmed = receiptPrintableText(text).trimEnd()
   if (!trimmed) return ['']
   if (trimmed.length <= width) return [trimmed]
 
@@ -111,16 +118,17 @@ function splitPipePair(payload: string): { left: string; right: string } | null 
 
 /** Label a esquerda, valor a direita (mesma linha; continuação só do lado esquerdo). */
 function formatLeftRightLines(left: string, right: string, width: number): string[] {
-  const rightPart = right.trim()
+  const leftPart = receiptPrintableText(left)
+  const rightPart = receiptPrintableText(right).trim()
   const rightLen = rightPart.length
   const maxLeft = Math.max(8, width - rightLen - 1)
 
-  if (left.length <= maxLeft && rightLen > 0) {
-    const gap = width - left.length - rightLen
-    return [left + (gap > 0 ? ' '.repeat(gap) : ' ') + rightPart]
+  if (leftPart.length <= maxLeft && rightLen > 0) {
+    const gap = width - leftPart.length - rightLen
+    return [leftPart + (gap > 0 ? ' '.repeat(gap) : ' ') + rightPart]
   }
 
-  const wrapped = wrapReceiptLine(left, maxLeft)
+  const wrapped = wrapReceiptLine(leftPart, maxLeft)
   if (wrapped.length === 0) return rightPart ? [rightPart.padStart(width)] : ['']
 
   const lines = [...wrapped]
@@ -142,7 +150,7 @@ function appendPlainLines(parts: string[], text: string, width: number) {
 function appendLargeBoldLine(parts: string[], line: string) {
   parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
   parts.push(escBoldOn())
-  parts.push(line + '\n')
+  parts.push(receiptPrintableText(line) + '\n')
   parts.push(escBoldOff())
   parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
 }
@@ -160,7 +168,7 @@ function appendSectionTitle(parts: string[], title: string, width: number) {
     parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
     parts.push(escUnderlineOn())
     parts.push(escBoldOn())
-    parts.push(line + '\n')
+    parts.push(receiptPrintableText(line) + '\n')
     parts.push(escBoldOff())
     parts.push(escUnderlineOff())
     parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
@@ -174,7 +182,7 @@ function appendCategoryTitle(parts: string[], title: string, width: number) {
     parts.push(escAlignCenter())
     parts.push(escUnderlineOn())
     parts.push(escBoldOn())
-    parts.push(line + '\n')
+    parts.push(receiptPrintableText(line) + '\n')
     parts.push(escBoldOff())
     parts.push(escUnderlineOff())
     parts.push(escAlignLeft())

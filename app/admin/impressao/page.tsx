@@ -5,7 +5,11 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Printer, RefreshCw, Send } from 'lucide-react'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
 import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
-import { KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE, RECEIPT_MARKERS } from '@/lib/escpos-receipt'
+import {
+  KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE,
+  receiptPrintableText,
+  RECEIPT_MARKERS,
+} from '@/lib/escpos-receipt'
 import { useLang } from '@/lib/lang-context'
 
 const PREVIEW_MARKERS = [
@@ -21,7 +25,7 @@ const PREVIEW_MARKERS = [
 ]
 
 function receiptPreviewLine(line: string) {
-  let clean = line
+  let clean = receiptPrintableText(line)
   for (const marker of PREVIEW_MARKERS) {
     if (clean.startsWith(marker)) {
       clean = clean.slice(marker.length)
@@ -167,7 +171,7 @@ export default function AdminImpressaoPage() {
           ) : null}
 
           <div className="mt-4 overflow-x-auto rounded-2xl bg-neutral-200 p-4">
-            <div className="mx-auto min-h-[520px] w-[360px] rounded-sm bg-white px-4 py-5 font-mono text-[18px] font-bold leading-[1.55] text-black shadow-md">
+            <div className="mx-auto min-h-[520px] w-[360px] rounded-sm bg-white px-4 py-5 font-mono text-[15px] font-bold leading-[1.45] text-black shadow-md">
               {previewLines.map((line, index) => {
                 if (line.trim() === RECEIPT_MARKERS.SEP) {
                   return (
@@ -183,7 +187,7 @@ export default function AdminImpressaoPage() {
                   return (
                     <p
                       key={`category-${index}`}
-                      className="my-1 text-center text-[22px] font-black underline decoration-2 underline-offset-4"
+                      className="my-1 text-center text-[18px] font-black underline decoration-2 underline-offset-4"
                     >
                       {receiptPreviewLine(line)}
                     </p>

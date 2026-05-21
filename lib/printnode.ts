@@ -297,9 +297,7 @@ export function buildKitchenReceiptText(input: {
 
       if (item.options?.length) {
         for (const op of item.options) {
-          const label =
-            op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
-          lines.push(`  - ${label.trim().toUpperCase()}`)
+          lines.push(`  - ${op.label.trim().toUpperCase()}`)
         }
       }
       if (item.observation?.trim()) {
