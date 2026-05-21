@@ -6,7 +6,8 @@ import { computePromotionForOrderCart } from '@/lib/order-promotions'
 import { calculateOrderTax } from '@/lib/order-tax'
 import {
   buildKitchenReceiptText,
-  createPrintNodeRawJob,
+  calculateKitchenReceiptCopyCount,
+  createKitchenReceiptPrintJobs,
   getPrintNodeConfig,
 } from '@/lib/printnode'
 
@@ -324,13 +325,21 @@ export async function POST(
             currency: '$',
             paymentLine: 'Pago via PayPal',
           })
-          await createPrintNodeRawJob({
+          const copies = calculateKitchenReceiptCopyCount({
+            fulfillmentType: customer.fulfillmentType,
+            items: safeItems,
+            extraCopyCategoryIds: printCfg.extraCopyCategoryIds,
+            deliveryExtraCopies: printCfg.deliveryExtraCopies,
+          })
+
+          await createKitchenReceiptPrintJobs({
             apiKey: printCfg.apiKey,
             printerId: printCfg.printerId,
             title: `Pedido #${orderNumber}`,
             content: receipt,
             source: 'Cadu Cakes & Lanches Checkout',
             idempotencyKey: `pedido-${localOrderId}`,
+            copies,
           })
         }
       } catch (printError) {

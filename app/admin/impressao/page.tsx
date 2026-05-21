@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, Printer, RefreshCw, Send } from 'lucide-react'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
 import { useLang } from '@/lib/lang-context'
 
 const PREVIEW_MARKERS = [
@@ -186,6 +187,10 @@ export default function AdminImpressaoPage() {
             </Link>
           </div>
         </aside>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-4 pb-8">
+        <AdminPrintNodePanel />
       </section>
     </main>
   )

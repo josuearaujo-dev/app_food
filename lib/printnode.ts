@@ -8,32 +8,81 @@ export type PrintNodeConfig = {
   enabled: boolean
   apiKey: string
   printerId: number | null
+  extraCopyCategoryIds: string[]
+  deliveryExtraCopies: number
 }
 
 export async function getPrintNodeConfig(): Promise<PrintNodeConfig> {
   const supabase = createAdminClient()
-  const { data } = await supabase
+  let { data, error } = await supabase
     .from('configuracoes_loja')
-    .select('printnode_ativo, printnode_api_key, printnode_printer_id')
+    .select(
+      'printnode_ativo, printnode_api_key, printnode_printer_id, printnode_extra_via_categoria_ids, printnode_delivery_extra_vias'
+    )
     .order('atualizado_em', { ascending: false })
     .limit(1)
     .maybeSingle<{
       printnode_ativo?: boolean | null
       printnode_api_key?: string | null
       printnode_printer_id?: number | null
+      printnode_extra_via_categoria_ids?: string[] | null
+      printnode_delivery_extra_vias?: number | null
     }>()
+
+  if (error) {
+    const fallback = await supabase
+      .from('configuracoes_loja')
+      .select('printnode_ativo, printnode_api_key, printnode_printer_id')
+      .order('atualizado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle<{
+        printnode_ativo?: boolean | null
+        printnode_api_key?: string | null
+        printnode_printer_id?: number | null
+      }>()
+    data = fallback.data
+  }
 
   const envKey = String(process.env.PRINTNODE_API_KEY ?? '').trim()
   const dbKey = String(data?.printnode_api_key ?? '').trim()
   const apiKey = dbKey || envKey
   const printerRaw = Number(data?.printnode_printer_id ?? 0)
   const printerId = Number.isFinite(printerRaw) && printerRaw > 0 ? Math.floor(printerRaw) : null
+  const deliveryCopiesRaw = Number(data?.printnode_delivery_extra_vias ?? 2)
+  const deliveryExtraCopies =
+    Number.isFinite(deliveryCopiesRaw) && deliveryCopiesRaw >= 0
+      ? Math.min(10, Math.floor(deliveryCopiesRaw))
+      : 2
 
   return {
     enabled: Boolean(data?.printnode_ativo) && Boolean(apiKey) && printerId != null,
     apiKey,
     printerId,
+    extraCopyCategoryIds: Array.isArray(data?.printnode_extra_via_categoria_ids)
+      ? data.printnode_extra_via_categoria_ids.map(String)
+      : [],
+    deliveryExtraCopies,
   }
+}
+
+export function calculateKitchenReceiptCopyCount(input: {
+  fulfillmentType: 'take_out' | 'delivery'
+  items: Array<{ categoria_id?: string | null }>
+  extraCopyCategoryIds: string[]
+  deliveryExtraCopies: number
+}) {
+  const configuredCategories = new Set(input.extraCopyCategoryIds.filter(Boolean))
+  const matchedCategories = new Set<string>()
+
+  for (const item of input.items) {
+    const categoryId = String(item.categoria_id ?? '').trim()
+    if (categoryId && configuredCategories.has(categoryId)) {
+      matchedCategories.add(categoryId)
+    }
+  }
+
+  const deliveryCopies = input.fulfillmentType === 'delivery' ? input.deliveryExtraCopies : 0
+  return 1 + deliveryCopies + matchedCategories.size
 }
 
 function toBasicAuthHeader(apiKey: string) {
@@ -99,6 +148,36 @@ export async function createPrintNodeRawJob(input: {
     throw new Error(`PrintNode returned invalid print job id: ${body}`)
   }
   return id
+}
+
+export async function createKitchenReceiptPrintJobs(input: {
+  apiKey: string
+  printerId: number
+  title: string
+  content: string
+  source?: string
+  idempotencyKey: string
+  copies: number
+}) {
+  const copies = Math.max(1, Math.min(20, Math.floor(input.copies)))
+  const printJobIds: number[] = []
+
+  for (let copy = 1; copy <= copies; copy += 1) {
+    const hasMultipleCopies = copies > 1
+    const printJobId = await createPrintNodeRawJob({
+      apiKey: input.apiKey,
+      printerId: input.printerId,
+      title: hasMultipleCopies ? `${input.title} - via ${copy}/${copies}` : input.title,
+      content: input.content,
+      source: input.source,
+      idempotencyKey: hasMultipleCopies
+        ? `${input.idempotencyKey}-via-${copy}`
+        : input.idempotencyKey,
+    })
+    printJobIds.push(printJobId)
+  }
+
+  return printJobIds
 }
 
 function formatReceiptMoney(currency: string, amount: number, negative = false): string {

@@ -10,6 +10,11 @@ type PrinterOption = {
   computerName: string | null
 }
 
+type CategoryOption = {
+  id: string
+  nome: string
+}
+
 export function AdminPrintNodePanel() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
@@ -23,19 +28,37 @@ export function AdminPrintNodePanel() {
   const [enabled, setEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [printerId, setPrinterId] = useState('')
+  const [deliveryExtraCopies, setDeliveryExtraCopies] = useState('2')
+  const [extraCopyCategoryIds, setExtraCopyCategoryIds] = useState<string[]>([])
   const [printers, setPrinters] = useState<PrinterOption[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     const { data, error: queryError } = await supabase
       .from('configuracoes_loja')
-      .select('id, printnode_ativo, printnode_api_key, printnode_printer_id')
+      .select(
+        'id, printnode_ativo, printnode_api_key, printnode_printer_id, printnode_extra_via_categoria_ids, printnode_delivery_extra_vias'
+      )
       .order('atualizado_em', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    const { data: categoryRows, error: categoriesError } = await supabase
+      .from('categorias')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+      .order('nome', { ascending: true })
+
     if (queryError) {
       setError(queryError.message)
+      setLoading(false)
+      return
+    }
+    if (categoriesError) {
+      setError(categoriesError.message)
       setLoading(false)
       return
     }
@@ -43,6 +66,13 @@ export function AdminPrintNodePanel() {
     setEnabled(Boolean(data?.printnode_ativo))
     setApiKey(String(data?.printnode_api_key ?? ''))
     setPrinterId(data?.printnode_printer_id != null ? String(data.printnode_printer_id) : '')
+    setDeliveryExtraCopies(String(data?.printnode_delivery_extra_vias ?? 2))
+    setExtraCopyCategoryIds(
+      Array.isArray(data?.printnode_extra_via_categoria_ids)
+        ? data.printnode_extra_via_categoria_ids.map(String)
+        : []
+    )
+    setCategories((categoryRows as CategoryOption[] | null) ?? [])
     setLoading(false)
   }, [supabase])
 
@@ -59,10 +89,21 @@ export function AdminPrintNodePanel() {
         printnode_ativo: enabled,
         printnode_api_key: apiKey.trim() || null,
         printnode_printer_id: printerId.trim() ? Number(printerId) : null,
+        printnode_extra_via_categoria_ids: extraCopyCategoryIds,
+        printnode_delivery_extra_vias: deliveryExtraCopies.trim()
+          ? Number(deliveryExtraCopies)
+          : 2,
       }
       if (payload.printnode_printer_id != null && (!Number.isFinite(payload.printnode_printer_id) || payload.printnode_printer_id <= 0)) {
         throw new Error('Printer ID invalido.')
       }
+      if (!Number.isFinite(payload.printnode_delivery_extra_vias) || payload.printnode_delivery_extra_vias < 0) {
+        throw new Error('Informe uma quantidade valida de vias extras para delivery.')
+      }
+      payload.printnode_delivery_extra_vias = Math.min(
+        10,
+        Math.floor(payload.printnode_delivery_extra_vias)
+      )
 
       if (rowId) {
         const { error: updateError } = await supabase
@@ -124,6 +165,14 @@ export function AdminPrintNodePanel() {
     }
   }
 
+  function toggleExtraCopyCategory(categoryId: string) {
+    setExtraCopyCategoryIds((current) =>
+      current.includes(categoryId)
+        ? current.filter((id) => id !== categoryId)
+        : [...current, categoryId]
+    )
+  }
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">Carregando configuracoes do PrintNode...</p>
   }
@@ -169,6 +218,54 @@ export function AdminPrintNodePanel() {
               placeholder="Ex: 34"
               className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
             />
+          </div>
+
+          <div className="rounded-2xl border border-border bg-background p-3">
+            <label className="mb-1 block text-xs font-semibold text-foreground">
+              Vias extras para delivery
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={10}
+              step={1}
+              value={deliveryExtraCopies}
+              onChange={(e) => setDeliveryExtraCopies(e.target.value)}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Delivery imprime 1 via normal + esta quantidade de vias extras.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-background p-3">
+            <p className="text-xs font-semibold text-foreground">
+              Categorias com 1 via extra
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Cada categoria selecionada que aparecer no pedido soma mais 1 via.
+            </p>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {categories.map((category) => (
+                <label
+                  key={category.id}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    checked={extraCopyCategoryIds.includes(category.id)}
+                    onChange={() => toggleExtraCopyCategory(category.id)}
+                    className="rounded border-border"
+                  />
+                  <span>{category.nome}</span>
+                </label>
+              ))}
+            </div>
+
+            {categories.length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground">Nenhuma categoria ativa encontrada.</p>
+            ) : null}
           </div>
         </div>
 
