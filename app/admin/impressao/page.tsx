@@ -19,7 +19,7 @@ const PREVIEW_MARKERS = [
 ]
 
 function receiptPreviewLine(line: string) {
-  if (line === '@@SEP@@') return '-'.repeat(48)
+  if (line === '@@SEP@@') return '='.repeat(48)
 
   let clean = line
   for (const marker of PREVIEW_MARKERS) {
