@@ -1,9 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encodeKitchenReceiptEscPos, RECEIPT_MARKERS } from '@/lib/escpos-receipt'
+import { STORE_TIMEZONE } from '@/lib/kitchen-timezone'
 
 const PRINTNODE_API_BASE = 'https://api.printnode.com'
-
-const KITCHEN_TIMEZONE = 'America/Los_Angeles'
 
 export type PrintNodeConfig = {
   enabled: boolean
@@ -112,13 +111,13 @@ function formatReceiptDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   const datePart = new Intl.DateTimeFormat('en-US', {
-    timeZone: KITCHEN_TIMEZONE,
+    timeZone: STORE_TIMEZONE,
     month: '2-digit',
     day: '2-digit',
     year: 'numeric',
   }).format(d)
   const timePart = new Intl.DateTimeFormat('en-US', {
-    timeZone: KITCHEN_TIMEZONE,
+    timeZone: STORE_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
@@ -206,11 +205,11 @@ export function buildKitchenReceiptText(input: {
       for (const op of item.options) {
         const label =
           op.groupType === 'extra' && op.groupName ? `${op.groupName}: ${op.label}` : op.label
-        lines.push(`  - ${label}`)
+        lines.push(`  - ${label.trim().toUpperCase()}`)
       }
     }
     if (item.observation?.trim()) {
-      lines.push(`  Obs: ${item.observation.trim()}`)
+      lines.push(`  OBS: ${item.observation.trim().toUpperCase()}`)
     }
   }
 

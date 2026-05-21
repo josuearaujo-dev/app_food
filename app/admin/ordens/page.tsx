@@ -6,6 +6,7 @@ import { ArrowLeft, ChefHat, Printer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
 import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { STORE_TIMEZONE } from '@/lib/kitchen-timezone'
 
 type KitchenStatus = 'new' | 'preparing' | 'delivered'
 
@@ -35,8 +36,6 @@ type KitchenOrder = {
   pedido_itens: OrderItem[]
 }
 
-/** Calendário “hoje” no fuso de São Francisco (mesmo que Los_Angeles). */
-const KITCHEN_TIMEZONE = 'America/Los_Angeles'
 const HIDDEN_DELIVERED_STORAGE_KEY = 'brasil-bistro-kitchen-hidden-delivered-v1'
 
 function dateKeyInTimeZone(iso: string, timeZone: string): string {
@@ -52,7 +51,7 @@ function dateKeyInTimeZone(iso: string, timeZone: string): string {
 
 function todayKeySanFrancisco(): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: KITCHEN_TIMEZONE,
+    timeZone: STORE_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -86,7 +85,7 @@ function formatPedidoKitchenTz(iso: string) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   return new Intl.DateTimeFormat(undefined, {
-    timeZone: KITCHEN_TIMEZONE,
+    timeZone: STORE_TIMEZONE,
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(d)
@@ -139,7 +138,7 @@ export default function AdminOrdensPage() {
 
   const ordersTodaySf = useMemo(() => {
     const key = todayKeySanFrancisco()
-    return orders.filter((o) => dateKeyInTimeZone(o.criado_em, KITCHEN_TIMEZONE) === key)
+    return orders.filter((o) => dateKeyInTimeZone(o.criado_em, STORE_TIMEZONE) === key)
   }, [orders])
 
   async function updateOrderStatus(order: KitchenOrder, next: KitchenStatus) {

@@ -27,11 +27,12 @@ export const RECEIPT_ITEM_LINE_PREFIX = RECEIPT_MARKERS.ITEM
 const ESC = '\x1B'
 const GS = '\x1D'
 
-const ESC_MODE_NORMAL = '\x00'
-const ESC_MODE_ITEM_EMPHASIS = '\x38'
-
 function escSelectPrintMode(mode: number): string {
   return ESC + '!' + String.fromCharCode(mode)
+}
+
+function escFontA(): string {
+  return ESC + 'M' + '\x00'
 }
 
 function escBoldOn(): string {
@@ -145,12 +146,11 @@ function appendSectionTitle(parts: string[], title: string, width: number) {
 }
 
 function appendItemLines(parts: string[], left: string, right: string, width: number) {
-  const colWidth = Math.max(16, Math.floor(width / 2))
-  const physical = formatLeftRightLines(left, right, colWidth)
+  const physical = formatLeftRightLines(left, right, width)
   for (const line of physical) {
-    parts.push(escSelectPrintMode(ESC_MODE_ITEM_EMPHASIS))
+    parts.push(escBoldOn())
     parts.push(line + '\n')
-    parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
+    parts.push(escBoldOff())
   }
 }
 
@@ -169,7 +169,9 @@ function encodeReceiptLine(parts: string[], line: string, width: number) {
   const title = splitMarker(trimmed, RECEIPT_MARKERS.TITLE)
   if (title != null) {
     parts.push(escAlignCenter())
+    parts.push(escBoldOn())
     appendPlainLines(parts, title, width)
+    parts.push(escBoldOff())
     parts.push(escAlignLeft())
     return
   }
@@ -261,6 +263,8 @@ export function encodeKitchenReceiptEscPos(plainText: string): Buffer {
   const parts: string[] = []
 
   parts.push(ESC + '@')
+  parts.push(escSelectPrintMode(0))
+  parts.push(escFontA())
 
   for (const line of lines) {
     encodeReceiptLine(parts, line, width)
