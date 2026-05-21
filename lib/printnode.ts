@@ -269,7 +269,6 @@ export function buildKitchenReceiptText(input: {
   }
 
   lines.push(RECEIPT_MARKERS.SEP)
-  lines.push(markerLine(RECEIPT_MARKERS.SECTION, 'ITENS DO PEDIDO'))
 
   const groupedItems = new Map<string, typeof input.items>()
   for (const item of input.items) {
@@ -278,8 +277,13 @@ export function buildKitchenReceiptText(input: {
     groupedItems.set(key, [...(groupedItems.get(key) ?? []), item])
   }
 
+  let categoryIndex = 0
   for (const [categoryName, categoryItems] of groupedItems) {
-    lines.push(markerLine(RECEIPT_MARKERS.SECTION, categoryName))
+    if (categoryIndex > 0) {
+      lines.push(RECEIPT_MARKERS.SEP)
+    }
+    lines.push(markerLine(RECEIPT_MARKERS.CATEGORY, categoryName))
+    categoryIndex += 1
 
     for (const item of categoryItems) {
       const itemName = item.name.trim().toUpperCase()

@@ -20,6 +20,7 @@ export const RECEIPT_MARKERS = {
   TITLE: '@@TITLE@@',
   REPRINT: '@@REPRINT@@',
   SECTION: '@@SECTION@@',
+  CATEGORY: '@@CAT@@',
   LABEL: '@@LBL@@',
   LABEL_ONLY: '@@LBLONLY@@',
   SEP: '@@SEP@@',
@@ -166,6 +167,21 @@ function appendSectionTitle(parts: string[], title: string, width: number) {
   }
 }
 
+function appendCategoryTitle(parts: string[], title: string, width: number) {
+  const wrapped = wrapReceiptLine(title, width)
+  for (const line of wrapped) {
+    parts.push(escSelectPrintMode(ESC_MODE_LARGE_TEXT))
+    parts.push(escAlignCenter())
+    parts.push(escUnderlineOn())
+    parts.push(escBoldOn())
+    parts.push(line + '\n')
+    parts.push(escBoldOff())
+    parts.push(escUnderlineOff())
+    parts.push(escAlignLeft())
+    parts.push(escSelectPrintMode(ESC_MODE_NORMAL))
+  }
+}
+
 function appendItemLines(parts: string[], left: string, right: string, width: number) {
   const physical = formatLeftRightLines(left, right, width)
   for (const line of physical) {
@@ -208,6 +224,12 @@ function encodeReceiptLine(parts: string[], line: string, width: number) {
   const section = splitMarker(trimmed, RECEIPT_MARKERS.SECTION)
   if (section != null) {
     appendSectionTitle(parts, section, width)
+    return
+  }
+
+  const category = splitMarker(trimmed, RECEIPT_MARKERS.CATEGORY)
+  if (category != null) {
+    appendCategoryTitle(parts, category, width)
     return
   }
 

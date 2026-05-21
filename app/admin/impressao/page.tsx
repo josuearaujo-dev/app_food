@@ -12,6 +12,7 @@ const PREVIEW_MARKERS = [
   '@@TITLE@@',
   '@@REPRINT@@',
   '@@SECTION@@',
+  '@@CAT@@',
   '@@LBL@@',
   '@@LBLONLY@@',
   '@@ITEM@@',
@@ -167,19 +168,34 @@ export default function AdminImpressaoPage() {
 
           <div className="mt-4 overflow-x-auto rounded-2xl bg-neutral-200 p-4">
             <div className="mx-auto min-h-[520px] w-[360px] rounded-sm bg-white px-4 py-5 font-mono text-[18px] font-bold leading-[1.55] text-black shadow-md">
-              {previewLines.map((line, index) =>
-                line.trim() === RECEIPT_MARKERS.SEP ? (
-                  <div
-                    key={`sep-${index}`}
-                    className="my-2 h-[4px] w-full rounded-sm bg-black"
-                    aria-hidden
-                  />
-                ) : (
+              {previewLines.map((line, index) => {
+                if (line.trim() === RECEIPT_MARKERS.SEP) {
+                  return (
+                    <div
+                      key={`sep-${index}`}
+                      className="my-2 h-[4px] w-full rounded-sm bg-black"
+                      aria-hidden
+                    />
+                  )
+                }
+
+                if (line.startsWith(RECEIPT_MARKERS.CATEGORY)) {
+                  return (
+                    <p
+                      key={`category-${index}`}
+                      className="my-1 text-center text-[22px] font-black underline decoration-2 underline-offset-4"
+                    >
+                      {receiptPreviewLine(line)}
+                    </p>
+                  )
+                }
+
+                return (
                   <p key={`line-${index}`} className="whitespace-pre-wrap">
                     {receiptPreviewLine(line)}
                   </p>
                 )
-              )}
+              })}
             </div>
           </div>
         </div>
