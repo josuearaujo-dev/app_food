@@ -93,6 +93,12 @@ export default function PagamentoPage() {
   const [method, setMethod] = useState<'paypal' | 'card' | 'cash'>('card')
   const [salvarCartaoEstePedido, setSalvarCartaoEstePedido] = useState(false)
   const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(null)
+  const [paypalConfigStatus, setPaypalConfigStatus] = useState<{
+    serverEnv: 'live' | 'sandbox'
+    hasClientId: boolean
+    hasClientSecret: boolean
+    hasWebhookId: boolean
+  } | null>(null)
   const isRenderingRef = useRef(false)
   const cardFieldsRef = useRef<ReturnType<NonNullable<typeof window.paypal>['CardFields']> | null>(null)
   const methodRef = useRef(method)
@@ -175,6 +181,50 @@ export default function PagamentoPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/paypal/config', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = (await res.json()) as typeof paypalConfigStatus
+        if (active) setPaypalConfigStatus(data)
+      })
+      .catch(() => {
+        /* no-op */
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const paypalConfigWarnings = useMemo(() => {
+    const warnings: string[] = []
+    if (!hasValidPayPalClientId) {
+      warnings.push('NEXT_PUBLIC_PAYPAL_CLIENT_ID nao esta configurado para o navegador.')
+    }
+    if (paypalConfigStatus) {
+      if (paypalConfigStatus.serverEnv !== paypalEnv) {
+        warnings.push(
+          `Ambiente PayPal diferente: navegador=${paypalEnv}, servidor=${paypalConfigStatus.serverEnv}.`
+        )
+      }
+      if (!paypalConfigStatus.hasClientId || !paypalConfigStatus.hasClientSecret) {
+        warnings.push('PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET nao estao completos no servidor.')
+      }
+    }
+    if (paypalEnv === 'live' && hasValidPayPalClientId && warnings.length === 0) {
+      warnings.push(
+        'Se o cartao continuar indisponivel em producao, confirme no PayPal se a conta/app tem Advanced Credit and Debit Card Payments habilitado.'
+      )
+    }
+    return warnings
+  }, [hasValidPayPalClientId, paypalConfigStatus, paypalEnv])
+
+  const cardUnavailableMessage =
+    lang === 'pt'
+      ? 'Cartao indisponivel. Verifique as credenciais live e a habilitacao de Advanced Credit and Debit Card Payments no PayPal.'
+      : t.paymentCardUnavailable
 
   function customerPayload() {
     const c = checkoutCustomer
@@ -538,10 +588,15 @@ export default function PagamentoPage() {
     <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background pb-28 md:px-6 md:pb-10">
       {!!paypalScriptSrc && (
         <Script
-          key={`paypal-sdk-${lang}`}
+          key={paypalScriptSrc}
           src={paypalScriptSrc}
           strategy="afterInteractive"
+          data-page-type="checkout"
           onLoad={() => setSdkLoaded(true)}
+          onError={() => {
+            setSdkLoaded(false)
+            setPaypalError('Nao foi possivel carregar o SDK do PayPal.')
+          }}
         />
       )}
 
@@ -789,7 +844,16 @@ export default function PagamentoPage() {
             <p className="py-6 text-center text-sm text-muted-foreground">{t.paymentCardLoading}</p>
           )}
           {sdkLoaded && !cardFieldsEligible && (
-            <p className="py-4 text-center text-sm leading-snug text-muted-foreground">{t.paymentCardUnavailable}</p>
+            <div className="space-y-2 py-4 text-center text-sm leading-snug text-muted-foreground">
+              <p>{cardUnavailableMessage}</p>
+              {paypalConfigWarnings.length > 0 ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-[11px] text-amber-800">
+                  {paypalConfigWarnings.map((warning) => (
+                    <p key={warning}>• {warning}</p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           )}
           <div className={cardFieldsEligible ? 'space-y-2' : 'hidden'}>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.paymentCardDetailsTitle}</p>
