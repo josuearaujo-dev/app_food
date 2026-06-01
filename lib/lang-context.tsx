@@ -123,6 +123,9 @@ export const translations = {
     paymentEditDetails: 'Edit details',
     paymentCardLoading: 'Loading payment options...',
     paymentCardUnavailable: "Card payment isn't available here. Choose PayPal above.",
+    paymentCardFallbackTitle: 'Pay with debit or credit card',
+    paymentCardFallbackIntro:
+      'Tap the black “Debit or Credit Card” button below. Your card is processed securely by PayPal (same flow as the PayPal tab).',
     paymentMethodCard: 'Card',
     paymentMethodPayPal: 'PayPal',
     paymentCardDetailsTitle: 'Card details',
@@ -403,6 +406,9 @@ export const translations = {
     paymentEditDetails: 'Editar dados',
     paymentCardLoading: 'Carregando formas de pagamento...',
     paymentCardUnavailable: 'Pagamento com cartão não está disponível. Toque em PayPal acima.',
+    paymentCardFallbackTitle: 'Pagar com cartão de débito ou crédito',
+    paymentCardFallbackIntro:
+      'Toque no botão preto “Cartão de débito ou crédito” abaixo. O pagamento é processado com segurança pelo PayPal (mesmo fluxo da aba PayPal).',
     paymentMethodCard: 'Cartão',
     paymentMethodPayPal: 'PayPal',
     paymentCardDetailsTitle: 'Dados do cartão',

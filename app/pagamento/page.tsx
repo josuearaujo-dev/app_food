@@ -89,6 +89,7 @@ export default function PagamentoPage() {
   const [deliveryFee, setDeliveryFee] = useState(0)
   const [deliveryLocations, setDeliveryLocations] = useState<Array<{ id: string; taxaEntrega: number }>>([])
   const [cardFieldsEligible, setCardFieldsEligible] = useState(false)
+  const [cardFieldsReady, setCardFieldsReady] = useState(false)
   const [cardFieldsLoading, setCardFieldsLoading] = useState(false)
   const [method, setMethod] = useState<'paypal' | 'card' | 'cash'>('card')
   const [salvarCartaoEstePedido, setSalvarCartaoEstePedido] = useState(false)
@@ -213,18 +214,11 @@ export default function PagamentoPage() {
         warnings.push('PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET nao estao completos no servidor.')
       }
     }
-    if (paypalEnv === 'live' && hasValidPayPalClientId && warnings.length === 0) {
-      warnings.push(
-        'Se o cartao continuar indisponivel em producao, confirme no PayPal se a conta/app tem Advanced Credit and Debit Card Payments habilitado.'
-      )
-    }
     return warnings
   }, [hasValidPayPalClientId, paypalConfigStatus, paypalEnv])
 
-  const cardUnavailableMessage =
-    lang === 'pt'
-      ? 'Cartao indisponivel. Verifique as credenciais live e a habilitacao de Advanced Credit and Debit Card Payments no PayPal.'
-      : t.paymentCardUnavailable
+  const usePayPalButtonsForCard =
+    sdkLoaded && cardFieldsReady && !cardFieldsEligible
 
   function customerPayload() {
     const c = checkoutCustomer
@@ -402,15 +396,14 @@ export default function PagamentoPage() {
     }
     if (!customerChecked || !checkoutCustomer) return
     if (!sdkLoaded || !window.paypal || items.length === 0 || isRenderingRef.current) return
-    const buttonsContainer = document.querySelector('#paypal-button-container')
-    if (!buttonsContainer) return
     const cardName = document.querySelector('#card-name-field')
     const cardNumber = document.querySelector('#card-number-field')
     const cardExpiry = document.querySelector('#card-expiry-field')
     const cardCvv = document.querySelector('#card-cvv-field')
     setPaypalError(null)
     setResultMessage('')
-    buttonsContainer.innerHTML = ''
+    document.querySelector('#paypal-button-container')?.replaceChildren()
+    document.querySelector('#paypal-button-container-card')?.replaceChildren()
     if (cardName) cardName.innerHTML = ''
     if (cardNumber) cardNumber.innerHTML = ''
     if (cardExpiry) cardExpiry.innerHTML = ''
@@ -418,6 +411,7 @@ export default function PagamentoPage() {
     isRenderingRef.current = true
     cardFieldsRef.current = null
     setCardFieldsEligible(false)
+    setCardFieldsReady(false)
 
     const buttonsInstance = window.paypal.Buttons({
       style: {
@@ -493,10 +487,17 @@ export default function PagamentoPage() {
       },
     })
 
+    const cardEligible = cardFieldsInstance.isEligible()
+    const buttonsSelector =
+      methodRef.current === 'card' && !cardEligible
+        ? '#paypal-button-container-card'
+        : '#paypal-button-container'
+    if (!document.querySelector(buttonsSelector)) return
+
     Promise.all([
-      buttonsInstance.render('#paypal-button-container'),
+      buttonsInstance.render(buttonsSelector),
       (async () => {
-        if (!cardFieldsInstance.isEligible()) return
+        if (!cardEligible) return
         if (!cardName || !cardNumber || !cardExpiry || !cardCvv) return
         setCardFieldsEligible(true)
         cardFieldsRef.current = cardFieldsInstance
@@ -514,6 +515,7 @@ export default function PagamentoPage() {
       })
       .finally(() => {
         isRenderingRef.current = false
+        setCardFieldsReady(true)
       })
   }, [
     sdkLoaded,
@@ -525,6 +527,7 @@ export default function PagamentoPage() {
     lang,
     promoCode,
     totalWithPromotion,
+    method,
   ])
 
   async function handleCardPayment() {
@@ -840,12 +843,15 @@ export default function PagamentoPage() {
             </div>
 
             <div className={`${method === 'card' ? '' : 'hidden'} space-y-2 rounded-3xl border border-border bg-card p-3 shadow-sm`}>
-          {!sdkLoaded && (
+          {(!sdkLoaded || (sdkLoaded && !cardFieldsReady)) && (
             <p className="py-6 text-center text-sm text-muted-foreground">{t.paymentCardLoading}</p>
           )}
-          {sdkLoaded && !cardFieldsEligible && (
-            <div className="space-y-2 py-4 text-center text-sm leading-snug text-muted-foreground">
-              <p>{cardUnavailableMessage}</p>
+          {sdkLoaded && cardFieldsReady && !cardFieldsEligible && (
+            <div className="space-y-2 pb-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {t.paymentCardFallbackTitle}
+              </p>
+              <p className="text-[11px] leading-snug text-muted-foreground">{t.paymentCardFallbackIntro}</p>
               {paypalConfigWarnings.length > 0 ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-[11px] text-amber-800">
                   {paypalConfigWarnings.map((warning) => (
@@ -882,10 +888,16 @@ export default function PagamentoPage() {
               {cardFieldsLoading ? t.paymentProcessing : t.paymentPayConfirm}
             </button>
           </div>
+          <div
+            id="paypal-button-container-card"
+            className={usePayPalButtonsForCard ? 'pt-2' : 'hidden'}
+          />
             </div>
 
             <div className={`${method === 'paypal' ? '' : 'hidden'} rounded-3xl border border-border bg-card p-4 shadow-sm`}>
-          <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">{t.paymentPaypalSecureTitle}</p>
+          <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
+            {t.paymentPaypalSecureTitle}
+          </p>
           <p className="mb-3 text-[11px] leading-snug text-muted-foreground">{t.paymentPaypalIntro}</p>
           <div id="paypal-button-container" />
             </div>
