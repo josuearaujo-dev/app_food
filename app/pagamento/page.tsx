@@ -1,23 +1,42 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCart, type SelectedOption } from '@/lib/cart-context'
+import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
-import { formatPromotionHints } from '@/lib/promo-hint-format'
 import {
   loadCheckoutCustomer,
   isValidCheckoutCustomer,
   clearCheckoutCustomer,
   type CheckoutCustomer,
 } from '@/lib/checkout-customer'
-import { ArrowLeft, CreditCard, HandCoins, Wallet } from 'lucide-react'
+import { ArrowLeft, CreditCard, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import Script from 'next/script'
-import { ORDER_TAX_RATE, calculateOrderTax } from '@/lib/order-tax'
+
+type PaymentProvider = 'clover' | 'paypal'
+
+type CloverElements = {
+  create: (
+    type: string,
+    styles?: Record<string, Record<string, string>>
+  ) => {
+    mount: (selector: string) => void
+    addEventListener: (event: string, handler: (event: unknown) => void) => void
+  }
+}
+
+type CloverSdk = {
+  elements: () => CloverElements
+  createToken: () => Promise<{ token?: string; errors?: Record<string, string> }>
+}
 
 declare global {
   interface Window {
+    Clover?: new (
+      publicToken: string,
+      options?: { merchantId?: string; locale?: string }
+    ) => CloverSdk
     paypal?: {
       Buttons: (options: {
         style?: {
@@ -51,65 +70,411 @@ declare global {
   }
 }
 
-function formatPaymentOptionLine(o: SelectedOption, currency: string): string {
-  const label =
-    o.groupType === 'extra' && o.groupName ? `${o.groupName}: ${o.label}` : o.label
-  if (o.priceDelta != null && Math.abs(o.priceDelta) > 0.0001) {
-    const sign = o.priceDelta > 0 ? '+' : ''
-    return `${label} (${sign}${currency}${o.priceDelta.toFixed(2)})`
-  }
-  return label
+const FIELD_STYLES = {
+  input: {
+    fontSize: '16px',
+    fontFamily: 'inherit',
+    color: '#531B04',
+  },
+}
+
+function cartPayload(items: ReturnType<typeof useCart>['items']) {
+  return items.map(({ item, quantity, observation, selectedOptions }) => ({
+    id: item.id,
+    quantity,
+    observation,
+    selectedOptions: selectedOptions.map((o) => ({
+      optionId: o.optionId,
+    })),
+  }))
 }
 
 export default function PagamentoPage() {
+  const provider = (
+    process.env.NEXT_PUBLIC_PAYMENT_PROVIDER ?? 'clover'
+  ).toLowerCase() as PaymentProvider
+
+  if (provider === 'paypal') {
+    return <PayPalCheckoutPage />
+  }
+
+  return <CloverCheckoutPage />
+}
+
+function CloverCheckoutPage() {
   const router = useRouter()
-  const {
-    items,
-    totalItems,
-    clearCart,
-    promoCode,
-    setPromoCode,
-    promotionResult,
-    promotionLoading,
-    promotionError,
-    subtotalBeforePromo,
-    totalWithPromotion,
-  } = useCart()
-  const { t, lang } = useLang()
-  const [promoDraft, setPromoDraft] = useState(promoCode)
+  const { items, totalPrice, totalItems, clearCart } = useCart()
+  const { t } = useLang()
+  const [checkoutCustomer, setCheckoutCustomer] = useState<CheckoutCustomer | null>(null)
+  const [customerChecked, setCustomerChecked] = useState(false)
+  const [sdkLoaded, setSdkLoaded] = useState(false)
+  const [fieldsReady, setFieldsReady] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(null)
+  const [preparedOrder, setPreparedOrder] = useState<{
+    orderId: string
+    orderNumber: string
+    totalCents: number
+    fingerprint: string
+  } | null>(null)
+
+  const cloverRef = useRef<CloverSdk | null>(null)
+  const mountedRef = useRef(false)
+  const payingLockRef = useRef(false)
+
+  const publicToken = process.env.NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN ?? ''
+  const merchantId = process.env.NEXT_PUBLIC_CLOVER_MERCHANT_ID ?? ''
+  const cloverEnv = process.env.NEXT_PUBLIC_CLOVER_ENV === 'production' ? 'production' : 'sandbox'
+  const sdkSrc =
+    cloverEnv === 'production'
+      ? 'https://checkout.clover.com/sdk.js'
+      : 'https://checkout.sandbox.dev.clover.com/sdk.js'
+  const hasPublicConfig = !!publicToken && !!merchantId
+
+  const fingerprint = useMemo(
+    () =>
+      items
+        .map((ci) => {
+          const opts = ci.selectedOptions
+            .map((o) => o.optionId)
+            .sort()
+            .join(',')
+          return `${ci.item.id}:${ci.quantity}:${ci.observation.trim().toLowerCase()}:${opts}`
+        })
+        .sort()
+        .join('|'),
+    [items]
+  )
 
   useEffect(() => {
-    setPromoDraft(promoCode)
-  }, [promoCode])
+    const c = loadCheckoutCustomer()
+    if (!isValidCheckoutCustomer(c)) {
+      router.replace('/checkout/dados')
+      return
+    }
+    setCheckoutCustomer(c)
+    setCustomerChecked(true)
+  }, [router])
+
+  useEffect(() => {
+    setPreparedOrder((prev) => (prev && prev.fingerprint !== fingerprint ? null : prev))
+  }, [fingerprint])
+
+  useEffect(() => {
+    if (!customerChecked || !checkoutCustomer || !sdkLoaded || !hasPublicConfig) return
+    if (!window.Clover || mountedRef.current || items.length === 0) return
+
+    mountedRef.current = true
+    try {
+      const clover = new window.Clover(publicToken, { merchantId, locale: 'en-US' })
+      cloverRef.current = clover
+      const elements = clover.elements()
+
+      const cardNumber = elements.create('CARD_NUMBER', FIELD_STYLES)
+      const cardDate = elements.create('CARD_DATE', FIELD_STYLES)
+      const cardCvv = elements.create('CARD_CVV', FIELD_STYLES)
+      const cardPostal = elements.create('CARD_POSTAL_CODE', FIELD_STYLES)
+
+      cardNumber.mount('#card-number')
+      cardDate.mount('#card-date')
+      cardCvv.mount('#card-cvv')
+      cardPostal.mount('#card-postal-code')
+
+      const bindErrors = (key: string, el: ReturnType<CloverElements['create']>) => {
+        el.addEventListener('change', (event) => {
+          const e = event as { error?: string }
+          setFieldErrors((prev) => {
+            const next = { ...prev }
+            if (e.error) next[key] = e.error
+            else delete next[key]
+            return next
+          })
+        })
+      }
+
+      bindErrors('card-number', cardNumber)
+      bindErrors('card-date', cardDate)
+      bindErrors('card-cvv', cardCvv)
+      bindErrors('card-postal-code', cardPostal)
+
+      setFieldsReady(true)
+    } catch (err) {
+      console.error(err)
+      setError('Não foi possível inicializar o formulário de cartão.')
+      mountedRef.current = false
+    }
+
+    return () => {
+      cloverRef.current = null
+      mountedRef.current = false
+      setFieldsReady(false)
+    }
+  }, [
+    customerChecked,
+    checkoutCustomer,
+    sdkLoaded,
+    hasPublicConfig,
+    publicToken,
+    merchantId,
+    items.length,
+  ])
+
+  const customerPayload = useCallback(() => {
+    const c = checkoutCustomer
+    if (!c) throw new Error('Dados do cliente ausentes.')
+    return {
+      nome: c.nome.trim(),
+      email: c.email.trim(),
+      telefone: c.telefone.trim(),
+      userId: c.userId,
+      aceitaSmsAtualizacoes: c.aceitaSmsAtualizacoes,
+      aceitaEmailAtualizacoes: c.aceitaEmailAtualizacoes,
+      consentiuSalvarCartao: false,
+    }
+  }, [checkoutCustomer])
+
+  async function ensurePreparedOrder() {
+    if (preparedOrder && preparedOrder.fingerprint === fingerprint) {
+      return preparedOrder
+    }
+
+    const response = await fetch('/api/checkout/prepare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: customerPayload(),
+        cart: cartPayload(items),
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.orderId) {
+      throw new Error(data?.error ?? 'Falha ao preparar o pedido.')
+    }
+
+    const next = {
+      orderId: data.orderId as string,
+      orderNumber: String(data.orderNumber),
+      totalCents: Number(data.totalCents),
+      fingerprint,
+    }
+    setPreparedOrder(next)
+    return next
+  }
+
+  async function handlePay() {
+    if (payingLockRef.current || paying || !cloverRef.current) return
+    payingLockRef.current = true
+    setPaying(true)
+    setError(null)
+
+    try {
+      const prepared = await ensurePreparedOrder()
+      const tokenResult = await cloverRef.current.createToken()
+      if (tokenResult.errors) {
+        const messages = Object.values(tokenResult.errors).filter(Boolean)
+        setError(messages[0] ?? 'Confira os dados do cartão.')
+        return
+      }
+      const source = tokenResult.token
+      if (!source?.startsWith('clv_')) {
+        setError('Não foi possível tokenizar o cartão.')
+        return
+      }
+
+      const payRes = await fetch('/api/payments/clover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: prepared.orderId,
+          source,
+        }),
+      })
+      const payData = await payRes.json()
+      if (!payRes.ok || !payData?.success) {
+        setError(payData?.error ?? 'Falha ao processar o pagamento.')
+        return
+      }
+
+      setSuccessOrderNumber(String(payData.orderNumber || prepared.orderNumber))
+      clearCheckoutCustomer()
+      clearCart()
+      setPreparedOrder(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no pagamento.')
+    } finally {
+      setPaying(false)
+      payingLockRef.current = false
+    }
+  }
+
+  if (!customerChecked || !checkoutCustomer) {
+    return (
+      <main className="mx-auto min-h-screen max-w-lg bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <p className="text-sm text-muted-foreground">Carregando checkout...</p>
+      </main>
+    )
+  }
+
+  if (successOrderNumber) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center bg-background px-6 text-center">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 rounded-full bg-green-200 animate-ping opacity-40" />
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-green-500 text-4xl text-white shadow-lg">
+            ✓
+          </div>
+        </div>
+        <h1 className="text-2xl font-extrabold text-foreground">Pagamento confirmado</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Sua ordem foi gerada com sucesso.</p>
+        <div className="mt-6 w-full max-w-xs rounded-2xl border border-border bg-card px-5 py-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Número da ordem</p>
+          <p className="mt-1 text-2xl font-bold text-accent">#{successOrderNumber}</p>
+        </div>
+        <Link
+          href="/"
+          className="mt-6 w-full max-w-xs rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
+        >
+          Voltar ao cardápio
+        </Link>
+      </main>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <main className="mx-auto min-h-screen max-w-lg bg-background px-4 pt-10">
+        <Link href="/carrinho" className="text-sm font-semibold text-accent">
+          Voltar ao carrinho
+        </Link>
+        <p className="mt-4 text-sm text-muted-foreground">Seu carrinho está vazio.</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="mx-auto min-h-screen max-w-lg bg-background pb-28">
+      {hasPublicConfig && (
+        <Script src={sdkSrc} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} />
+      )}
+
+      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/checkout/dados"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <h1 className="text-base font-bold text-foreground">Payment</h1>
+        </div>
+      </header>
+
+      <section className="space-y-4 px-4 pt-4">
+        <div className="space-y-0.5 rounded-3xl border border-border bg-card p-3 text-xs text-muted-foreground shadow-sm">
+          <p className="text-sm font-semibold text-foreground">{checkoutCustomer.nome}</p>
+          <p>{checkoutCustomer.email}</p>
+          <p>{checkoutCustomer.telefone}</p>
+          <Link href="/checkout/dados" className="inline-block pt-1 font-medium text-accent">
+            Editar dados
+          </Link>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>
+              {totalItems} {totalItems === 1 ? t.item : t.items}
+            </span>
+            <span>
+              {t.currency}
+              {totalPrice.toFixed(2)}
+            </span>
+          </div>
+          <div className="mt-1 flex justify-between text-xl font-bold">
+            <span>{t.total}</span>
+            <span className="text-accent">
+              {t.currency}
+              {totalPrice.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-3xl border border-border bg-card p-3 shadow-sm">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Credit or debit card</p>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Your payment is processed securely by Clover. Os dados do cartão são enviados diretamente
+            para a Clover e não passam pelos nossos servidores.
+          </p>
+
+          {!hasPublicConfig && (
+            <p className="text-xs text-red-500">
+              Configure NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN e NEXT_PUBLIC_CLOVER_MERCHANT_ID.
+            </p>
+          )}
+
+          <div id="card-number" className="min-h-12 overflow-hidden rounded-xl border border-border bg-white px-2 py-1" />
+          <p className="text-[11px] text-red-500" id="card-number-errors" role="alert">
+            {fieldErrors['card-number']}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div id="card-date" className="min-h-12 overflow-hidden rounded-xl border border-border bg-white px-2 py-1" />
+              <p className="text-[11px] text-red-500" role="alert">
+                {fieldErrors['card-date']}
+              </p>
+            </div>
+            <div>
+              <div id="card-cvv" className="min-h-12 overflow-hidden rounded-xl border border-border bg-white px-2 py-1" />
+              <p className="text-[11px] text-red-500" role="alert">
+                {fieldErrors['card-cvv']}
+              </p>
+            </div>
+          </div>
+          <div id="card-postal-code" className="min-h-12 overflow-hidden rounded-xl border border-border bg-white px-2 py-1" />
+          <p className="text-[11px] text-red-500" role="alert">
+            {fieldErrors['card-postal-code']}
+          </p>
+
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={paying || !fieldsReady || !hasPublicConfig}
+            className="mt-1 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm disabled:opacity-60"
+          >
+            {paying ? 'Processing...' : 'Pay & Confirm'}
+          </button>
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-500" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+    </main>
+  )
+}
+
+/** Mantido atrás de NEXT_PUBLIC_PAYMENT_PROVIDER=paypal para rollback. */
+function PayPalCheckoutPage() {
+  const router = useRouter()
+  const { items, totalPrice, totalItems, clearCart } = useCart()
+  const { t } = useLang()
   const [checkoutCustomer, setCheckoutCustomer] = useState<CheckoutCustomer | null>(null)
   const [customerChecked, setCustomerChecked] = useState(false)
   const [sdkLoaded, setSdkLoaded] = useState(false)
   const [paypalError, setPaypalError] = useState<string | null>(null)
   const [resultMessage, setResultMessage] = useState('')
-  const [deliveryFee, setDeliveryFee] = useState(0)
-  const [deliveryLocations, setDeliveryLocations] = useState<Array<{ id: string; taxaEntrega: number }>>([])
   const [cardFieldsEligible, setCardFieldsEligible] = useState(false)
-  const [cardFieldsReady, setCardFieldsReady] = useState(false)
   const [cardFieldsLoading, setCardFieldsLoading] = useState(false)
-  const [method, setMethod] = useState<'paypal' | 'card' | 'cash'>('card')
-  const [salvarCartaoEstePedido, setSalvarCartaoEstePedido] = useState(false)
+  const [method, setMethod] = useState<'paypal' | 'card'>('paypal')
   const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(null)
-  const [paypalConfigStatus, setPaypalConfigStatus] = useState<{
-    serverEnv: 'live' | 'sandbox'
-    hasClientId: boolean
-    hasClientSecret: boolean
-    hasWebhookId: boolean
-  } | null>(null)
   const isRenderingRef = useRef(false)
-  const cardFieldsRef = useRef<ReturnType<NonNullable<typeof window.paypal>['CardFields']> | null>(null)
-  const methodRef = useRef(method)
-  const salvarCartaoRef = useRef(salvarCartaoEstePedido)
-  useEffect(() => {
-    methodRef.current = method
-  }, [method])
-  useEffect(() => {
-    salvarCartaoRef.current = salvarCartaoEstePedido
-  }, [salvarCartaoEstePedido])
+  const cardFieldsRef = useRef<ReturnType<NonNullable<typeof window.paypal>['CardFields']> | null>(
+    null
+  )
 
   const paypalEnv = process.env.NEXT_PUBLIC_PAYPAL_ENV === 'live' ? 'live' : 'sandbox'
   const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? ''
@@ -126,14 +491,9 @@ export default function PagamentoPage() {
       currency: 'USD',
       intent: 'capture',
       components: 'buttons,card-fields',
-      locale: lang === 'pt' ? 'pt_BR' : 'en_US',
     })
     return `${base}?${query.toString()}`
-  }, [hasValidPayPalClientId, paypalClientId, paypalEnv, lang])
-
-  useEffect(() => {
-    setSdkLoaded(false)
-  }, [lang])
+  }, [hasValidPayPalClientId, paypalClientId, paypalEnv])
 
   useEffect(() => {
     const c = loadCheckoutCustomer()
@@ -145,81 +505,6 @@ export default function PagamentoPage() {
     setCustomerChecked(true)
   }, [router])
 
-  useEffect(() => {
-    if (!checkoutCustomer || method !== 'card') return
-    setSalvarCartaoEstePedido(checkoutCustomer.prefereSalvarCartao)
-  }, [method, checkoutCustomer])
-
-  useEffect(() => {
-    let active = true
-    fetch('/api/checkout-config')
-      .then(async (res) => {
-        const data = await res.json()
-        if (!res.ok) return
-        const fee = Number(data?.deliveryFee ?? 0)
-        if (active && Number.isFinite(fee) && fee >= 0) {
-          setDeliveryFee(fee)
-        }
-        const locationsRaw = Array.isArray(data?.locations) ? data.locations : []
-        if (active) {
-          setDeliveryLocations(
-            locationsRaw
-              .map((loc: unknown) => {
-                const row = loc as { id?: unknown; taxaEntrega?: unknown }
-                const id = String(row.id ?? '')
-                const taxaEntrega = Number(row.taxaEntrega ?? 0)
-                if (!id || !Number.isFinite(taxaEntrega) || taxaEntrega < 0) return null
-                return { id, taxaEntrega: Number(taxaEntrega.toFixed(2)) }
-              })
-              .filter((row: { id: string; taxaEntrega: number } | null): row is { id: string; taxaEntrega: number } => row != null)
-          )
-        }
-      })
-      .catch(() => {
-        /* no-op */
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    fetch('/api/paypal/config', { cache: 'no-store' })
-      .then(async (res) => {
-        if (!res.ok) return
-        const data = (await res.json()) as typeof paypalConfigStatus
-        if (active) setPaypalConfigStatus(data)
-      })
-      .catch(() => {
-        /* no-op */
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  const paypalConfigWarnings = useMemo(() => {
-    const warnings: string[] = []
-    if (!hasValidPayPalClientId) {
-      warnings.push('NEXT_PUBLIC_PAYPAL_CLIENT_ID nao esta configurado para o navegador.')
-    }
-    if (paypalConfigStatus) {
-      if (paypalConfigStatus.serverEnv !== paypalEnv) {
-        warnings.push(
-          `Ambiente PayPal diferente: navegador=${paypalEnv}, servidor=${paypalConfigStatus.serverEnv}.`
-        )
-      }
-      if (!paypalConfigStatus.hasClientId || !paypalConfigStatus.hasClientSecret) {
-        warnings.push('PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET nao estao completos no servidor.')
-      }
-    }
-    return warnings
-  }, [hasValidPayPalClientId, paypalConfigStatus, paypalEnv])
-
-  const usePayPalButtonsForCard =
-    sdkLoaded && cardFieldsReady && !cardFieldsEligible
-
   function customerPayload() {
     const c = checkoutCustomer
     if (!c) throw new Error('Dados do cliente ausentes.')
@@ -228,28 +513,11 @@ export default function PagamentoPage() {
       email: c.email.trim(),
       telefone: c.telefone.trim(),
       userId: c.userId,
-      fulfillmentType: c.fulfillmentType,
-      localidadeEntregaId: c.fulfillmentType === 'delivery' ? c.localidadeEntregaId : null,
-      localidadeEntregaNome: c.fulfillmentType === 'delivery' ? c.localidadeEntregaNome : null,
-      enderecoEntrega: c.fulfillmentType === 'delivery' ? c.enderecoEntrega.trim() : null,
       aceitaSmsAtualizacoes: c.aceitaSmsAtualizacoes,
       aceitaEmailAtualizacoes: c.aceitaEmailAtualizacoes,
-      consentiuSalvarCartao: method === 'card' && salvarCartaoEstePedido,
+      consentiuSalvarCartao: false,
     }
   }
-
-  const hasFreeDeliveryPromotion = Boolean(promotionResult?.deliveryFreeEligible)
-  const locationFee =
-    checkoutCustomer?.localidadeEntregaId
-      ? deliveryLocations.find((loc) => loc.id === checkoutCustomer.localidadeEntregaId)?.taxaEntrega
-      : null
-  const deliveryFeeApplied =
-    checkoutCustomer?.fulfillmentType === 'delivery' && !hasFreeDeliveryPromotion
-      ? Number((locationFee ?? deliveryFee).toFixed(2))
-      : 0
-  const totalWithDeliveryFee = Number((totalWithPromotion + deliveryFeeApplied).toFixed(2))
-  const orderTax = calculateOrderTax(totalWithDeliveryFee)
-  const totalWithTax = Number((totalWithDeliveryFee + orderTax).toFixed(2))
 
   async function createOrder() {
     const response = await fetch('/api/orders', {
@@ -257,14 +525,11 @@ export default function PagamentoPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customer: customerPayload(),
-        promoCode: promoCode.trim() || null,
         cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
           id: item.id,
-          combo_id: item.comboId ?? null,
           name: item.nome,
           quantity,
           unitAmount: unitPrice,
-          categoria_id: item.categoria_id,
           observation,
           selectedOptions,
         })),
@@ -283,143 +548,43 @@ export default function PagamentoPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customer: customerPayload(),
-        promoCode: promoCode.trim() || null,
         cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
           id: item.id,
-          combo_id: item.comboId ?? null,
           name: item.nome,
           quantity,
           unitAmount: unitPrice,
-          categoria_id: item.categoria_id,
           observation,
           selectedOptions,
         })),
       }),
     })
-    const captureData = (await response.json()) as Record<string, unknown> & {
-      error?: string
-      message?: string
-      details?: Array<{ description?: string; issue?: string }>
-      debug_id?: string
-      status?: string
-      order_number?: string
-      local_order_id?: string
-      purchase_units?: Array<{
-        payments?: {
-          captures?: Array<{ status?: string; id?: string }>
-          authorizations?: Array<{ status?: string; id?: string }>
-        }
-      }>
-    }
+    const captureData = await response.json()
     if (!response.ok) {
-      const errorDetail = captureData?.details?.[0]
-      const detailText = [errorDetail?.description, errorDetail?.issue].filter(Boolean).join(' — ')
-      throw new Error(
-        (typeof captureData?.error === 'string' && captureData.error) ||
-          (typeof captureData?.message === 'string' && captureData.message) ||
-          (detailText
-            ? `${detailText}${captureData?.debug_id ? ` (${captureData.debug_id})` : ''}`
-            : 'Falha ao finalizar pedido.')
-      )
+      throw new Error(captureData?.error ?? 'Falha ao finalizar pedido.')
     }
-
-    const orderStatus = String(captureData?.status ?? '')
-    const transaction =
-      captureData?.purchase_units?.[0]?.payments?.captures?.[0] ??
-      captureData?.purchase_units?.[0]?.payments?.authorizations?.[0]
-    const txStatus = String(transaction?.status ?? '')
-    if ((orderStatus && orderStatus !== 'COMPLETED') || txStatus !== 'COMPLETED') {
-      throw new Error(t.paymentFailedNotCompleted)
-    }
-
     const orderNumber =
       (captureData?.order_number as string | undefined) ??
       (captureData?.local_order_id as string | undefined)?.replace(/-/g, '').slice(-8).toUpperCase() ??
-      String(transaction?.id ?? '').slice(-8).toUpperCase()
-
-    setSuccessOrderNumber(orderNumber || 'N/A')
-    clearCheckoutCustomer()
-    clearCart()
-    setResultMessage(`Pagamento ${transaction?.status ?? 'OK'}: ${transaction?.id ?? '-'}`)
-  }
-
-  async function handleCashPayment() {
-    setPaypalError(null)
-    const response = await fetch('/api/orders/cash', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customer: customerPayload(),
-        promoCode: promoCode.trim() || null,
-        cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
-          id: item.id,
-          combo_id: item.comboId ?? null,
-          name: item.nome,
-          quantity,
-          unitAmount: unitPrice,
-          categoria_id: item.categoria_id,
-          observation,
-          selectedOptions,
-        })),
-      }),
-    })
-
-    const cashData = (await response.json()) as {
-      error?: string
-      order_number?: string
-      local_order_id?: string
-    }
-
-    if (!response.ok) {
-      throw new Error(cashData?.error ?? 'Falha ao criar pedido para pagamento em dinheiro.')
-    }
-
-    const orderNumber =
-      cashData?.order_number ??
-      cashData?.local_order_id?.replace(/-/g, '').slice(-8).toUpperCase() ??
       'N/A'
-
     setSuccessOrderNumber(orderNumber)
     clearCheckoutCustomer()
     clearCart()
-    setResultMessage(lang === 'pt' ? 'Pedido criado para pagar na entrega.' : 'Order created for pay on delivery.')
+    setResultMessage('Pagamento OK')
   }
 
   useEffect(() => {
-    if (method === 'cash') {
-      setPaypalError(null)
-      return
-    }
     if (!hasValidPayPalClientId) {
-      setPaypalError('Configure NEXT_PUBLIC_PAYPAL_CLIENT_ID no ambiente atual (.env ou .env.test).')
+      setPaypalError('Configure NEXT_PUBLIC_PAYPAL_CLIENT_ID.')
       return
     }
     if (!customerChecked || !checkoutCustomer) return
     if (!sdkLoaded || !window.paypal || items.length === 0 || isRenderingRef.current) return
-    const cardName = document.querySelector('#card-name-field')
-    const cardNumber = document.querySelector('#card-number-field')
-    const cardExpiry = document.querySelector('#card-expiry-field')
-    const cardCvv = document.querySelector('#card-cvv-field')
-    setPaypalError(null)
-    setResultMessage('')
-    document.querySelector('#paypal-button-container')?.replaceChildren()
-    document.querySelector('#paypal-button-container-card')?.replaceChildren()
-    if (cardName) cardName.innerHTML = ''
-    if (cardNumber) cardNumber.innerHTML = ''
-    if (cardExpiry) cardExpiry.innerHTML = ''
-    if (cardCvv) cardCvv.innerHTML = ''
+    const buttonsContainer = document.querySelector('#paypal-button-container')
+    if (!buttonsContainer) return
+    buttonsContainer.innerHTML = ''
     isRenderingRef.current = true
-    cardFieldsRef.current = null
-    setCardFieldsEligible(false)
-    setCardFieldsReady(false)
-
     const buttonsInstance = window.paypal.Buttons({
-      style: {
-        shape: 'pill',
-        layout: 'vertical',
-        color: 'blue',
-        label: 'pay',
-      },
+      style: { shape: 'pill', layout: 'vertical', color: 'blue', label: 'pay' },
       createOrder,
       async onApprove(data, actions) {
         try {
@@ -433,72 +598,29 @@ export default function PagamentoPage() {
           ) {
             return actions.restart()
           }
-          setPaypalError(error instanceof Error ? error.message : 'Nao foi possivel processar o pagamento.')
+          setPaypalError(error instanceof Error ? error.message : 'Não foi possível processar.')
         }
       },
       onCancel() {
         setResultMessage('Pagamento cancelado.')
       },
-      onError(error) {
-        console.error(error)
+      onError() {
         setPaypalError('Erro no checkout PayPal.')
       },
     })
-
     const cardFieldsInstance = window.paypal.CardFields({
       createOrder,
       async onApprove(data) {
-        try {
-          await captureOrder(data.orderID)
-        } catch (error) {
-          if (
-            typeof error === 'object' &&
-            error !== null &&
-            'message' in error &&
-            String((error as { message: string }).message).includes('INSTRUMENT_DECLINED')
-          ) {
-            setPaypalError(
-              lang === 'pt'
-                ? 'Cartão recusado. Tente outro cartão ou use PayPal.'
-                : 'Card declined. Try another card or use PayPal.'
-            )
-            return
-          }
-          setPaypalError(
-            error instanceof Error ? error.message : 'Nao foi possivel processar o pagamento.'
-          )
-        }
+        await captureOrder(data.orderID)
       },
-      onError(error) {
-        console.error(error)
-        setPaypalError('Erro no pagamento com cartao.')
-      },
-      style: {
-        input: {
-          border: '0.0625rem solid #90969730',
-          'border-radius': '1rem',
-          'box-sizing': 'border-box',
-          background: '#ffffff',
-          'font-family': 'inherit',
-          'font-size': '0.9rem',
-          padding: '0.9rem 0.75rem',
-          width: '100%',
-        },
+      onError() {
+        setPaypalError('Erro no pagamento com cartão.')
       },
     })
-
-    const cardEligible = cardFieldsInstance.isEligible()
-    const buttonsSelector =
-      methodRef.current === 'card' && !cardEligible
-        ? '#paypal-button-container-card'
-        : '#paypal-button-container'
-    if (!document.querySelector(buttonsSelector)) return
-
     Promise.all([
-      buttonsInstance.render(buttonsSelector),
+      buttonsInstance.render('#paypal-button-container'),
       (async () => {
-        if (!cardEligible) return
-        if (!cardName || !cardNumber || !cardExpiry || !cardCvv) return
+        if (!cardFieldsInstance.isEligible()) return
         setCardFieldsEligible(true)
         cardFieldsRef.current = cardFieldsInstance
         await Promise.all([
@@ -509,68 +631,27 @@ export default function PagamentoPage() {
         ])
       })(),
     ])
-      .catch((error) => {
-        console.error(error)
-        setPaypalError('Nao foi possivel inicializar o checkout PayPal.')
-      })
+      .catch(() => setPaypalError('Não foi possível inicializar o PayPal.'))
       .finally(() => {
         isRenderingRef.current = false
-        setCardFieldsReady(true)
       })
-  }, [
-    sdkLoaded,
-    items,
-    clearCart,
-    hasValidPayPalClientId,
-    customerChecked,
-    checkoutCustomer,
-    lang,
-    promoCode,
-    totalWithPromotion,
-    method,
-  ])
-
-  async function handleCardPayment() {
-    if (!cardFieldsRef.current) return
-    setCardFieldsLoading(true)
-    setPaypalError(null)
-    try {
-      await cardFieldsRef.current.submit()
-    } catch (error) {
-      setPaypalError(error instanceof Error ? error.message : 'Falha no pagamento com cartao.')
-    } finally {
-      setCardFieldsLoading(false)
-    }
-  }
+  }, [sdkLoaded, items, hasValidPayPalClientId, customerChecked, checkoutCustomer])
 
   if (!customerChecked || !checkoutCustomer) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-6">
-        <p className="text-sm text-muted-foreground">{t.paymentCheckoutLoading}</p>
+      <main className="mx-auto min-h-screen max-w-lg bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <p className="text-sm text-muted-foreground">Carregando checkout...</p>
       </main>
     )
   }
 
   if (successOrderNumber) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-[1180px] flex-col items-center justify-center bg-background px-6 text-center">
-        <div className="relative mb-6">
-          <div className="absolute inset-0 rounded-full bg-green-200 animate-ping opacity-40" />
-          <div className="relative w-20 h-20 rounded-full bg-green-500 text-white flex items-center justify-center text-4xl shadow-lg">
-            ✓
-          </div>
-        </div>
-        <h1 className="text-2xl font-extrabold text-foreground">{t.paymentConfirmedTitle}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t.paymentConfirmedSubtitle}</p>
-        <div className="mt-6 w-full max-w-xs rounded-2xl border border-border bg-card px-5 py-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.paymentOrderNumberLabel}</p>
-          <p className="mt-1 text-2xl font-bold text-accent">#{successOrderNumber}</p>
-        </div>
-        <Link
-          href="/"
-          className="mt-6 w-full max-w-xs rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
-        >
-          {t.paymentBackToMenu}
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center bg-background px-6 text-center">
+        <h1 className="text-2xl font-extrabold">Pagamento confirmado</h1>
+        <p className="mt-6 text-2xl font-bold text-accent">#{successOrderNumber}</p>
+        <Link href="/" className="mt-6 rounded-2xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground">
+          Voltar ao cardápio
         </Link>
       </main>
     )
@@ -578,358 +659,91 @@ export default function PagamentoPage() {
 
   if (items.length === 0) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background px-4 pt-10 md:px-6">
-        <Link href="/carrinho" className="text-sm font-semibold text-accent">
-          {t.paymentBackToCart}
-        </Link>
-        <p className="mt-4 text-sm text-muted-foreground">{t.paymentEmptyCart}</p>
+      <main className="mx-auto max-w-lg px-4 pt-10">
+        <p className="text-sm text-muted-foreground">Carrinho vazio.</p>
       </main>
     )
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background pb-28 md:px-6 md:pb-10">
+    <main className="mx-auto min-h-screen max-w-lg bg-background pb-28">
       {!!paypalScriptSrc && (
-        <Script
-          key={paypalScriptSrc}
-          src={paypalScriptSrc}
-          strategy="afterInteractive"
-          data-page-type="checkout"
-          onLoad={() => setSdkLoaded(true)}
-          onError={() => {
-            setSdkLoaded(false)
-            setPaypalError('Nao foi possivel carregar o SDK do PayPal.')
-          }}
-        />
+        <Script src={paypalScriptSrc} strategy="afterInteractive" onLoad={() => setSdkLoaded(true)} />
       )}
-
-      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))] md:px-0">
+      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-3">
-          <Link
-            href="/checkout/dados"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
-            aria-label={t.paymentHeaderBackAria}
-          >
+          <Link href="/checkout/dados" className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-card">
             <ArrowLeft size={18} />
           </Link>
-          <h1 className="text-base font-bold text-foreground">{t.paymentTitle}</h1>
+          <h1 className="text-base font-bold">Payment (PayPal)</h1>
         </div>
       </header>
-
-      <section className="px-4 pt-4 md:px-0">
-        <div className="space-y-4 md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-6 md:space-y-0">
-          <div className="space-y-4">
-            <div className="space-y-0.5 rounded-3xl border border-border bg-card p-3 text-xs text-muted-foreground shadow-sm">
-          <p className="font-semibold text-foreground text-sm">{checkoutCustomer.nome}</p>
-          <p>{checkoutCustomer.email}</p>
-          <p>{checkoutCustomer.telefone}</p>
-          <p>
-            {checkoutCustomer.fulfillmentType === 'delivery'
-              ? lang === 'pt'
-                ? 'Entrega'
-                : 'Delivery'
-              : lang === 'pt'
-                ? 'Retirada'
-                : 'Take out'}
-          </p>
-          {checkoutCustomer.fulfillmentType === 'delivery' && checkoutCustomer.localidadeEntregaNome ? (
-            <p>{checkoutCustomer.localidadeEntregaNome}</p>
-          ) : null}
-          {checkoutCustomer.fulfillmentType === 'delivery' && checkoutCustomer.enderecoEntrega.trim() ? (
-            <p>{checkoutCustomer.enderecoEntrega.trim()}</p>
-          ) : null}
-          <Link href="/checkout/dados" className="inline-block pt-1 font-medium text-accent">
-            {t.paymentEditDetails}
-          </Link>
-            </div>
-
-            <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {t.paymentOrderSummary}
-          </p>
-          {promotionResult && promotionResult.discountAmount > 0 && (
-            <p className="mt-2 rounded-xl border border-primary/30 bg-primary/8 px-3 py-2 text-[11px] leading-snug text-foreground">
-              {t.cartPromoStoreOff}
-              {promotionResult.breakdown.length > 0
-                ? ` (${promotionResult.breakdown.map((b) => b.label).join(', ')})`
-                : ''}
-            </p>
-          )}
-          {promotionResult &&
-            promotionResult.discountAmount <= 0 &&
-            formatPromotionHints(promotionResult.hints, lang, t.currency).map((line) => (
-              <p key={line} className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                {line}
-              </p>
-            ))}
-          {promotionResult?.codeInvalid && promoCode.trim() ? (
-            <p className="mt-2 text-[11px] text-destructive">{t.cartPromoInvalid}</p>
-          ) : null}
-          {promotionError ? <p className="mt-2 text-[11px] text-destructive">{promotionError}</p> : null}
-          <ul className="mt-3 divide-y divide-border/70 border-t border-border/70 pt-3">
-            {items.map(
-              ({
-                cartItemId,
-                item,
-                quantity,
-                unitPrice,
-                totalPrice: lineTotal,
-                observation,
-                selectedOptions,
-              }) => (
-                <li key={cartItemId} className="py-3 first:pt-0">
-                  <p className="font-serif text-sm font-semibold leading-snug text-foreground">{item.nome}</p>
-                  {selectedOptions.length > 0 && (
-                    <ul className="mt-2 space-y-1 border-l-2 border-primary/20 pl-2.5">
-                      {selectedOptions.map((opt) => (
-                        <li key={`${cartItemId}-${opt.optionId}`} className="text-[11px] leading-snug text-muted-foreground">
-                          {formatPaymentOptionLine(opt, t.currency)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {observation.trim() ? (
-                    <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-                      <span className="font-medium text-foreground/80">{t.paymentObsLabel}</span> {observation.trim()}
-                    </p>
-                  ) : null}
-                  <div className="mt-2.5 flex items-baseline justify-between gap-3 tabular-nums">
-                    <span className="text-[11px] text-muted-foreground">
-                      {quantity} × {t.currency}
-                      {unitPrice.toFixed(2)}
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {t.currency}
-                      {lineTotal.toFixed(2)}
-                    </span>
-                  </div>
-                </li>
-              )
-            )}
-          </ul>
-          <div className="mt-3 flex justify-between border-t border-border/80 pt-3 text-xs text-muted-foreground">
-            <span>
-              {totalItems} {totalItems === 1 ? t.item : t.items}
-            </span>
-            {promotionLoading ? <span className="opacity-60">…</span> : null}
-          </div>
-          <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-            <span>{t.paymentSubtotal}</span>
-            <span className="tabular-nums">
-              {t.currency}
-              {subtotalBeforePromo.toFixed(2)}
-            </span>
-          </div>
-          {promotionResult && promotionResult.discountAmount > 0 ? (
-            <div className="flex justify-between text-xs font-medium text-primary">
-              <span>{t.paymentDiscount}</span>
-              <span className="tabular-nums">
-                −{t.currency}
-                {promotionResult.discountAmount.toFixed(2)}
-              </span>
-            </div>
-          ) : null}
-          {deliveryFeeApplied > 0 ? (
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{lang === 'pt' ? 'Taxa de entrega' : 'Delivery fee'}</span>
-              <span className="tabular-nums">
-                {t.currency}
-                {deliveryFeeApplied.toFixed(2)}
-              </span>
-            </div>
-          ) : null}
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>
-              {lang === 'pt'
-                ? `Imposto (${(ORDER_TAX_RATE * 100).toFixed(2)}%)`
-                : `Tax (${(ORDER_TAX_RATE * 100).toFixed(2)}%)`}
-            </span>
-            <span className="tabular-nums">
-              {t.currency}
-              {orderTax.toFixed(2)}
-            </span>
-          </div>
-          <div className="flex justify-between pt-1 font-bold text-xl">
+      <section className="space-y-4 px-4 pt-4">
+        <div className="rounded-3xl border border-border bg-card p-4">
+          <div className="flex justify-between font-bold text-xl">
             <span>{t.total}</span>
-            <span className="text-accent tabular-nums">
+            <span className="text-accent">
               {t.currency}
-              {totalWithTax.toFixed(2)}
+              {totalPrice.toFixed(2)}
             </span>
           </div>
-            </div>
-
-            <div className="rounded-3xl border border-border bg-card p-3 shadow-sm">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {t.paymentPromoCodeLabel}
-          </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              value={promoDraft}
-              onChange={(e) => setPromoDraft(e.target.value)}
-              className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
-              autoCapitalize="characters"
-              autoCorrect="off"
-            />
-            <button
-              type="button"
-              onClick={() => setPromoCode(promoDraft.trim())}
-              className="shrink-0 rounded-xl bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground"
-            >
-              {t.cartPromoApply}
-            </button>
-            {promoCode.trim() ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setPromoDraft('')
-                  setPromoCode('')
-                }}
-                className="shrink-0 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground"
-              >
-                Remover
-              </button>
-            ) : null}
-          </div>
-            </div>
-          </div>
-
-          <div className="space-y-4 md:sticky md:top-24">
-            <div className="rounded-3xl border border-border bg-card p-2 shadow-sm">
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setMethod('card')}
-              className={`h-11 rounded-2xl text-sm font-semibold transition-colors ${
-                method === 'card'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <CreditCard size={14} />
-                {t.paymentMethodCard}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMethod('paypal')}
-              className={`h-11 rounded-2xl text-sm font-semibold transition-colors ${
-                method === 'paypal'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <Wallet size={14} />
-                {t.paymentMethodPayPal}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMethod('cash')}
-              className={`h-11 rounded-2xl text-sm font-semibold transition-colors ${
-                method === 'cash'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <HandCoins size={14} />
-                {lang === 'pt' ? 'Dinheiro' : 'Cash'}
-              </span>
-            </button>
-          </div>
-            </div>
-
-            <div className={`${method === 'card' ? '' : 'hidden'} space-y-2 rounded-3xl border border-border bg-card p-3 shadow-sm`}>
-          {(!sdkLoaded || (sdkLoaded && !cardFieldsReady)) && (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t.paymentCardLoading}</p>
-          )}
-          {sdkLoaded && cardFieldsReady && !cardFieldsEligible && (
-            <div className="space-y-2 pb-2">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                {t.paymentCardFallbackTitle}
-              </p>
-              <p className="text-[11px] leading-snug text-muted-foreground">{t.paymentCardFallbackIntro}</p>
-              {paypalConfigWarnings.length > 0 ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-[11px] text-amber-800">
-                  {paypalConfigWarnings.map((warning) => (
-                    <p key={warning}>• {warning}</p>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )}
-          <div className={cardFieldsEligible ? 'space-y-2' : 'hidden'}>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.paymentCardDetailsTitle}</p>
-            <p className="text-[11px] leading-snug text-muted-foreground">{t.paymentCardIntro}</p>
-            <div id="card-name-field" className="min-h-12 overflow-hidden rounded-xl bg-transparent" />
-            <div id="card-number-field" className="min-h-12 overflow-hidden rounded-xl bg-transparent" />
-            <div className="grid grid-cols-2 gap-2">
-              <div id="card-expiry-field" className="min-h-12 overflow-hidden rounded-xl bg-transparent" />
-              <div id="card-cvv-field" className="min-h-12 overflow-hidden rounded-xl bg-transparent" />
-            </div>
-            <label className="flex cursor-pointer items-start gap-2.5 pt-1 text-[11px] leading-snug text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={salvarCartaoEstePedido}
-                onChange={(e) => setSalvarCartaoEstePedido(e.target.checked)}
-                className="mt-0.5 shrink-0 rounded border-border"
-              />
-              <span>{t.paymentSaveCardCheckbox}</span>
-            </label>
-            <button
-              type="button"
-              onClick={handleCardPayment}
-              disabled={cardFieldsLoading}
-              className="mt-1 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm disabled:opacity-60"
-            >
-              {cardFieldsLoading ? t.paymentProcessing : t.paymentPayConfirm}
-            </button>
-          </div>
-          <div
-            id="paypal-button-container-card"
-            className={usePayPalButtonsForCard ? 'pt-2' : 'hidden'}
-          />
-            </div>
-
-            <div className={`${method === 'paypal' ? '' : 'hidden'} rounded-3xl border border-border bg-card p-4 shadow-sm`}>
-          <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
-            {t.paymentPaypalSecureTitle}
+          <p className="mt-1 text-xs text-muted-foreground">
+            {totalItems} {totalItems === 1 ? t.item : t.items}
           </p>
-          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">{t.paymentPaypalIntro}</p>
-          <div id="paypal-button-container" />
-            </div>
-
-            <div className={`${method === 'cash' ? '' : 'hidden'} rounded-3xl border border-border bg-card p-4 shadow-sm`}>
-          <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-            {lang === 'pt' ? 'Pagamento em dinheiro' : 'Cash payment'}
-          </p>
-          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
-            {lang === 'pt'
-              ? 'Você paga somente quando receber o pedido. Ao confirmar, sua ordem entra na fila da cozinha com forma de pagamento marcada como dinheiro na entrega.'
-              : 'You pay only when receiving the order. Once confirmed, your order goes to kitchen with payment marked as cash on delivery.'}
-          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 rounded-3xl border border-border bg-card p-2">
           <button
             type="button"
-            onClick={() => {
-              handleCashPayment().catch((error) => {
-                setPaypalError(error instanceof Error ? error.message : 'Falha ao criar pedido em dinheiro.')
-              })
-            }}
-            className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm"
+            onClick={() => setMethod('paypal')}
+            className={`h-11 rounded-2xl text-sm font-semibold ${method === 'paypal' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >
-            {lang === 'pt' ? 'Confirmar pedido (pagar na entrega)' : 'Confirm order (pay on delivery)'}
+            <span className="inline-flex items-center gap-1.5">
+              <Wallet size={14} /> PayPal
+            </span>
           </button>
-            </div>
-
-            {paypalError && <p className="text-xs text-red-500">{paypalError}</p>}
-            {resultMessage && <p className="text-xs text-foreground">{resultMessage}</p>}
-          </div>
+          <button
+            type="button"
+            onClick={() => setMethod('card')}
+            disabled={!cardFieldsEligible}
+            className={`h-11 rounded-2xl text-sm font-semibold disabled:opacity-40 ${method === 'card' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <CreditCard size={14} /> Card
+            </span>
+          </button>
         </div>
+        <div className={`${method === 'paypal' ? '' : 'hidden'} rounded-3xl border border-border bg-card p-4`}>
+          <div id="paypal-button-container" />
+        </div>
+        <div className={`${method === 'card' && cardFieldsEligible ? '' : 'hidden'} space-y-2 rounded-3xl border border-border bg-card p-3`}>
+          <div id="card-name-field" className="min-h-12" />
+          <div id="card-number-field" className="min-h-12" />
+          <div className="grid grid-cols-2 gap-2">
+            <div id="card-expiry-field" className="min-h-12" />
+            <div id="card-cvv-field" className="min-h-12" />
+          </div>
+          <button
+            type="button"
+            disabled={cardFieldsLoading}
+            onClick={async () => {
+              if (!cardFieldsRef.current) return
+              setCardFieldsLoading(true)
+              try {
+                await cardFieldsRef.current.submit()
+              } catch (e) {
+                setPaypalError(e instanceof Error ? e.message : 'Falha no cartão.')
+              } finally {
+                setCardFieldsLoading(false)
+              }
+            }}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground"
+          >
+            {cardFieldsLoading ? 'Processing...' : 'Pay & Confirm'}
+          </button>
+        </div>
+        {paypalError && <p className="text-xs text-red-500">{paypalError}</p>}
+        {resultMessage && <p className="text-xs">{resultMessage}</p>}
       </section>
-
     </main>
   )
 }

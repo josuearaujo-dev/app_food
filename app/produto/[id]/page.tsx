@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Minus, UtensilsCrossed } from 'lucide-react'
+import { ArrowLeft, Plus, Minus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useParams, useRouter } from 'next/navigation'
 import { useLang } from '@/lib/lang-context'
-import { getItemDescriptionByLang, getItemNameByLang } from '@/lib/menu-i18n'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
 
 type ItemDetalhe = ItemCardapio & {
   disponivel: boolean
@@ -92,7 +90,7 @@ export default function ProdutoDetalhePage() {
   const router = useRouter()
   const supabase = createClient()
   const { addItem } = useCart()
-  const { t, lang } = useLang()
+  const { t } = useLang()
   const [item, setItem] = useState<ItemDetalhe | null>(null)
   const [loading, setLoading] = useState(true)
   const [qtd, setQtd] = useState(1)
@@ -114,7 +112,7 @@ export default function ProdutoDetalhePage() {
       }
       const { data } = await supabase
         .from('itens_cardapio')
-        .select('id, nome, nome_en, descricao, descricao_en, preco, imagem_url, categoria_id, disponivel, quantidade_info, tamanhos_disponiveis, ingredientes_info, alergenicos_alerta')
+        .select('id, nome, descricao, preco, imagem_url, categoria_id, disponivel, quantidade_info, tamanhos_disponiveis, ingredientes_info, alergenicos_alerta')
         .eq('id', id)
         .maybeSingle()
       if (!active) return
@@ -283,13 +281,13 @@ export default function ProdutoDetalhePage() {
     }, 0)
 
   if (loading) {
-    return <LogoLoadingScreen message={t.loadingProduct} />
+    return <main className="min-h-screen bg-background max-w-lg mx-auto p-4" />
   }
 
   if (!item) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background p-4 md:px-6">
-        <Link href="/" className="text-sm font-semibold text-primary">
+      <main className="min-h-screen bg-background max-w-lg mx-auto p-4">
+        <Link href="/" className="text-sm font-semibold text-accent">
           Voltar
         </Link>
         <p className="mt-4 text-sm text-muted-foreground">Produto nao encontrado.</p>
@@ -304,44 +302,32 @@ export default function ProdutoDetalhePage() {
     selectedSize?.info || selectedQuantity?.info || item.quantidade_info
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1180px] bg-background pb-32 md:px-6 md:pb-10">
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-card/85 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl md:px-0">
+    <main className="min-h-screen bg-background max-w-lg mx-auto pb-32">
+      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card shadow-sm transition-colors active:bg-muted"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
             aria-label="Back"
           >
             <ArrowLeft size={20} />
           </Link>
-          <h1 className="font-serif text-lg font-semibold tracking-tight text-foreground">Detalhes</h1>
+          <h1 className="text-base font-bold text-foreground">Detalhes do produto</h1>
         </div>
       </header>
 
-      <div className="px-4 pt-4 md:px-0 md:pt-6">
-        <div className="md:grid md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-6">
-          <section className="space-y-4 md:space-y-5">
+      <section className="px-4 pt-4 space-y-4">
         {item.imagem_url ? (
-          <img
-            src={item.imagem_url}
-            alt={getItemNameByLang(item, lang)}
-            className="h-52 w-full rounded-xl object-cover shadow-(--shadow-card) md:h-[360px]"
-          />
+          <img src={item.imagem_url} alt={item.nome} className="w-full h-52 object-cover rounded-2xl" />
         ) : (
-          <div className="flex h-52 w-full items-center justify-center rounded-xl border border-border/60 bg-muted md:h-[360px]">
-            <UtensilsCrossed size={40} strokeWidth={1.15} className="text-primary/40" aria-hidden />
-          </div>
+          <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-accent/10 text-6xl">🍽️</div>
         )}
         <div>
-          <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-            {getItemNameByLang(item, lang)}
-          </h2>
-          {getItemDescriptionByLang(item, lang) && (
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {getItemDescriptionByLang(item, lang)}
-            </p>
+          <h2 className="text-lg font-bold text-foreground">{item.nome}</h2>
+          {item.descricao && (
+            <p className="text-sm text-muted-foreground mt-1">{item.descricao}</p>
           )}
-          <p className="mt-3 text-2xl font-semibold tabular-nums text-primary">
+          <p className="mt-1.5 text-xl font-bold text-accent">
             {t.currency}
             {unitPrice.toFixed(2)}
           </p>
@@ -550,9 +536,9 @@ export default function ProdutoDetalhePage() {
         )}
 
         {item.alergenicos_alerta && (
-          <div className="rounded-xl border border-primary/25 bg-primary/6 px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">Alérgenos</p>
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{item.alergenicos_alerta}</p>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-[12px] font-semibold text-amber-700">Alergenicos</p>
+            <p className="text-xs text-amber-700 mt-0.5">{item.alergenicos_alerta}</p>
           </div>
         )}
 
@@ -565,85 +551,45 @@ export default function ProdutoDetalhePage() {
             onChange={(e) => setObservation(e.target.value)}
             placeholder="Ex: sem cebola, ponto da carne..."
             rows={3}
-            className="w-full resize-none rounded-xl border border-border/60 bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/15"
+            className="w-full resize-none rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent/30"
           />
         </div>
-          </section>
-
-          <aside className="hidden md:sticky md:top-24 md:block">
-            <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-(--shadow-card)">
-              <div className="mb-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total</p>
-                <p className="mt-1 text-3xl font-semibold leading-none tabular-nums text-foreground">
-                  {t.currency}
-                  {(unitPrice * qtd).toFixed(2)}
-                </p>
-              </div>
-
-              <div className="mb-4 flex items-center justify-between rounded-full border border-border/60 bg-secondary px-2 py-2">
-                <button
-                  type="button"
-                  onClick={() => setQtd((q) => Math.max(1, q - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-card transition-colors active:bg-muted"
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="w-8 text-center text-base font-bold tabular-nums">{qtd}</span>
-                <button
-                  type="button"
-                  onClick={() => setQtd((q) => q + 1)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                >
-                  <Plus size={16} strokeWidth={2.5} />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md transition-opacity active:opacity-90"
-              >
-                Adicionar ao carrinho
-              </button>
-            </div>
-          </aside>
-        </div>
-      </div>
+      </section>
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg border-t border-border/80 bg-card/95 px-4 pt-3 backdrop-blur-xl md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border px-4 pt-2.5 max-w-lg mx-auto"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 mb-2.5">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Total</p>
-            <p className="font-serif text-2xl font-semibold leading-none tabular-nums text-foreground">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Preco</p>
+            <p className="text-2xl font-bold leading-none text-foreground">
               {t.currency}
               {(unitPrice * qtd).toFixed(2)}
             </p>
           </div>
-          <div className="flex items-center gap-1 rounded-full border border-border/60 bg-foreground px-1 py-1 text-background">
+          <div className="flex items-center gap-2 rounded-full bg-primary px-1.5 py-1 text-primary-foreground">
             <button
               type="button"
               onClick={() => setQtd((q) => Math.max(1, q - 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/12 transition-colors active:bg-white/20"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15"
             >
-              <Minus size={14} />
+              <Minus size={13} />
             </button>
-            <span className="w-6 text-center text-sm font-bold tabular-nums">{qtd}</span>
+            <span className="w-5 text-center text-sm font-bold">{qtd}</span>
             <button
               type="button"
               onClick={() => setQtd((q) => q + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-accent-foreground"
             >
-              <Plus size={14} strokeWidth={2.5} />
+              <Plus size={13} />
             </button>
           </div>
         </div>
         <button
           type="button"
           onClick={handleAdd}
-          className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md transition-opacity active:opacity-90"
+          className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground"
         >
           Adicionar ao carrinho
         </button>

@@ -1,40 +1,36 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, ArrowLeft, Plus, Minus, UtensilsCrossed } from 'lucide-react'
+import { Search, ArrowLeft, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
-import { getCategoryNameByLang, getItemDescriptionByLang, getItemNameByLang } from '@/lib/menu-i18n'
 import { cn } from '@/lib/utils'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
 
 interface ItemComCategoria extends ItemCardapio {
   disponivel: boolean
   destaque: boolean
-  categorias: { id: string; nome: string; nome_en: string | null; icone: string | null } | null
+  categorias: { id: string; nome: string; icone: string | null } | null
 }
 
 export default function BuscaPage() {
-  const router = useRouter()
   const [query, setQuery] = useState('')
   const [itens, setItens] = useState<ItemComCategoria[]>([])
   const [loading, setLoading] = useState(false)
-  const { updateQuantity, items } = useCart()
-  const { t, lang } = useLang()
+  const { addItem, updateQuantity, items } = useCart()
+  const { t } = useLang()
 
   const buscar = useCallback(async (q: string) => {
     setLoading(true)
     const supabase = createClient()
     let req = supabase
       .from('itens_cardapio')
-      .select('id, nome, nome_en, descricao, descricao_en, preco, imagem_url, categoria_id, disponivel, destaque, categorias(id, nome, nome_en, icone)')
+      .select('*, categorias(id, nome, icone)')
       .eq('disponivel', true)
 
     if (q.trim()) {
-      req = req.or(`nome.ilike.%${q.trim()}%,nome_en.ilike.%${q.trim()}%`)
+      req = req.ilike('nome', `%${q.trim()}%`)
     }
 
     const { data } = await req.order('nome').limit(50)
@@ -59,11 +55,11 @@ export default function BuscaPage() {
 
   return (
     <main className="min-h-screen bg-background max-w-lg mx-auto pb-28">
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-card/85 backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 backdrop-blur-md">
+        <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
           <Link
             href="/"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card shadow-sm transition-colors active:bg-muted"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
             aria-label={t.home}
           >
             <ArrowLeft size={20} />
@@ -83,7 +79,7 @@ export default function BuscaPage() {
               placeholder={t.searchPagePlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-12 w-full rounded-xl border border-border/80 bg-card pl-11 pr-4 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
+              className="h-12 w-full rounded-2xl border border-border bg-card pl-11 pr-4 text-[15px] text-foreground placeholder:text-muted-foreground shadow-sm outline-none transition-shadow focus:border-accent/40 focus:ring-2 focus:ring-accent/25"
             />
           </label>
         </div>
@@ -91,18 +87,22 @@ export default function BuscaPage() {
 
       <div className="px-4 pt-4">
         {loading ? (
-          <LogoLoadingScreen variant="contained" message={t.loadingSearch} className="min-h-[min(420px,70vh)]" />
+          <div className="space-y-3" aria-busy="true">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-[88px] animate-pulse rounded-2xl bg-secondary" />
+            ))}
+          </div>
         ) : itens.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/80 px-6 py-14 text-center shadow-(--shadow-card)">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-border/60 bg-muted/80">
-              <Search size={24} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/60 px-6 py-14 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+              <Search size={26} className="text-muted-foreground" aria-hidden />
             </div>
-            <p className="font-serif text-lg font-semibold text-foreground">{t.noResults}</p>
-            <p className="mt-2 max-w-[260px] text-sm leading-relaxed text-muted-foreground">{t.noResultsHint}</p>
+            <p className="font-semibold text-foreground">{t.noResults}</p>
+            <p className="mt-1.5 max-w-[260px] text-sm leading-relaxed text-muted-foreground">{t.noResultsHint}</p>
           </div>
         ) : (
           <>
-            <p className="mb-3 px-0.5 text-[11px] font-medium uppercase tracking-widest tabular-nums text-muted-foreground">
+            <p className="mb-3 px-0.5 text-xs font-medium tabular-nums text-muted-foreground">
               {query.trim()
                 ? `${itens.length} ${t.results} "${query.trim()}"`
                 : `${itens.length} ${t.items}`}
@@ -115,42 +115,44 @@ export default function BuscaPage() {
                   <li key={item.id}>
                     <article
                       className={cn(
-                        'flex gap-4 overflow-hidden rounded-xl border border-border/80 bg-card p-3.5 shadow-(--shadow-card) transition-shadow hover:shadow-(--shadow-luxury)'
+                        'flex gap-3 overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md'
                       )}
                     >
                       <Link
                         href={`/produto/${item.id}`}
-                        className="shrink-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                        className="shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         {item.imagem_url ? (
-                          <div className="h-[88px] w-[88px] overflow-hidden rounded-lg bg-muted">
+                          <div className="h-[88px] w-[88px] overflow-hidden rounded-xl bg-secondary">
                             <img src={item.imagem_url} alt="" className="h-full w-full object-cover" />
                           </div>
                         ) : (
-                          <div className="flex h-[88px] w-[88px] items-center justify-center rounded-lg bg-muted">
-                            <UtensilsCrossed size={26} strokeWidth={1.25} className="text-primary/45" aria-hidden />
+                          <div className="flex h-[88px] w-[88px] items-center justify-center rounded-xl bg-accent/10">
+                            <span className="text-3xl" aria-hidden>
+                              🍽️
+                            </span>
                           </div>
                         )}
                       </Link>
                       <div className="flex min-w-0 flex-1 flex-col">
                         <Link href={`/produto/${item.id}`} className="min-w-0 flex-1 text-left">
                           {item.categorias && (
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/90">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
                               {item.categorias.icone ? `${item.categorias.icone} ` : ''}
-                              {getCategoryNameByLang(item.categorias, lang)}
+                              {item.categorias.nome}
                             </p>
                           )}
                           <h3 className="mt-0.5 line-clamp-2 text-left text-[15px] font-semibold leading-snug text-foreground">
-                            {getItemNameByLang(item, lang)}
+                            {item.nome}
                           </h3>
-                          {getItemDescriptionByLang(item, lang) && (
+                          {item.descricao && (
                             <p className="mt-1 line-clamp-2 text-left text-xs leading-relaxed text-muted-foreground">
-                              {getItemDescriptionByLang(item, lang)}
+                              {item.descricao}
                             </p>
                           )}
                         </Link>
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <p className="font-serif text-base font-semibold tabular-nums text-primary">
+                          <p className="text-[15px] font-bold tabular-nums text-accent">
                             {t.currency}
                             {item.preco.toFixed(2)}
                           </p>
@@ -158,14 +160,14 @@ export default function BuscaPage() {
                             {qtd === 0 ? (
                               <button
                                 type="button"
-                                onClick={() => router.push(`/produto/${item.id}`)}
+                                onClick={() => addItem(item, 1)}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform active:scale-[0.98]"
-                                aria-label={`${t.addToCart}: ${getItemNameByLang(item, lang)}`}
+                                aria-label={`${t.addToCart}: ${item.nome}`}
                               >
                                 <Plus size={20} strokeWidth={2.5} />
                               </button>
                             ) : (
-                              <div className="flex h-10 items-center gap-1 rounded-xl border border-border/60 bg-secondary/80 px-1">
+                              <div className="flex h-10 items-center gap-1 rounded-xl bg-secondary px-1">
                                 <button
                                   type="button"
                                   onClick={() => firstLineId && updateQuantity(firstLineId, qtd - 1)}
@@ -177,7 +179,7 @@ export default function BuscaPage() {
                                 <span className="min-w-5 text-center text-sm font-bold tabular-nums">{qtd}</span>
                                 <button
                                   type="button"
-                                  onClick={() => router.push(`/produto/${item.id}`)}
+                                  onClick={() => firstLineId && updateQuantity(firstLineId, qtd + 1)}
                                   className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm"
                                   aria-label="Adicionar uma unidade"
                                 >

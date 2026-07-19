@@ -6,21 +6,16 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, Pencil, Trash2, LogOut, ChefHat, X, Check,
-  Eye, EyeOff, Star, Package, ImageIcon, Upload, Loader2, Search,
+  Eye, EyeOff, Star, Package, ImageIcon, Upload, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
-import { AdminCombosPanel } from '@/components/admin-combos-panel'
-import { AdminPromocoesPanel } from '@/app/admin/promocoes/page'
-import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
 
 const BUCKET = 'cardapio-imagens'
 
 interface Categoria {
   id: string
   nome: string
-  nome_en: string | null
   icone: string | null
   ordem: number
   ativo: boolean
@@ -29,9 +24,7 @@ interface Categoria {
 interface Item {
   id: string
   nome: string
-  nome_en: string | null
   descricao: string | null
-  descricao_en: string | null
   preco: number
   imagem_url: string | null
   quantidade_info: string | null
@@ -56,14 +49,6 @@ type OptionLine = {
 type ExtraGroupForm = {
   key: string
   grupoId?: string
-  nome: string
-  minEscolhas: number | null
-  maxEscolhas: number | null
-  options: OptionLine[]
-}
-
-type ExtraTemplate = {
-  id: string
   nome: string
   minEscolhas: number | null
   maxEscolhas: number | null
@@ -107,7 +92,7 @@ export default function AdminPage() {
   const supabase = createClient()
   const { t, lang, toggleLang } = useLang()
 
-  const TABS = [t.tabItems, t.tabCategories, 'Combos', t.promoNavLink, 'PrintNode'] as const
+  const TABS = [t.tabItems, t.tabCategories] as const
   type Tab = typeof TABS[number]
 
   const [tab, setTab] = useState<Tab>(t.tabItems)
@@ -119,7 +104,7 @@ export default function AdminPage() {
   const [modalItem, setModalItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<Item | null>(null)
   const [formItem, setFormItem] = useState({
-    nome: '', nome_en: '', descricao: '', descricao_en: '', preco: '', imagem_url: '',
+    nome: '', descricao: '', preco: '', imagem_url: '',
     quantidade_info: '', tamanhos_disponiveis: '', ingredientes_info: '', alergenicos_alerta: '',
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
@@ -127,31 +112,12 @@ export default function AdminPage() {
     categoria_id: '', disponivel: true, destaque: false, ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
-  const [extraTemplates, setExtraTemplates] = useState<ExtraTemplate[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState('')
-  const [extraMasterToast, setExtraMasterToast] = useState<{
-    kind: 'success' | 'error'
-    text: string
-  } | null>(null)
-
-  function showExtraMasterToast(kind: 'success' | 'error', text: string) {
-    setExtraMasterToast({ kind, text })
-  }
-
-  function dismissExtraMasterToast() {
-    setExtraMasterToast(null)
-  }
 
   // Modal categoria
   const [modalCat, setModalCat] = useState(false)
   const [catEditando, setCatEditando] = useState<Categoria | null>(null)
-  const [formCat, setFormCat] = useState({ nome: '', nome_en: '', icone: '', ordem: 0, ativo: true })
+  const [formCat, setFormCat] = useState({ nome: '', icone: '', ordem: 0, ativo: true })
   const [salvandoCat, setSalvandoCat] = useState(false)
-
-  const [filtroBuscaItens, setFiltroBuscaItens] = useState('')
-  const [filtroCategoriaId, setFiltroCategoriaId] = useState('')
-  const [filtroDisponivel, setFiltroDisponivel] = useState<'all' | 'yes' | 'no'>('all')
-  const [filtroDestaque, setFiltroDestaque] = useState<'all' | 'yes' | 'no'>('all')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -159,56 +125,12 @@ export default function AdminPage() {
       supabase.from('categorias').select('*').order('ordem'),
       supabase.from('itens_cardapio').select('*, categorias(id, nome, icone, ordem, ativo)').order('ordem'),
     ])
-
-    let templates: ExtraTemplate[] = []
-    try {
-      const { data: tplGroups, error: errG } = await supabase
-        .from('extra_grupos_predefinidos')
-        .select('id, nome, min_escolhas, max_escolhas')
-        .eq('ativo', true)
-        .order('nome')
-      const { data: tplOptions, error: errO } = await supabase
-        .from('extra_grupo_opcoes_predefinidas')
-        .select('grupo_id, label, price_delta, detail_info, ordem')
-        .eq('ativo', true)
-        .order('ordem')
-
-      if (!errG && !errO && tplGroups) {
-        const byTplGroup = new Map<string, OptionLine[]>()
-        ;(tplOptions ?? []).forEach((op) => {
-          const line: OptionLine = {
-            label: String(op.label ?? ''),
-            priceDelta: Number(op.price_delta ?? 0),
-            info: String(op.detail_info ?? ''),
-            ordem: Number(op.ordem ?? 0),
-          }
-          byTplGroup.set(op.grupo_id, [...(byTplGroup.get(op.grupo_id) ?? []), line])
-        })
-        templates = tplGroups.map((g) => ({
-          id: g.id,
-          nome: g.nome,
-          minEscolhas: g.min_escolhas == null ? null : Number(g.min_escolhas),
-          maxEscolhas: g.max_escolhas == null ? null : Number(g.max_escolhas),
-          options: byTplGroup.get(g.id) ?? [],
-        }))
-      }
-    } catch {
-      templates = []
-    }
-
     setCategorias(cats ?? [])
     setItens(its ?? [])
-    setExtraTemplates(templates)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { fetchData() }, [fetchData])
-
-  useEffect(() => {
-    if (!modalItem) {
-      setExtraMasterToast(null)
-    }
-  }, [modalItem])
 
   // Reset tab label when lang changes
   useEffect(() => { setTab(t.tabItems) }, [lang, t.tabItems])
@@ -243,49 +165,6 @@ export default function AdminPage() {
       setFormCat((p) => ({ ...p, ordem: maxPosicaoCategoria }))
     }
   }, [modalCat, maxPosicaoCategoria])
-
-  const itensFiltradosAdmin = useMemo(() => {
-    const q = filtroBuscaItens.trim().toLowerCase()
-    return itens.filter((i) => {
-      if (q) {
-        const nome = i.nome.toLowerCase()
-        const desc = (i.descricao ?? '').toLowerCase()
-        if (!nome.includes(q) && !desc.includes(q)) return false
-      }
-      if (filtroCategoriaId && i.categoria_id !== filtroCategoriaId) return false
-      if (filtroDisponivel === 'yes' && !i.disponivel) return false
-      if (filtroDisponivel === 'no' && i.disponivel) return false
-      if (filtroDestaque === 'yes' && !i.destaque) return false
-      if (filtroDestaque === 'no' && i.destaque) return false
-      return true
-    })
-  }, [itens, filtroBuscaItens, filtroCategoriaId, filtroDisponivel, filtroDestaque])
-
-  const filtrosItensAtivos = useMemo(
-    () =>
-      Boolean(filtroBuscaItens.trim()) ||
-      Boolean(filtroCategoriaId) ||
-      filtroDisponivel !== 'all' ||
-      filtroDestaque !== 'all',
-    [filtroBuscaItens, filtroCategoriaId, filtroDisponivel, filtroDestaque]
-  )
-
-  function limparFiltrosItens() {
-    setFiltroBuscaItens('')
-    setFiltroCategoriaId('')
-    setFiltroDisponivel('all')
-    setFiltroDestaque('all')
-  }
-
-  const textoContagemItens = useMemo(() => {
-    if (itens.length === 0) return `0 ${t.items}`
-    if (filtrosItensAtivos) {
-      return t.adminShowingCount
-        .replace('{n}', String(itensFiltradosAdmin.length))
-        .replace('{total}', String(itens.length))
-    }
-    return `${itens.length} ${itens.length === 1 ? t.item : t.items}`
-  }, [itens.length, itensFiltradosAdmin.length, filtrosItensAtivos, t.adminShowingCount, t.item, t.items])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -558,102 +437,6 @@ export default function AdminPage() {
     }))
   }
 
-  function importExtraTemplate(templateId: string) {
-    const template = extraTemplates.find((tpl) => tpl.id === templateId)
-    if (!template) return
-    setFormItem((prev) => ({
-      ...prev,
-      extra_groups: [
-        ...prev.extra_groups,
-        {
-          key: crypto.randomUUID(),
-          nome: template.nome,
-          minEscolhas: template.minEscolhas,
-          maxEscolhas: template.maxEscolhas,
-          options: template.options.map((op, idx) => ({
-            label: op.label,
-            priceDelta: op.priceDelta,
-            info: op.info,
-            ordem: idx,
-          })),
-        },
-      ],
-    }))
-    showExtraMasterToast(
-      'success',
-      `O grupo “${template.nome}” foi importado para este produto. Ele aparece na lista de extras abaixo; ajuste se precisar e salve o produto.`
-    )
-  }
-
-  async function salvarGrupoComoPredefinido(groupIndex: number) {
-    const group = formItem.extra_groups[groupIndex]
-    if (!group) return
-    const nome = group.nome.trim()
-    const lines = normalizeOptionLines(group.options)
-    if (!nome || lines.length === 0) {
-      showExtraMasterToast(
-        'error',
-        'Preencha o nome do grupo e pelo menos uma opção com nome antes de salvar como pré-cadastro.'
-      )
-      return
-    }
-
-    let min =
-      group.minEscolhas == null ? null : Math.max(0, Math.floor(Number(group.minEscolhas)))
-    let max =
-      group.maxEscolhas == null ? null : Math.max(0, Math.floor(Number(group.maxEscolhas)))
-    if (min !== null && Number.isNaN(min)) min = null
-    if (max !== null && Number.isNaN(max)) max = null
-    if (min !== null && max !== null && max < min) max = min
-
-    const { data: upserted, error: upErr } = await supabase
-      .from('extra_grupos_predefinidos')
-      .upsert(
-        {
-          nome,
-          min_escolhas: min,
-          max_escolhas: max,
-          ativo: true,
-        },
-        { onConflict: 'nome' }
-      )
-      .select('id')
-      .single()
-
-    if (upErr || !upserted?.id) {
-      showExtraMasterToast(
-        'error',
-        upErr?.message ?? 'Não foi possível salvar o grupo na biblioteca. Verifique se a migração 036 foi aplicada.'
-      )
-      return
-    }
-
-    const groupId = upserted.id
-
-    await supabase.from('extra_grupo_opcoes_predefinidas').delete().eq('grupo_id', groupId)
-    const { error: insErr } = await supabase.from('extra_grupo_opcoes_predefinidas').insert(
-      lines.map((line) => ({
-        grupo_id: groupId,
-        label: line.label,
-        price_delta: line.priceDelta,
-        detail_info: line.info || null,
-        ordem: line.ordem,
-        ativo: true,
-      }))
-    )
-
-    if (insErr) {
-      showExtraMasterToast('error', insErr.message)
-      return
-    }
-
-    await fetchData()
-    showExtraMasterToast(
-      'success',
-      `O pré-cadastro “${nome}” foi salvo na biblioteca. Você pode importá-lo em outros produtos pelo seletor “Importar grupo pré-cadastrado”.`
-    )
-  }
-
   function removeExtraGroup(index: number) {
     setFormItem((prev) => ({
       ...prev,
@@ -718,9 +501,7 @@ export default function AdminPage() {
       .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
     setFormItem({
       nome: '',
-      nome_en: '',
       descricao: '',
-      descricao_en: '',
       preco: '',
       imagem_url: '',
       quantidade_info: '',
@@ -735,7 +516,6 @@ export default function AdminPage() {
       destaque: false,
       ordem: outros.length + 1,
     })
-    setSelectedTemplateId('')
     setModalItem(true)
   }
 
@@ -748,9 +528,7 @@ export default function AdminPage() {
     const posicao = Math.max(1, mesmaCat.findIndex((i) => i.id === item.id) + 1)
     setFormItem({
       nome: item.nome,
-      nome_en: item.nome_en ?? '',
       descricao: item.descricao ?? '',
-      descricao_en: item.descricao_en ?? '',
       preco: item.preco.toString(),
       imagem_url: item.imagem_url ?? '',
       quantidade_info: item.quantidade_info ?? '',
@@ -765,7 +543,6 @@ export default function AdminPage() {
       destaque: item.destaque,
       ordem: posicao,
     })
-    setSelectedTemplateId('')
     setModalItem(true)
   }
 
@@ -787,9 +564,7 @@ export default function AdminPage() {
 
     const payloadBase = {
       nome: formItem.nome.trim(),
-      nome_en: formItem.nome_en.trim() || null,
       descricao: formItem.descricao.trim() || null,
-      descricao_en: formItem.descricao_en.trim() || null,
       preco: parseFloat(formItem.preco.replace(',', '.')),
       imagem_url: formItem.imagem_url.trim() || null,
       quantidade_info: formItem.quantidade_info.trim() || null,
@@ -884,7 +659,6 @@ export default function AdminPage() {
     setCatEditando(null)
     setFormCat({
       nome: '',
-      nome_en: '',
       icone: '',
       ordem: Math.max(1, categorias.length + 1),
       ativo: true,
@@ -898,7 +672,7 @@ export default function AdminPage() {
       (a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id)
     )
     const pos = Math.max(1, sorted.findIndex((c) => c.id === cat.id) + 1)
-    setFormCat({ nome: cat.nome, nome_en: cat.nome_en ?? '', icone: cat.icone ?? '', ordem: pos, ativo: cat.ativo })
+    setFormCat({ nome: cat.nome, icone: cat.icone ?? '', ordem: pos, ativo: cat.ativo })
     setModalCat(true)
   }
 
@@ -912,7 +686,6 @@ export default function AdminPage() {
     const pos = Math.min(Math.max(1, formCat.ordem || 1), maxPos)
     const payloadBase = {
       nome: formCat.nome.trim(),
-      nome_en: formCat.nome_en.trim() || null,
       icone: formCat.icone.trim() || null,
       ativo: formCat.ativo,
     }
@@ -960,217 +733,77 @@ export default function AdminPage() {
   }
 
   const isItemsTab = tab === t.tabItems
-  const isCombosTab = tab === 'Combos'
-  const isPromotionsTab = tab === t.promoNavLink
-  const isPrintNodeTab = tab === 'PrintNode'
-
-  const sidebarNav = (
-    <>
-      <div className="flex items-center gap-2.5 px-1 mb-6">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary">
-          <ChefHat size={20} className="text-primary-foreground" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t.adminPanel}</p>
-          <h1 className="truncate text-sm font-bold text-foreground">{t.adminTitle}</h1>
-        </div>
-      </div>
-      <nav className="flex flex-col gap-1" aria-label="Admin sections">
-        {TABS.map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setTab(a)}
-            className={cn(
-              'rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors',
-              tab === a
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-            )}
-          >
-            {a}
-          </button>
-        ))}
-      </nav>
-      <div className="mt-auto flex flex-col gap-2 border-t border-border pt-4">
-        <Link
-          href="/admin/banners"
-          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
-        >
-          Banners
-        </Link>
-        <Link
-          href="/admin/ordens"
-          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
-        >
-          Ordens
-        </Link>
-        <Link
-          href="/admin/impressao"
-          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
-        >
-          Impressão
-        </Link>
-        <Link
-          href="/admin/delivery"
-          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
-        >
-          Entregas
-        </Link>
-        <Link
-          href="/admin/extras-biblioteca"
-          className="rounded-xl bg-secondary px-3 py-2.5 text-center text-sm font-bold text-foreground transition-colors hover:bg-secondary/80"
-        >
-          Extras (biblioteca)
-        </Link>
-        <button
-          type="button"
-          onClick={toggleLang}
-          className="rounded-xl bg-secondary px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-secondary/80"
-          aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
-        >
-          {lang === 'en' ? 'PT' : 'EN'}
-        </button>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <LogOut size={16} />
-          {t.logout}
-        </button>
-      </div>
-    </>
-  )
 
   return (
-    <main className="min-h-screen bg-background lg:bg-muted/25">
-      {/* Desktop sidebar */}
-      <aside
-        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-[220px] lg:flex-col lg:border-r lg:border-border/80 lg:bg-card lg:px-4 lg:pb-6 lg:pt-6 lg:shadow-sm"
-        aria-label="Admin menu"
-      >
-        {sidebarNav}
-      </aside>
-
-      <div className="lg:pl-[220px]">
-        {/* Mobile header + tabs */}
-        <header className="sticky top-0 z-30 border-b border-border bg-background lg:hidden">
-          <div className="px-4 pt-10 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                  <ChefHat size={18} className="text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">{t.adminPanel}</p>
-                  <h1 className="text-base font-bold leading-tight text-foreground">{t.adminTitle}</h1>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/admin/banners"
-                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
-                >
-                  Banners
-                </Link>
-                <Link
-                  href="/admin/delivery"
-                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
-                >
-                  Entregas
-                </Link>
-                <Link
-                  href="/admin/impressao"
-                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
-                >
-                  Impressão
-                </Link>
-                <Link
-                  href="/admin/extras-biblioteca"
-                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
-                >
-                  Extras
-                </Link>
-                <button
-                  type="button"
-                  onClick={toggleLang}
-                  className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
-                  aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
-                >
-                  {lang === 'en' ? 'PT' : 'EN'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
-                >
-                  <LogOut size={15} />
-                  {t.logout}
-                </button>
-              </div>
+    <main className="min-h-screen bg-background max-w-lg mx-auto">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-background border-b border-border px-4 pt-10 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+              <ChefHat size={18} className="text-primary-foreground" />
             </div>
-            <div className="mt-3 flex gap-1 rounded-xl bg-secondary p-1" role="tablist">
-              {TABS.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === a}
-                  onClick={() => setTab(a)}
-                  className={cn(
-                    'flex-1 rounded-lg py-2 text-sm font-semibold transition-colors',
-                    tab === a ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                  )}
-                >
-                  {a}
-                </button>
-              ))}
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">{t.adminPanel}</p>
+              <h1 className="text-base font-bold text-foreground leading-tight">{t.adminTitle}</h1>
             </div>
           </div>
-        </header>
-
-        {/* Desktop page title */}
-        <div className="hidden border-b border-border/80 bg-background/95 px-8 py-5 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:block">
-          <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-            {isItemsTab
-              ? t.tabItems
-              : isCombosTab
-                ? 'Combos'
-                : isPromotionsTab
-                  ? t.promoNavLink
-                  : isPrintNodeTab
-                    ? 'PrintNode'
-                  : t.tabCategories}
-          </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {isItemsTab
-              ? textoContagemItens
-              : isCombosTab
-                ? 'Gerencie seus combos'
-                : isPromotionsTab
-                  ? 'Gerencie promoções e taxa de entrega'
-                  : isPrintNodeTab
-                    ? 'Configurações de impressão de pedidos'
-                : `${categorias.length} ${t.tabCategories.toLowerCase()}`}
-          </p>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/ordens"
+              className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-primary text-primary-foreground"
+            >
+              Ordens
+            </Link>
+            {/* Language toggle */}
+            <button
+              onClick={toggleLang}
+              className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-secondary text-muted-foreground"
+              aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
+            >
+              {lang === 'en' ? 'PT' : 'EN'}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground font-medium px-3 py-2 rounded-xl hover:bg-secondary transition-colors"
+            >
+              <LogOut size={15} />
+              {t.logout}
+            </button>
+          </div>
         </div>
 
-        <div className="mx-auto max-w-lg px-4 pb-8 pt-4 lg:max-w-6xl lg:px-8 lg:pb-12 lg:pt-6">
+        {/* Tabs */}
+        <div className="flex gap-1 mt-3 bg-secondary rounded-xl p-1">
+          {TABS.map((a) => (
+            <button
+              key={a}
+              onClick={() => setTab(a)}
+              className={cn(
+                'flex-1 py-2 rounded-lg text-sm font-semibold transition-colors',
+                tab === a ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              )}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="px-4 pt-4 pb-8">
         {loading ? (
-          <LogoLoadingScreen
-            variant="contained"
-            message={t.loadingAdmin}
-            className="min-h-[min(480px,70vh)] lg:min-h-[55vh]"
-          />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-secondary rounded-2xl animate-pulse" />)}
+          </div>
         ) : isItemsTab ? (
           <>
-            <div className="mb-4 flex items-center justify-between gap-4 lg:mb-6">
-              <p className="text-sm text-muted-foreground lg:hidden">{textoContagemItens}</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {itens.length} {itens.length === 1 ? t.item : t.items}
+              </p>
               <button
-                type="button"
                 onClick={abrirNovoItem}
-                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity active:opacity-80 lg:ml-auto"
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-xl active:opacity-80 transition-opacity"
               >
                 <Plus size={16} />
                 {t.newItem}
@@ -1186,279 +819,68 @@ export default function AdminPage() {
                 onAcao={abrirNovoItem}
               />
             ) : (
-              <>
-                <div
-                  className="mb-4 space-y-3 rounded-2xl border border-border bg-card p-3 shadow-sm lg:flex lg:flex-wrap lg:items-end lg:gap-3 lg:space-y-0"
-                  role="search"
-                  aria-label={t.adminFilterSearch}
-                >
-                  <div className="min-w-0 flex-1 lg:min-w-[200px] lg:max-w-sm">
-                    <label htmlFor="admin-filtro-busca" className="mb-1 block text-xs font-semibold text-foreground">
-                      {t.adminFilterSearch}
-                    </label>
-                    <div className="relative">
-                      <Search
-                        size={16}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <input
-                        id="admin-filtro-busca"
-                        type="search"
-                        value={filtroBuscaItens}
-                        onChange={(e) => setFiltroBuscaItens(e.target.value)}
-                        placeholder={t.adminFilterSearchPlaceholder}
-                        className="w-full rounded-xl border border-transparent bg-secondary py-2.5 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/25 focus:ring-2 focus:ring-primary/15"
-                        autoComplete="off"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:flex lg:shrink-0 lg:gap-3">
-                    <div className="min-w-0 sm:min-w-[140px]">
-                      <label htmlFor="admin-filtro-cat" className="mb-1 block text-xs font-semibold text-foreground">
-                        {t.fieldCategory}
-                      </label>
-                      <select
-                        id="admin-filtro-cat"
-                        value={filtroCategoriaId}
-                        onChange={(e) => setFiltroCategoriaId(e.target.value)}
-                        className="w-full rounded-xl border border-transparent bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/25 focus:ring-2 focus:ring-primary/15"
-                      >
-                        <option value="">{t.all}</option>
-                        {categorias.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nome}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="min-w-0 sm:min-w-[130px]">
-                      <label htmlFor="admin-filtro-disp" className="mb-1 block text-xs font-semibold text-foreground">
-                        {t.adminFilterAvailability}
-                      </label>
-                      <select
-                        id="admin-filtro-disp"
-                        value={filtroDisponivel}
-                        onChange={(e) => setFiltroDisponivel(e.target.value as 'all' | 'yes' | 'no')}
-                        className="w-full rounded-xl border border-transparent bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/25 focus:ring-2 focus:ring-primary/15"
-                      >
-                        <option value="all">{t.all}</option>
-                        <option value="yes">{t.available}</option>
-                        <option value="no">{t.hidden}</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[130px]">
-                      <label htmlFor="admin-filtro-dest" className="mb-1 block text-xs font-semibold text-foreground">
-                        {t.adminFilterFeatured}
-                      </label>
-                      <select
-                        id="admin-filtro-dest"
-                        value={filtroDestaque}
-                        onChange={(e) => setFiltroDestaque(e.target.value as 'all' | 'yes' | 'no')}
-                        className="w-full rounded-xl border border-transparent bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/25 focus:ring-2 focus:ring-primary/15"
-                      >
-                        <option value="all">{t.all}</option>
-                        <option value="yes">{t.adminFilterYesOnly}</option>
-                        <option value="no">{t.adminFilterNoOnly}</option>
-                      </select>
-                    </div>
-                  </div>
-                  {filtrosItensAtivos && (
-                    <div className="flex items-end lg:shrink-0">
-                      <button
-                        type="button"
-                        onClick={limparFiltrosItens}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary lg:w-auto"
-                      >
-                        {t.adminClearFilters}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {itensFiltradosAdmin.length === 0 ? (
-                  <div className="flex flex-col items-center rounded-2xl border border-dashed border-border/80 bg-card/60 px-6 py-14 text-center">
-                    <Search size={32} className="text-muted-foreground/70" aria-hidden />
-                    <p className="mt-4 font-semibold text-foreground">{t.adminNoFilterResults}</p>
-                    <button
-                      type="button"
-                      onClick={limparFiltrosItens}
-                      className="mt-4 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-                    >
-                      {t.adminClearFilters}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:block">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px] border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          <th className="w-14 p-3" scope="col" />
-                          <th className="p-3" scope="col">
-                            {t.fieldName}
-                          </th>
-                          <th className="hidden p-3 lg:table-cell" scope="col">
-                            {t.fieldCategory}
-                          </th>
-                          <th className="whitespace-nowrap p-3" scope="col">
-                            {t.fieldPrice}
-                          </th>
-                          <th className="p-3" scope="col">
-                            {t.fieldAvailable}
-                          </th>
-                          <th className="w-32 p-3 text-right" scope="col">
-                            <span className="sr-only">Actions</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/80">
-                        {itensFiltradosAdmin.map((item) => (
-                          <tr key={item.id} className="transition-colors hover:bg-muted/20">
-                            <td className="p-3 align-middle">
-                              {item.imagem_url ? (
-                                <img
-                                  src={item.imagem_url}
-                                  alt=""
-                                  className="h-11 w-11 rounded-lg object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10">
-                                  <ImageIcon size={18} className="text-accent/50" />
-                                </div>
-                              )}
-                            </td>
-                            <td className="max-w-[200px] p-3 align-middle lg:max-w-xs">
-                              <div className="flex items-start gap-1.5">
-                                <span className="line-clamp-2 font-semibold text-foreground">{item.nome}</span>
-                                {item.destaque && (
-                                  <Star size={14} className="mt-0.5 shrink-0 fill-accent text-accent" aria-label="Featured" />
-                                )}
-                              </div>
-                              {item.categorias && (
-                                <p className="mt-1 text-xs font-medium text-accent lg:hidden">{item.categorias.nome}</p>
-                              )}
-                            </td>
-                            <td className="hidden p-3 align-middle text-muted-foreground lg:table-cell">
-                              {item.categorias?.nome ?? '—'}
-                            </td>
-                            <td className="whitespace-nowrap p-3 align-middle font-semibold tabular-nums text-primary">
-                              ${item.preco.toFixed(2)}
-                            </td>
-                            <td className="p-3 align-middle">
-                              <button
-                                type="button"
-                                onClick={() => toggleDisponivel(item)}
-                                className={cn(
-                                  'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold',
-                                  item.disponivel ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
-                                )}
-                              >
-                                {item.disponivel ? <Eye size={12} /> : <EyeOff size={12} />}
-                                {item.disponivel ? t.available : t.hidden}
-                              </button>
-                            </td>
-                            <td className="p-3 align-middle">
-                              <div className="flex justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => abrirEditarItem(item)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary transition-colors hover:bg-secondary/80"
-                                  aria-label="Edit"
-                                >
-                                  <Pencil size={14} className="text-foreground" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => excluirItem(item.id)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 transition-colors hover:bg-red-100"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 size={14} className="text-red-500" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="space-y-3 md:hidden">
-                  {itensFiltradosAdmin.map((item) => (
-                    <div key={item.id} className="flex gap-3 rounded-2xl border border-border bg-card p-3">
-                      {item.imagem_url ? (
-                        <img src={item.imagem_url} alt={item.nome} className="h-16 w-16 flex-shrink-0 rounded-xl object-cover" />
-                      ) : (
-                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-accent/10">
-                          <ImageIcon size={22} className="text-accent/50" />
-                        </div>
+              <div className="space-y-3">
+                {itens.map((item) => (
+                  <div key={item.id} className="flex gap-3 bg-card rounded-2xl p-3 border border-border">
+                    {item.imagem_url ? (
+                      <img src={item.imagem_url} alt={item.nome} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-accent/10 flex items-center justify-center">
+                        <ImageIcon size={22} className="text-accent/50" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-1">
+                        <p className="font-semibold text-sm text-foreground line-clamp-1 flex-1">{item.nome}</p>
+                        {item.destaque && <Star size={12} className="text-accent fill-accent flex-shrink-0 mt-0.5" />}
+                      </div>
+                      {item.categorias && (
+                        <span className="text-[10px] text-accent font-semibold">{item.categorias.nome}</span>
                       )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-1">
-                          <p className="line-clamp-1 flex-1 text-sm font-semibold text-foreground">{item.nome}</p>
-                          {item.destaque && <Star size={12} className="mt-0.5 flex-shrink-0 fill-accent text-accent" />}
-                        </div>
-                        {item.categorias && (
-                          <span className="text-[10px] font-semibold text-accent">{item.categorias.nome}</span>
-                        )}
-                        <p className="mt-0.5 text-sm font-bold text-accent">${item.preco.toFixed(2)}</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleDisponivel(item)}
-                            className={cn(
-                              'flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold',
-                              item.disponivel ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
-                            )}
-                          >
-                            {item.disponivel ? <Eye size={10} /> : <EyeOff size={10} />}
-                            {item.disponivel ? t.available : t.hidden}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => abrirEditarItem(item)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary"
-                            aria-label="Edit"
-                          >
-                            <Pencil size={13} className="text-foreground" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => excluirItem(item.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50"
-                            aria-label="Delete"
-                          >
-                            <Trash2 size={13} className="text-red-500" />
-                          </button>
-                        </div>
+                      <p className="text-accent font-bold text-sm mt-0.5">
+                        ${item.preco.toFixed(2)}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => toggleDisponivel(item)}
+                          className={cn(
+                            'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg',
+                            item.disponivel ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                          )}
+                        >
+                          {item.disponivel ? <Eye size={10} /> : <EyeOff size={10} />}
+                          {item.disponivel ? t.available : t.hidden}
+                        </button>
+                        <button
+                          onClick={() => abrirEditarItem(item)}
+                          className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"
+                          aria-label="Edit"
+                        >
+                          <Pencil size={13} className="text-foreground" />
+                        </button>
+                        <button
+                          onClick={() => excluirItem(item.id)}
+                          className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center"
+                          aria-label="Delete"
+                        >
+                          <Trash2 size={13} className="text-red-500" />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-                  </>
-                )}
-              </>
+                  </div>
+                ))}
+              </div>
             )}
           </>
-        ) : isCombosTab ? (
-          <AdminCombosPanel />
-        ) : isPromotionsTab ? (
-          <AdminPromocoesPanel embedded />
-        ) : isPrintNodeTab ? (
-          <AdminPrintNodePanel />
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between gap-4 lg:mb-6">
-              <p className="text-sm text-muted-foreground lg:hidden">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
                 {categorias.length} {t.tabCategories.toLowerCase()}
               </p>
               <button
-                type="button"
                 onClick={abrirNovaCat}
-                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity active:opacity-80 lg:ml-auto"
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-xl active:opacity-80 transition-opacity"
               >
                 <Plus size={16} />
                 {t.newCategory}
@@ -1474,116 +896,34 @@ export default function AdminPage() {
                 onAcao={abrirNovaCat}
               />
             ) : (
-              <>
-                <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:block">
-                  <table className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        <th className="w-14 p-3" scope="col" />
-                        <th className="p-3" scope="col">
-                          {t.fieldName}
-                        </th>
-                        <th className="p-3" scope="col">
-                          {t.order}
-                        </th>
-                        <th className="p-3" scope="col">
-                          {t.fieldActive}
-                        </th>
-                        <th className="w-28 p-3 text-right" scope="col">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/80">
-                      {categorias.map((cat) => (
-                        <tr key={cat.id} className="transition-colors hover:bg-muted/20">
-                          <td className="p-3 align-middle">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-xl">
-                              {cat.icone ?? '📋'}
-                            </div>
-                          </td>
-                          <td className="p-3 align-middle font-semibold text-foreground">{cat.nome}</td>
-                          <td className="p-3 align-middle tabular-nums text-muted-foreground">{cat.ordem}</td>
-                          <td className="p-3 align-middle">
-                            <span
-                              className={cn(
-                                'inline-block rounded-lg px-2 py-1 text-[11px] font-semibold',
-                                cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
-                              )}
-                            >
-                              {cat.ativo ? t.active : t.inactive}
-                            </span>
-                          </td>
-                          <td className="p-3 align-middle">
-                            <div className="flex justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => abrirEditarCat(cat)}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary transition-colors hover:bg-secondary/80"
-                                aria-label="Edit"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => excluirCat(cat.id)}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 transition-colors hover:bg-red-100"
-                                aria-label="Delete"
-                              >
-                                <Trash2 size={14} className="text-red-500" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-3 md:hidden">
-                  {categorias.map((cat) => (
-                    <div key={cat.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent/10">
-                        <span className="text-xl">{cat.icone ?? '📋'}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground">{cat.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {t.order} {cat.ordem}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          'rounded-lg px-2 py-1 text-[10px] font-semibold',
-                          cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
-                        )}
-                      >
-                        {cat.ativo ? t.active : t.inactive}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => abrirEditarCat(cat)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary"
-                        aria-label="Edit"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => excluirCat(cat.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50"
-                        aria-label="Delete"
-                      >
-                        <Trash2 size={14} className="text-red-500" />
-                      </button>
+              <div className="space-y-3">
+                {categorias.map((cat) => (
+                  <div key={cat.id} className="flex items-center gap-3 bg-card rounded-2xl p-4 border border-border">
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xl">{cat.icone ?? '📋'}</span>
                     </div>
-                  ))}
-                </div>
-              </>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-foreground">{cat.nome}</p>
+                      <p className="text-xs text-muted-foreground">{t.order} {cat.ordem}</p>
+                    </div>
+                    <span className={cn(
+                      'text-[10px] font-semibold px-2 py-1 rounded-lg',
+                      cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                    )}>
+                      {cat.ativo ? t.active : t.inactive}
+                    </span>
+                    <button onClick={() => abrirEditarCat(cat)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center" aria-label="Edit">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => excluirCat(cat.id)} className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center" aria-label="Delete">
+                      <Trash2 size={14} className="text-red-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         )}
-        </div>
       </div>
 
       {/* Modal Item */}
@@ -1603,23 +943,10 @@ export default function AdminPage() {
             placeholder={t.placeholderName}
           />
           <CampoTexto
-            label={lang === 'pt' ? 'Nome (inglês)' : 'Name (English)'}
-            value={formItem.nome_en}
-            onChange={(v) => setFormItem({ ...formItem, nome_en: v })}
-            placeholder={lang === 'pt' ? 'Ex.: Chicken Burger' : 'Example: Chicken Burger'}
-          />
-          <CampoTexto
             label={t.fieldDesc}
             value={formItem.descricao}
             onChange={(v) => setFormItem({ ...formItem, descricao: v })}
             placeholder={t.placeholderDesc}
-            multiline
-          />
-          <CampoTexto
-            label={lang === 'pt' ? 'Descrição (inglês)' : 'Description (English)'}
-            value={formItem.descricao_en}
-            onChange={(v) => setFormItem({ ...formItem, descricao_en: v })}
-            placeholder={lang === 'pt' ? 'Ex.: Grilled chicken with salad' : 'Example: Grilled chicken with salad'}
             multiline
           />
           <CampoTexto
@@ -1674,46 +1001,6 @@ export default function AdminPage() {
                 + Grupo
               </button>
             </div>
-
-            <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card/40 p-2.5">
-              <div className="min-w-[220px] flex-1">
-                <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
-                  Importar grupo pré-cadastrado
-                </label>
-                <select
-                  value={selectedTemplateId}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="w-full rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/30"
-                >
-                  <option value="">Selecione um grupo...</option>
-                  {extraTemplates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!selectedTemplateId) return
-                  importExtraTemplate(selectedTemplateId)
-                  setSelectedTemplateId('')
-                }}
-                disabled={!selectedTemplateId}
-                className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                Importar
-              </button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Para editar ou excluir grupos da biblioteca, abra{' '}
-              <Link href="/admin/extras-biblioteca" className="font-semibold text-accent underline underline-offset-2">
-                Biblioteca de grupos de extras
-              </Link>
-              .
-            </p>
-
             {formItem.extra_groups.map((eg, gi) => (
               <div key={eg.key} className="space-y-2 rounded-xl border border-border bg-card/50 p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -1767,19 +1054,6 @@ export default function AdminPage() {
                     className="mt-6 shrink-0 rounded-lg bg-red-50 px-2 py-1 text-xs font-semibold text-red-600"
                   >
                     Remover
-                  </button>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      salvarGrupoComoPredefinido(gi).catch(() => {
-                        showExtraMasterToast('error', 'Erro inesperado ao salvar o grupo na biblioteca.')
-                      })
-                    }}
-                    className="rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-foreground"
-                  >
-                    Salvar como pré-cadastrado
                   </button>
                 </div>
                 <OptionEditor
@@ -1867,12 +1141,6 @@ export default function AdminPage() {
           salvando={salvandoCat}
         >
           <CampoTexto label={t.fieldName} value={formCat.nome} onChange={(v) => setFormCat({ ...formCat, nome: v })} placeholder={t.placeholderName} />
-          <CampoTexto
-            label={lang === 'pt' ? 'Nome da categoria (inglês)' : 'Category name (English)'}
-            value={formCat.nome_en}
-            onChange={(v) => setFormCat({ ...formCat, nome_en: v })}
-            placeholder={lang === 'pt' ? 'Ex.: Burgers' : 'Example: Burgers'}
-          />
           <CampoTexto label={t.fieldIcon} value={formCat.icone} onChange={(v) => setFormCat({ ...formCat, icone: v })} placeholder={t.placeholderIcon} />
           <SelectPosicaoNaLista
             label={t.fieldOrder}
@@ -1883,43 +1151,6 @@ export default function AdminPage() {
           />
           <Toggle label={t.fieldActive} value={formCat.ativo} onChange={(v) => setFormCat({ ...formCat, ativo: v })} />
         </Modal>
-      )}
-
-      {extraMasterToast && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
-          onClick={dismissExtraMasterToast}
-          role="presentation"
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="extra-popup-title"
-            aria-describedby="extra-popup-desc"
-            className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              id="extra-popup-title"
-              className={cn(
-                'text-lg font-bold',
-                extraMasterToast.kind === 'success' ? 'text-foreground' : 'text-red-800'
-              )}
-            >
-              {extraMasterToast.kind === 'success' ? 'Concluído' : 'Atenção'}
-            </h3>
-            <p id="extra-popup-desc" className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              {extraMasterToast.text}
-            </p>
-            <button
-              type="button"
-              onClick={dismissExtraMasterToast}
-              className="mt-5 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-opacity active:opacity-90"
-            >
-              OK
-            </button>
-          </div>
-        </div>
       )}
     </main>
   )
@@ -2093,59 +1324,27 @@ function EmptyState({ icon, titulo, descricao, acao, onAcao }: {
   )
 }
 
-function Modal({
-  titulo,
-  children,
-  onFechar,
-  onSalvar,
-  salvando,
-  labelSave,
-  labelSaving,
-}: {
-  titulo: string
-  children: React.ReactNode
-  onFechar: () => void
-  onSalvar: () => void
-  salvando: boolean
-  labelSave: string
-  labelSaving: string
+function Modal({ titulo, children, onFechar, onSalvar, salvando, labelSave, labelSaving }: {
+  titulo: string; children: React.ReactNode; onFechar: () => void; onSalvar: () => void; salvando: boolean; labelSave: string; labelSaving: string
 }) {
-  const titleId = 'admin-modal-title'
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4"
-      onClick={onFechar}
-      role="presentation"
-    >
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end" onClick={onFechar}>
       <div
-        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden bg-background md:max-h-[min(90vh,920px)] md:max-w-2xl md:rounded-2xl md:border md:border-border md:shadow-2xl rounded-t-3xl"
+        className="w-full max-w-lg mx-auto bg-background rounded-t-3xl max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-4 pb-3 pt-5 md:px-6 md:pb-4 md:pt-5">
-          <h2 id={titleId} className="text-base font-bold text-foreground md:text-lg">
-            {titulo}
-          </h2>
-          <button
-            type="button"
-            onClick={onFechar}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
-            aria-label="Close"
-          >
+        <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-border sticky top-0 bg-background z-10">
+          <h2 className="font-bold text-base text-foreground">{titulo}</h2>
+          <button onClick={onFechar} className="w-8 h-8 rounded-xl bg-secondary flex items-center justify-center">
             <X size={16} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
-          {children}
-        </div>
-        <div className="sticky bottom-0 border-t border-border bg-background px-4 pb-6 pt-3 md:px-6 md:pb-5 md:pt-4">
+        <div className="px-4 py-4 space-y-4">{children}</div>
+        <div className="px-4 pb-8 pt-2 sticky bottom-0 bg-background border-t border-border">
           <button
-            type="button"
             onClick={onSalvar}
             disabled={salvando}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground transition-opacity active:opacity-80 disabled:opacity-60 md:py-3.5"
+            className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-2xl text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:opacity-80 transition-opacity"
           >
             {salvando ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             {salvando ? labelSaving : labelSave}

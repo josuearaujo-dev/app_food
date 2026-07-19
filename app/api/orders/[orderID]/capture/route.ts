@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
-import { getDeliveryFeeAmount } from '@/lib/store-settings'
-import { computePromotionForOrderCart } from '@/lib/order-promotions'
-import { calculateOrderTax } from '@/lib/order-tax'
-import { fetchCategoryNameMap } from '@/lib/receipt-category-map'
-import {
-  buildKitchenReceiptText,
-  calculateKitchenReceiptCopyCount,
-  createKitchenReceiptPrintJobs,
-  getPrintNodeConfig,
-} from '@/lib/printnode'
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === 'live'
@@ -47,14 +37,11 @@ async function getPayPalAccessToken() {
 
 type CaptureBody = {
   customer?: unknown
-  promoCode?: string | null
   cart?: Array<{
     id: string
-    combo_id?: string | null
     name: string
     quantity: number
     unitAmount: number
-    categoria_id?: string | null
     observation?: string
     selectedOptions?: Array<{
       optionId: string
@@ -87,11 +74,9 @@ export async function POST(
 
     const safeItems = (body.cart ?? []).map((item) => ({
       id: item.id,
-      combo_id: item.combo_id ?? null,
       name: item.name,
       quantity: Math.max(1, Number(item.quantity) || 1),
       unitAmount: Math.max(0, Number(item.unitAmount) || 0),
-      categoria_id: item.categoria_id ?? null,
       observation: (item.observation ?? '').trim(),
       selectedOptions: (item.selectedOptions ?? []).map((opt) => ({
         optionId: String(opt.optionId),
@@ -102,22 +87,6 @@ export async function POST(
         info: opt.info ?? opt.detailInfo ?? null,
       })),
     }))
-    const promo = await computePromotionForOrderCart(
-      safeItems.map((i) => ({
-        id: i.id,
-        quantity: i.quantity,
-        unitAmount: i.unitAmount,
-        categoria_id: i.categoria_id,
-      })),
-      body.promoCode ?? null
-    )
-    const rawDeliveryFee =
-      customer.fulfillmentType === 'delivery'
-        ? await getDeliveryFeeAmount(customer.localidadeEntregaId)
-        : 0
-    const deliveryFee = customer.fulfillmentType === 'delivery' && promo.deliveryFreeEligible ? 0 : rawDeliveryFee
-    const subtotalWithDelivery = Number((promo.totalPayable + deliveryFee).toFixed(2))
-    const taxAmount = calculateOrderTax(subtotalWithDelivery)
 
     const accessToken = await getPayPalAccessToken()
 
@@ -133,64 +102,15 @@ export async function POST(
       }
     )
 
-    const data = (await response.json()) as Record<string, unknown> & {
-      status?: string
-      purchase_units?: Array<{
-        amount?: { currency_code?: string; value?: string }
-        payments?: {
-          captures?: Array<{
-            status?: string
-            id?: string
-            amount?: { value?: string; currency_code?: string }
-            seller_receivable_breakdown?: {
-              gross_amount?: { value?: number }
-              paypal_fee?: { value?: number }
-              net_amount?: { value?: number }
-            }
-          }>
-          authorizations?: Array<{ status?: string; id?: string }>
-        }
-      }>
-      details?: unknown
-      debug_id?: string
-      message?: string
-    }
+    const data = await response.json()
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status })
     }
 
-    const orderStatus = String(data?.status ?? '')
     const capture =
       data?.purchase_units?.[0]?.payments?.captures?.[0] ??
       data?.purchase_units?.[0]?.payments?.authorizations?.[0]
     const captureStatus = String(capture?.status ?? '')
-
-    // HTTP 201/200 não garante pagamento aprovado — cartão recusado pode vir com status != COMPLETED.
-    if (orderStatus && orderStatus !== 'COMPLETED') {
-      return NextResponse.json(
-        {
-          error: 'Pedido PayPal nao foi concluido.',
-          order_status: orderStatus,
-          details: data?.details ?? null,
-          debug_id: data?.debug_id ?? null,
-          message: data?.message,
-        },
-        { status: 422 }
-      )
-    }
-
-    if (captureStatus !== 'COMPLETED' || !capture?.id) {
-      return NextResponse.json(
-        {
-          error: 'Pagamento nao capturado com sucesso.',
-          capture_status: captureStatus || 'AUSENTE',
-          details: data?.details ?? null,
-          debug_id: data?.debug_id ?? null,
-          message: data?.message,
-        },
-        { status: 422 }
-      )
-    }
     const captureId = String(capture?.id ?? '')
     const currencyCode = String(
       capture?.amount?.currency_code ??
@@ -215,7 +135,8 @@ export async function POST(
 
     let localOrderId: string | null = null
 
-    {
+    // Só cria ordem local quando o pagamento realmente conclui.
+    if (captureStatus === 'COMPLETED') {
       const supabase = createAdminClient()
 
       const { data: existingOrder } = await supabase
@@ -239,16 +160,11 @@ export async function POST(
             valor_bruto: grossAmount,
             taxa_paypal: paypalFee,
             valor_liquido: netAmount,
-            taxa_entrega: deliveryFee,
             origem_pagamento: 'paypal',
             cliente_nome: customer.nome,
-            cliente_email: customer.email || null,
+            cliente_email: customer.email,
             cliente_telefone: customer.telefone,
             cliente_user_id: customer.userId,
-            tipo_atendimento: customer.fulfillmentType,
-            localidade_entrega_id: customer.localidadeEntregaId,
-            localidade_entrega_nome: customer.localidadeEntregaNome,
-            endereco_entrega: customer.enderecoEntrega,
             cliente_aceita_sms_atualizacoes: customer.aceitaSmsAtualizacoes,
             cliente_aceita_email_atualizacoes: customer.aceitaEmailAtualizacoes,
             cliente_consentiu_salvar_cartao: customer.consentiuSalvarCartao,
@@ -269,8 +185,7 @@ export async function POST(
             .insert(
               safeItems.map((item) => ({
                 pedido_id: localOrderId,
-                item_id: item.combo_id ? null : item.id,
-                combo_id: item.combo_id ?? null,
+                item_id: item.id,
                 nome_item: item.name,
                 quantidade: item.quantity,
                 preco_unitario: item.unitAmount,
@@ -293,70 +208,6 @@ export async function POST(
       ? localOrderId.replace(/-/g, '').slice(-8).toUpperCase()
       : null
 
-    if (localOrderId && orderNumber) {
-      try {
-        const printCfg = await getPrintNodeConfig()
-        if (printCfg.enabled && printCfg.printerId) {
-          const categoryNameById = await fetchCategoryNameMap(
-            supabase,
-            safeItems.map((item) => item.categoria_id)
-          )
-          const subtotal = Number(subtotalBeforePromo(safeItems).toFixed(2))
-          const discount = Number(Math.max(0, promo.discountAmount).toFixed(2))
-          const receipt = buildKitchenReceiptText({
-            orderNumber,
-            createdAtISO: new Date().toISOString(),
-            customerName: customer.nome,
-            customerPhone: customer.telefone,
-            fulfillmentType: customer.fulfillmentType,
-            address: customer.enderecoEntrega,
-            items: safeItems.map((item) => ({
-              name: item.name,
-              categoryName: item.categoria_id ? categoryNameById.get(item.categoria_id) : null,
-              quantity: item.quantity,
-              unitAmount: item.unitAmount,
-              subtotal: Number((item.quantity * item.unitAmount).toFixed(2)),
-              observation: item.observation,
-              options: item.selectedOptions.map((op) => ({
-                label: op.label,
-                groupName: op.groupName,
-                groupType: op.groupType,
-              })),
-            })),
-            subtotal,
-            discount,
-            deliveryFee,
-            taxAmount,
-            total: totalValue,
-            currency: '$',
-            paymentLine: 'Pago via PayPal',
-          })
-          const copies = calculateKitchenReceiptCopyCount({
-            fulfillmentType: customer.fulfillmentType,
-            items: safeItems,
-            extraCopyCategoryIds: printCfg.extraCopyCategoryIds,
-            deliveryExtraCopies: printCfg.deliveryExtraCopies,
-          })
-
-          await createKitchenReceiptPrintJobs({
-            apiKey: printCfg.apiKey,
-            printerId: printCfg.printerId,
-            title: `Pedido #${orderNumber}`,
-            content: receipt,
-            source: 'Cadu Cakes & Lanches Checkout',
-            idempotencyKey: `pedido-${localOrderId}`,
-            copies,
-          })
-        }
-      } catch (printError) {
-        console.error('[PrintNode] Falha ao imprimir pedido confirmado', {
-          localOrderId,
-          orderID,
-          error: printError instanceof Error ? printError.message : String(printError),
-        })
-      }
-    }
-
     return NextResponse.json(
       {
         ...data,
@@ -376,10 +227,4 @@ export async function POST(
       { status: 500 }
     )
   }
-}
-
-function subtotalBeforePromo(
-  items: Array<{ quantity: number; unitAmount: number }>
-) {
-  return items.reduce((acc, item) => acc + item.quantity * item.unitAmount, 0)
 }

@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChefHat, Printer } from 'lucide-react'
+import { ArrowLeft, ChefHat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useLang } from '@/lib/lang-context'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
-import { STORE_TIMEZONE } from '@/lib/kitchen-timezone'
 
 type KitchenStatus = 'new' | 'preparing' | 'delivered'
 
@@ -24,101 +21,29 @@ type KitchenOrder = {
   criado_em: string
   valor_total: number
   valor_pago: number | null
-  taxa_entrega: number | null
   cliente_nome: string | null
   cliente_email: string | null
   cliente_telefone: string | null
-  tipo_atendimento: 'take_out' | 'delivery' | null
-  endereco_entrega: string | null
-  origem_pagamento: string | null
-  status_pagamento: string | null
   status_producao: KitchenStatus
   pedido_itens: OrderItem[]
 }
 
-const HIDDEN_DELIVERED_STORAGE_KEY = 'brasil-bistro-kitchen-hidden-delivered-v1'
-
-function dateKeyInTimeZone(iso: string, timeZone: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d)
-}
-
-function todayKeySanFrancisco(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: STORE_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
-function loadHiddenDeliveredIds(): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  try {
-    const raw = localStorage.getItem(HIDDEN_DELIVERED_STORAGE_KEY)
-    if (!raw) return new Set()
-    const parsed = JSON.parse(raw) as { date?: string; ids?: string[] }
-    const today = todayKeySanFrancisco()
-    if (parsed.date !== today || !Array.isArray(parsed.ids)) return new Set()
-    return new Set(parsed.ids)
-  } catch {
-    return new Set()
-  }
-}
-
-function saveHiddenDeliveredIds(ids: Set<string>) {
-  const today = todayKeySanFrancisco()
-  localStorage.setItem(
-    HIDDEN_DELIVERED_STORAGE_KEY,
-    JSON.stringify({ date: today, ids: [...ids] })
-  )
-}
-
-/** Data/hora exibidas no mesmo fuso do filtro “dia”. */
-function formatPedidoKitchenTz(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return new Intl.DateTimeFormat(undefined, {
-    timeZone: STORE_TIMEZONE,
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(d)
-}
+const STATUS_COLUMNS: Array<{ key: KitchenStatus; title: string }> = [
+  { key: 'new', title: 'Novas Ordens' },
+  { key: 'preparing', title: 'Preparação' },
+  { key: 'delivered', title: 'Entregue' },
+]
 
 export default function AdminOrdensPage() {
-  const { t } = useLang()
   const supabase = useMemo(() => createClient(), [])
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [loading, setLoading] = useState(true)
-  const [hiddenDeliveredIds, setHiddenDeliveredIds] = useState<Set<string>>(new Set())
-  const [reprintingId, setReprintingId] = useState<string | null>(null)
-  const [reprintNotice, setReprintNotice] = useState<{
-    orderId: string
-    kind: 'ok' | 'err'
-    text: string
-  } | null>(null)
-
-  const statusColumns = useMemo(
-    () =>
-      [
-        { key: 'new' as const, title: t.kitchenColNew },
-        { key: 'preparing' as const, title: t.kitchenColPrep },
-        { key: 'delivered' as const, title: t.kitchenColDelivered },
-      ] as const,
-    [t]
-  )
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_email, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, status_producao, pedido_itens(nome_item, quantidade, observacao, opcoes_selecionadas)'
+        'id, criado_em, valor_total, valor_pago, cliente_nome, cliente_email, cliente_telefone, status_producao, pedido_itens(nome_item, quantidade, observacao, opcoes_selecionadas)'
       )
       .order('criado_em', { ascending: false })
 
@@ -131,15 +56,6 @@ export default function AdminOrdensPage() {
     const timer = setInterval(fetchOrders, 5000)
     return () => clearInterval(timer)
   }, [fetchOrders])
-
-  useEffect(() => {
-    setHiddenDeliveredIds(loadHiddenDeliveredIds())
-  }, [orders])
-
-  const ordersTodaySf = useMemo(() => {
-    const key = todayKeySanFrancisco()
-    return orders.filter((o) => dateKeyInTimeZone(o.criado_em, STORE_TIMEZONE) === key)
-  }, [orders])
 
   async function updateOrderStatus(order: KitchenOrder, next: KitchenStatus) {
     if (next === order.status_producao) return
@@ -154,6 +70,7 @@ export default function AdminOrdensPage() {
       .eq('id', order.id)
 
     if (error) {
+      // rollback otimista simples
       setOrders((prev) =>
         prev.map((o) =>
           o.id === order.id ? { ...o, status_producao: order.status_producao } : o
@@ -162,234 +79,87 @@ export default function AdminOrdensPage() {
     }
   }
 
-  function persistHiddenDelivered(next: Set<string>) {
-    saveHiddenDeliveredIds(next)
-    setHiddenDeliveredIds(new Set(next))
-  }
-
-  function clearDeliveredColumn(visibleDelivered: KitchenOrder[]) {
-    const next = new Set(hiddenDeliveredIds)
-    for (const o of visibleDelivered) next.add(o.id)
-    persistHiddenDelivered(next)
-  }
-
-  function showAllDeliveredAgain() {
-    persistHiddenDelivered(new Set())
-  }
-
-  async function handleReprint(orderId: string) {
-    setReprintingId(orderId)
-    setReprintNotice(null)
-    try {
-      const response = await fetch(`/api/admin/orders/${orderId}/reprint`, {
-        method: 'POST',
-      })
-      const data = (await response.json()) as { error?: string; orderNumber?: string }
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Falha ao reimprimir.')
-      }
-      setReprintNotice({
-        orderId,
-        kind: 'ok',
-        text: data.orderNumber
-          ? `${t.kitchenReprintOk} (#${data.orderNumber})`
-          : t.kitchenReprintOk,
-      })
-    } catch (e) {
-      setReprintNotice({
-        orderId,
-        kind: 'err',
-        text: e instanceof Error ? e.message : 'Falha ao reimprimir.',
-      })
-    } finally {
-      setReprintingId(null)
-    }
-  }
-
   return (
     <main className="min-h-screen bg-[#F6F7FA]">
-      <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-3 pt-6">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white border-b border-border px-4 pt-6 pb-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/admin"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary"
+              className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center"
               aria-label="Voltar"
             >
               <ArrowLeft size={18} />
             </Link>
             <div>
-              <p className="text-xs text-muted-foreground">{t.kitchenTitle}</p>
-              <h1 className="text-base font-bold">{t.kitchenPipelineTitle}</h1>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{t.kitchenTodayNote}</p>
+              <p className="text-xs text-muted-foreground">Cozinha</p>
+              <h1 className="font-bold text-base">Pipeline de Ordens</h1>
             </div>
           </div>
           <ChefHat size={18} className="text-accent" />
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl p-4">
+      <section className="max-w-7xl mx-auto p-4">
         {loading ? (
-          <LogoLoadingScreen
-            variant="contained"
-            message={t.loadingOrders}
-            className="min-h-[min(420px,65vh)] bg-[#F6F7FA]"
-          />
-        ) : ordersTodaySf.length === 0 ? (
-          <p className="rounded-2xl border border-border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
-            {t.kitchenNoOrdersToday}
-          </p>
+          <div className="text-sm text-muted-foreground">Carregando ordens...</div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {statusColumns.map((col) => {
-              const columnOrders = ordersTodaySf.filter((o) => o.status_producao === col.key)
-              const isDelivered = col.key === 'delivered'
-              const visibleDelivered = isDelivered
-                ? columnOrders.filter((o) => !hiddenDeliveredIds.has(o.id))
-                : columnOrders
-              const hiddenInDelivered = isDelivered
-                ? columnOrders.filter((o) => hiddenDeliveredIds.has(o.id)).length
-                : 0
-
-              const cards = isDelivered ? visibleDelivered : columnOrders
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {STATUS_COLUMNS.map((col) => {
+              const columnOrders = orders.filter((o) => o.status_producao === col.key)
               return (
-                <div key={col.key} className="rounded-2xl border border-border bg-white p-3">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold">{col.title}</h2>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-                        {isDelivered ? visibleDelivered.length : columnOrders.length}
-                      </span>
-                      {isDelivered && hiddenInDelivered > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {t.kitchenHiddenCount.replace('{n}', String(hiddenInDelivered))}
-                        </span>
-                      )}
-                    </div>
+                <div key={col.key} className="bg-white rounded-2xl border border-border p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold text-sm">{col.title}</h2>
+                    <span className="text-xs bg-secondary rounded-full px-2 py-0.5">
+                      {columnOrders.length}
+                    </span>
                   </div>
 
-                  {isDelivered && (
-                    <div className="mb-3 space-y-1">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => clearDeliveredColumn(visibleDelivered)}
-                          disabled={visibleDelivered.length === 0}
-                          className="rounded-lg border border-border bg-white px-2.5 py-1 text-[11px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {t.kitchenClearDelivered}
-                        </button>
-                        {hiddenInDelivered > 0 && (
-                          <button
-                            type="button"
-                            onClick={showAllDeliveredAgain}
-                            className="rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-foreground"
-                          >
-                            {t.kitchenShowDeliveredAgain}
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[10px] leading-snug text-muted-foreground">
-                        {t.kitchenClearDeliveredHint}
-                      </p>
-                    </div>
-                  )}
-
                   <div className="space-y-2">
-                    {cards.length === 0 && (
+                    {columnOrders.length === 0 && (
                       <p className="text-xs text-muted-foreground">Sem ordens nesta etapa.</p>
                     )}
 
-                    {cards.map((order) => (
+                    {columnOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="w-full rounded-xl border border-border bg-[#FCFCFD] p-3 text-left"
+                        className="w-full text-left rounded-xl border border-border p-3 bg-[#FCFCFD]"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold">
-                              #{order.id.replace(/-/g, '').slice(-8).toUpperCase()}
-                            </p>
-                            {order.criado_em && (
-                              <p
-                                className="mt-0.5 text-[10px] text-muted-foreground"
-                                title={order.criado_em}
-                              >
-                                {formatPedidoKitchenTz(order.criado_em)}
-                              </p>
-                            )}
-                          </div>
-                          <p className="shrink-0 text-xs font-semibold text-foreground">
+                        <div className="flex justify-between items-start">
+                          <p className="font-bold text-sm">
+                            #{order.id.replace(/-/g, '').slice(-8).toUpperCase()}
+                          </p>
+                          <p className="text-xs text-foreground font-semibold">
                             Total $
                             {Number(
                               order.valor_pago != null ? order.valor_pago : order.valor_total ?? 0
                             ).toFixed(2)}
                           </p>
                         </div>
-                        {Number(order.taxa_entrega ?? 0) > 0 ? (
-                          <p className="mt-1 text-[10px] text-muted-foreground">
-                            {t.paymentDeliveryFee}: ${Number(order.taxa_entrega ?? 0).toFixed(2)}
-                          </p>
-                        ) : null}
-                        <p className="mt-1 text-[10px] font-semibold text-foreground">
-                          {formatPaymentLabel(order)}
-                        </p>
                         {(order.cliente_nome || order.cliente_email || order.cliente_telefone) && (
-                          <div className="mt-2 space-y-0.5 border-t border-border pt-2 text-[11px] text-muted-foreground">
-                            {order.cliente_nome && (
-                              <p className="font-medium text-foreground">{order.cliente_nome}</p>
-                            )}
+                          <div className="mt-2 text-[11px] text-muted-foreground space-y-0.5 border-t border-border pt-2">
+                            {order.cliente_nome && <p className="font-medium text-foreground">{order.cliente_nome}</p>}
                             {order.cliente_email && <p>{order.cliente_email}</p>}
                             {order.cliente_telefone && <p>Tel. {order.cliente_telefone}</p>}
-                            {order.tipo_atendimento && (
-                              <p>
-                                {order.tipo_atendimento === 'delivery'
-                                  ? t.checkoutDelivery
-                                  : t.checkoutTakeOut}
-                              </p>
-                            )}
-                            {order.tipo_atendimento === 'delivery' && order.endereco_entrega ? (
-                              <p>{order.endereco_entrega}</p>
-                            ) : null}
                           </div>
                         )}
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {statusColumns.map((statusCol) => (
+                        <div className="mt-2 flex gap-1">
+                          {STATUS_COLUMNS.map((statusCol) => (
                             <button
                               key={`${order.id}-${statusCol.key}`}
                               type="button"
                               onClick={() => updateOrderStatus(order, statusCol.key)}
-                              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                              className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
                                 order.status_producao === statusCol.key
                                   ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border bg-white text-muted-foreground'
+                                  : 'bg-white text-muted-foreground border-border'
                               }`}
                             >
                               {statusCol.title}
                             </button>
                           ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleReprint(order.id)}
-                          disabled={reprintingId === order.id}
-                          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <Printer size={13} aria-hidden />
-                          {reprintingId === order.id ? t.kitchenReprinting : t.kitchenReprint}
-                        </button>
-                        {reprintNotice?.orderId === order.id && (
-                          <p
-                            className={`mt-1.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
-                              reprintNotice.kind === 'ok'
-                                ? 'bg-emerald-50 text-emerald-800'
-                                : 'bg-red-50 text-red-700'
-                            }`}
-                          >
-                            {reprintNotice.text}
-                          </p>
-                        )}
                         <div className="mt-2 space-y-1">
                           {order.pedido_itens?.map((it, i) => (
                             <div key={`${order.id}-${i}`} className="text-xs">
@@ -408,7 +178,7 @@ export default function AdminOrdensPage() {
                                 </p>
                               )}
                               {it.observacao && (
-                                <p className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                                <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
                                   Obs interna: {it.observacao}
                                 </p>
                               )}
@@ -426,11 +196,4 @@ export default function AdminOrdensPage() {
       </section>
     </main>
   )
-}
-
-function formatPaymentLabel(order: Pick<KitchenOrder, 'origem_pagamento' | 'status_pagamento'>): string {
-  if (order.origem_pagamento === 'cash_on_delivery' || order.status_pagamento === 'pay_on_delivery') {
-    return 'Pagamento: Dinheiro na entrega'
-  }
-  return 'Pagamento: PayPal'
 }

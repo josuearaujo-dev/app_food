@@ -23,11 +23,11 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-card/85 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Main navigation"
     >
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 py-2.5">
+      <div className="flex items-center justify-around px-2 py-3 max-w-lg mx-auto">
         {navItems.map(({ href, icon: Icon, label }) => {
           const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
           const isCart = href === '/carrinho'
@@ -37,39 +37,35 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition-colors',
+                'flex flex-col items-center gap-1 relative px-3 py-1 rounded-xl transition-colors',
                 isActive ? 'text-accent' : 'text-muted-foreground hover:text-foreground'
               )}
               aria-label={label}
               aria-current={isActive ? 'page' : undefined}
             >
               <span className="relative">
-                <Icon size={22} strokeWidth={isActive ? 2.25 : 1.75} />
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? 'text-accent' : ''} />
                 {isCart && totalItems > 0 && (
-                  <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-bold text-accent-foreground">
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground">
                     {totalItems > 9 ? '9+' : totalItems}
                   </span>
                 )}
               </span>
-              <span className={cn('text-[10px] font-medium tracking-tight', isActive && 'font-semibold')}>
-                {label}
-              </span>
+              <span className={cn('text-[10px] font-medium', isActive ? 'text-accent' : '')}>{label}</span>
             </Link>
           )
         })}
 
+        {/* Botão de idioma */}
         <button
-          type="button"
           onClick={toggleLang}
-          className="flex min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para inglês'}
+          className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-            {lang === 'en' ? 'PT' : 'EN'}
+          <span className="text-base font-bold leading-none">
+            {lang === 'en' ? '🇧🇷' : '🇺🇸'}
           </span>
-          <span className="text-[9px] font-medium text-muted-foreground/80">
-            {lang === 'en' ? 'Português' : 'English'}
-          </span>
+          <span className="text-[10px] font-medium">{lang === 'en' ? 'PT' : 'EN'}</span>
         </button>
       </div>
     </nav>

@@ -1,79 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useLang } from '@/lib/lang-context'
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User, MapPin } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react'
 
 export function CadastroForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') || '/checkout/dados'
-  const { t } = useLang()
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [localidadeEntregaId, setLocalidadeEntregaId] = useState('')
-  const [localidadeEntregaNome, setLocalidadeEntregaNome] = useState('')
-  const [enderecoEntrega, setEnderecoEntrega] = useState('')
-  const [localidadesEntrega, setLocalidadesEntrega] = useState<Array<{ id: string; nome: string }>>([])
   const [mostrarSenha, setMostrarSenha] = useState(false)
-  const [aceitaSmsTransactional, setAceitaSmsTransactional] = useState(false)
+  const [aceitaSms, setAceitaSms] = useState(false)
   const [aceitaEmail, setAceitaEmail] = useState(false)
   const [prefereSalvarCartao, setPrefereSalvarCartao] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
-    fetch('/api/checkout-config')
-      .then(async (res) => {
-        const data = await res.json()
-        if (!res.ok || !active) return
-        const rows = Array.isArray(data?.locations) ? data.locations : []
-        const parsed = rows
-          .map((row: unknown) => {
-            const r = row as { id?: unknown; nome?: unknown }
-            const id = String(r.id ?? '')
-            const nome = String(r.nome ?? '')
-            if (!id || !nome) return null
-            return { id, nome }
-          })
-          .filter((row: { id: string; nome: string } | null): row is { id: string; nome: string } => row != null)
-        setLocalidadesEntrega(parsed)
-      })
-      .catch(() => {
-        /* no-op */
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
   async function handleCadastro(e: React.FormEvent) {
     e.preventDefault()
+    setLoading(true)
     setErro(null)
     setInfo(null)
-
-    if (!aceitaSmsTransactional) {
-      setErro(t.registerSmsConsentRequired)
-      return
-    }
-    if (!localidadeEntregaId.trim()) {
-      setErro('Selecione sua cidade/localidade padrão.')
-      return
-    }
-    if (enderecoEntrega.trim().length < 6) {
-      setErro('Informe seu endereço padrão para delivery.')
-      return
-    }
-
-    setLoading(true)
 
     const supabase = createClient()
     const { data, error } = await supabase.auth.signUp({
@@ -84,12 +38,6 @@ export function CadastroForm() {
           role: 'customer',
           nome_completo: nome.trim(),
           telefone: telefone.trim(),
-          localidade_entrega_id: localidadeEntregaId,
-          localidade_entrega_nome: localidadeEntregaNome,
-          endereco_entrega: enderecoEntrega.trim(),
-          aceita_sms_atualizacoes_pedido: true,
-          aceita_email_atualizacoes_pedido: aceitaEmail,
-          prefere_salvar_cartao_futuro: prefereSalvarCartao,
         },
       },
     })
@@ -100,14 +48,30 @@ export function CadastroForm() {
       return
     }
 
-    // cliente_perfis é criado no BD pelo trigger (script 015), porque sem sessão
-    // (confirmação de e-mail) auth.uid() é null e o upsert do cliente violava RLS.
+    const user = data.user
+    if (user) {
+      const { error: perfilErr } = await supabase.from('cliente_perfis').upsert(
+        {
+          user_id: user.id,
+          nome_completo: nome.trim(),
+          telefone: telefone.trim(),
+        },
+        { onConflict: 'user_id' }
+      )
+      if (perfilErr) {
+        setErro(perfilErr.message)
+        setLoading(false)
+        return
+      }
+    }
 
     if (data.session) {
       router.push(nextPath.startsWith('/') ? nextPath : '/checkout/dados')
       router.refresh()
     } else {
-      setInfo(t.profileAuthCreatedConfirmEmail)
+      setInfo(
+        'Conta criada. Se o projeto exigir confirmação por e-mail, abra o link recebido e depois entre em "Já tenho conta".'
+      )
     }
     setLoading(false)
   }
@@ -123,17 +87,19 @@ export function CadastroForm() {
           >
             <ArrowLeft size={18} />
           </Link>
-          <h1 className="text-base font-bold text-foreground">{t.profileCreateAccount}</h1>
+          <h1 className="text-base font-bold text-foreground">Criar conta</h1>
         </div>
       </header>
 
       <div className="px-4 pt-6 pb-10">
-        <p className="mb-6 text-sm text-muted-foreground">{t.registerIntroBlurb}</p>
+        <p className="text-sm text-muted-foreground mb-6">
+          Guarde seu nome, telefone e e-mail para não repetir em cada pedido.
+        </p>
 
         <form onSubmit={handleCadastro} className="space-y-4">
           <div>
             <label htmlFor="nome" className="text-xs font-semibold text-foreground block mb-1">
-              {t.profileFullName}
+              Nome completo
             </label>
             <div className="relative">
               <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -151,7 +117,7 @@ export function CadastroForm() {
 
           <div>
             <label htmlFor="telefone" className="text-xs font-semibold text-foreground block mb-1">
-              {t.profilePhone}
+              Telefone
             </label>
             <div className="relative">
               <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -169,7 +135,7 @@ export function CadastroForm() {
 
           <div>
             <label htmlFor="email" className="text-xs font-semibold text-foreground block mb-1">
-              {t.profileEmail}
+              E-mail
             </label>
             <div className="relative">
               <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -186,51 +152,8 @@ export function CadastroForm() {
           </div>
 
           <div>
-            <label htmlFor="localidade" className="text-xs font-semibold text-foreground block mb-1">
-              Cidade / localidade padrão
-            </label>
-            <div className="relative">
-              <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <select
-                id="localidade"
-                value={localidadeEntregaId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setLocalidadeEntregaId(id)
-                  const nome = localidadesEntrega.find((loc) => loc.id === id)?.nome ?? ''
-                  setLocalidadeEntregaNome(nome)
-                }}
-                required
-                className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/30"
-              >
-                <option value="">Selecione</option>
-                {localidadesEntrega.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="endereco-entrega" className="text-xs font-semibold text-foreground block mb-1">
-              Endereço padrão de entrega
-            </label>
-            <textarea
-              id="endereco-entrega"
-              value={enderecoEntrega}
-              onChange={(e) => setEnderecoEntrega(e.target.value)}
-              required
-              minLength={6}
-              rows={3}
-              className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </div>
-
-          <div>
             <label htmlFor="senha" className="text-xs font-semibold text-foreground block mb-1">
-              {t.profilePassword}
+              Senha
             </label>
             <div className="relative">
               <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -248,31 +171,27 @@ export function CadastroForm() {
                 type="button"
                 onClick={() => setMostrarSenha(!mostrarSenha)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                aria-label={mostrarSenha ? t.profileHidePassword : t.profileShowPassword}
+                aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
               >
                 {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-3.5">
-            <label className="flex cursor-pointer gap-3">
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
+            <p className="text-xs font-semibold text-foreground">Preferências</p>
+            <label className="flex gap-2.5 items-start text-xs text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
-                checked={aceitaSmsTransactional}
-                onChange={(e) => setAceitaSmsTransactional(e.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary/30"
+                checked={aceitaSms}
+                onChange={(e) => setAceitaSms(e.target.checked)}
+                className="mt-0.5 rounded border-border"
               />
-              <span className="space-y-2 text-[11px] leading-relaxed text-foreground">
-                <span className="block">{t.registerSmsConsentLine1}</span>
-                <span className="block">{t.registerSmsConsentLine2}</span>
-                <span className="block">{t.registerSmsConsentLine3}</span>
+              <span>
+                Quero receber <strong className="text-foreground">SMS</strong> com atualizações dos meus pedidos
+                (status, preparação etc.).
               </span>
             </label>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
-            <p className="text-xs font-semibold text-foreground">{t.registerPreferencesTitle}</p>
             <label className="flex gap-2.5 items-start text-xs text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
@@ -280,7 +199,9 @@ export function CadastroForm() {
                 onChange={(e) => setAceitaEmail(e.target.checked)}
                 className="mt-0.5 rounded border-border"
               />
-              <span>{t.registerPrefEmailLabel}</span>
+              <span>
+                Quero receber <strong className="text-foreground">e-mails</strong> com atualizações dos meus pedidos.
+              </span>
             </label>
             <label className="flex gap-2.5 items-start text-xs text-muted-foreground cursor-pointer">
               <input
@@ -289,7 +210,10 @@ export function CadastroForm() {
                 onChange={(e) => setPrefereSalvarCartao(e.target.checked)}
                 className="mt-0.5 rounded border-border"
               />
-              <span>{t.registerPrefCardLabel}</span>
+              <span>
+                Autorizo <strong className="text-foreground">salvar meu cartão</strong> para compras futuras, quando o
+                PayPal oferecer essa opção de forma segura — na hora do pagamento você poderá confirmar de novo.
+              </span>
             </label>
           </div>
 
@@ -307,14 +231,14 @@ export function CadastroForm() {
             disabled={loading}
             className="w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
-            {loading ? t.profileCreating : t.profileCreateAccount}
+            {loading ? 'Criando...' : 'Cadastrar'}
           </button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          {t.profileAuthHasAccount}{' '}
+          Já tem conta?{' '}
           <Link href={`/conta/entrar?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-accent">
-            {t.profileSignIn}
+            Entrar
           </Link>
         </p>
       </div>

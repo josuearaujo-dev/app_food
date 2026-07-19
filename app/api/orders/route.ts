@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
-import { computePromotionForOrderCart } from '@/lib/order-promotions'
-import { getDeliveryFeeAmount } from '@/lib/store-settings'
-import { calculateOrderTax } from '@/lib/order-tax'
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === 'live'
@@ -39,14 +36,11 @@ async function getPayPalAccessToken() {
 
 type OrderRequestBody = {
   customer?: unknown
-  promoCode?: string | null
   cart?: Array<{
     id: string
-    combo_id?: string | null
     name: string
     quantity: number
     unitAmount: number
-    categoria_id?: string | null
     observation?: string
     selectedOptions?: Array<{
       optionId: string
@@ -71,11 +65,9 @@ export async function POST(request: Request) {
 
     const safeItems = (body.cart ?? []).map((item) => ({
       id: item.id,
-      combo_id: item.combo_id ?? null,
       name: item.name,
       quantity: Math.max(1, Number(item.quantity) || 1),
       unitAmount: Math.max(0, Number(item.unitAmount) || 0),
-      categoria_id: item.categoria_id ?? null,
       observation: (item.observation ?? '').trim(),
       selectedOptions: (item.selectedOptions ?? []).map((opt) => ({
         optionId: String(opt.optionId),
@@ -87,101 +79,19 @@ export async function POST(request: Request) {
       })),
     }))
 
-    const subtotalBruto = safeItems.reduce(
+    const total = safeItems.reduce(
       (acc, item) => acc + item.quantity * item.unitAmount,
       0
     )
 
-    if (subtotalBruto <= 0 || safeItems.length === 0) {
+    if (total <= 0 || safeItems.length === 0) {
       return NextResponse.json(
         { error: 'Carrinho invalido para checkout.' },
         { status: 400 }
       )
     }
 
-    const promo = await computePromotionForOrderCart(
-      safeItems.map((i) => ({
-        id: i.id,
-        quantity: i.quantity,
-        unitAmount: i.unitAmount,
-        categoria_id: i.categoria_id,
-      })),
-      body.promoCode ?? null
-    )
-
-    const isDelivery = parsedCustomer.customer.fulfillmentType === 'delivery'
-    const rawDeliveryFee = isDelivery
-      ? await getDeliveryFeeAmount(parsedCustomer.customer.localidadeEntregaId)
-      : 0
-    const deliveryFee = isDelivery && promo.deliveryFreeEligible ? 0 : rawDeliveryFee
-    const subtotalWithDelivery = Number((promo.totalPayable + deliveryFee).toFixed(2))
-    const taxAmount = calculateOrderTax(subtotalWithDelivery)
-    const payable = Number((subtotalWithDelivery + taxAmount).toFixed(2))
-    const maxBase = Number((subtotalBruto + deliveryFee).toFixed(2))
-    const maxPayable = Number((maxBase + calculateOrderTax(maxBase)).toFixed(2))
-    if (payable <= 0 || payable > maxPayable + 0.01) {
-      return NextResponse.json(
-        { error: 'Valor do pedido invalido apos promocoes.' },
-        { status: 400 }
-      )
-    }
-
     const accessToken = await getPayPalAccessToken()
-    const itemTotalStr = promo.subtotal.toFixed(2)
-    const discountStr = promo.discountAmount.toFixed(2)
-    const deliveryFeeStr = deliveryFee.toFixed(2)
-    const taxAmountStr = taxAmount.toFixed(2)
-    const amountBreakdown =
-      promo.discountAmount > 0.001
-        ? {
-            item_total: {
-              currency_code: 'USD',
-              value: itemTotalStr,
-            },
-            discount: {
-              currency_code: 'USD',
-              value: discountStr,
-            },
-            ...(deliveryFee > 0
-              ? {
-                  shipping: {
-                    currency_code: 'USD',
-                    value: deliveryFeeStr,
-                  },
-                }
-              : {}),
-            ...(taxAmount > 0
-              ? {
-                  tax_total: {
-                    currency_code: 'USD',
-                    value: taxAmountStr,
-                  },
-                }
-              : {}),
-          }
-        : {
-            item_total: {
-              currency_code: 'USD',
-              value: itemTotalStr,
-            },
-            ...(deliveryFee > 0
-              ? {
-                  shipping: {
-                    currency_code: 'USD',
-                    value: deliveryFeeStr,
-                  },
-                }
-              : {}),
-            ...(taxAmount > 0
-              ? {
-                  tax_total: {
-                    currency_code: 'USD',
-                    value: taxAmountStr,
-                  },
-                }
-              : {}),
-          }
-
     const response = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
@@ -194,8 +104,13 @@ export async function POST(request: Request) {
           {
             amount: {
               currency_code: 'USD',
-              value: payable.toFixed(2),
-              breakdown: amountBreakdown,
+              value: total.toFixed(2),
+              breakdown: {
+                item_total: {
+                  currency_code: 'USD',
+                  value: total.toFixed(2),
+                },
+              },
             },
             items: safeItems.map((item) => ({
               name: item.name,
