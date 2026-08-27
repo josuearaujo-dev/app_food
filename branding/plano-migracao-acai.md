@@ -15,7 +15,7 @@ Projeto ativo: raiz do `siteKaduLanches`
 - [x] Barra flutuante “Ver carrinho” no mobile
 - [x] Hero de boas-vindas na home (identidade Cadu)
 - [x] Perfil com estado de login (Supabase)
-- [ ] Pequenos polimentos visuais (cards, sombras)
+- [x] Layout storefront premium (referência + cores Cadu) — v1.3.0
 
 **Não toca:** `app/pagamento`, `lib/clover/*`, APIs de pagamento
 
