@@ -944,7 +944,7 @@
 .cadu-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 70;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -990,6 +990,7 @@
 }
 
 .cadu-modal-header {
+  flex-shrink: 0;
   display: flex;
   gap: 12px;
   padding: 12px 16px 0;
@@ -1071,12 +1072,14 @@
 }
 
 .cadu-modal-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--cadu-line);
   background: white;
+  box-shadow: 0 -4px 16px rgba(83, 27, 4, 0.08);
 }
 
 .cadu-modal-add {
@@ -1107,4 +1110,8 @@
   to {
     opacity: 0;
   }
+}
+
+body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
+  display: none;
 }

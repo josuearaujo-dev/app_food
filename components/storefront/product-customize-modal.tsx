@@ -60,9 +60,16 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
   }, [itemId, supabase])
 
   useEffect(() => {
-    document.body.style.overflow = itemId ? 'hidden' : ''
+    if (itemId) {
+      document.body.style.overflow = 'hidden'
+      document.body.dataset.caduModal = 'open'
+    } else {
+      document.body.style.overflow = ''
+      delete document.body.dataset.caduModal
+    }
     return () => {
       document.body.style.overflow = ''
+      delete document.body.dataset.caduModal
     }
   }, [itemId])
 
