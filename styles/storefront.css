@@ -11,8 +11,11 @@
   --cadu-surface: #f6efea;
   --cadu-warm: #c77c39;
   --cadu-gold: #f4c56a;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
   padding-bottom: 48px;
+  overflow-x: clip;
   background: var(--cadu-page);
   color: var(--cadu-ink);
 }
@@ -293,7 +296,13 @@
   align-items: start;
   gap: 24px;
   width: min(1280px, calc(100% - 32px));
+  max-width: 100%;
   margin: 0 auto;
+}
+
+.cadu-catalog-column {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cadu-catalog-toolbar {
@@ -372,6 +381,8 @@
   display: grid;
   grid-template-columns: 108px minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
   min-height: 150px;
   overflow: hidden;
   border: 1px solid #dce0e7;
@@ -379,6 +390,11 @@
   padding: 12px;
   background: var(--cadu-white);
   box-shadow: 0 2px 7px rgba(23, 28, 39, 0.03);
+}
+
+.cadu-product-copy {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cadu-product-thumb {
@@ -658,11 +674,15 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 10px 14px;
     padding-top: max(10px, env(safe-area-inset-top));
     background: rgba(225, 211, 199, 0.92);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--cadu-line);
+    overflow-x: clip;
   }
 
   .cadu-mobile-header-logo {
@@ -726,8 +746,9 @@
 
   .cadu-mobile-header-cart-count {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: 0;
+    right: 0;
+    transform: translate(25%, -25%);
     display: grid;
     min-width: 18px;
     height: 18px;
@@ -742,10 +763,18 @@
 
   .cadu-shop-hero {
     min-height: auto;
+    overflow: hidden;
+  }
+
+  .cadu-shop-hero::before {
+    transform: none;
+    opacity: 0.2;
   }
 
   .cadu-hero-content {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 18px 16px 20px;
   }
 
@@ -786,11 +815,18 @@
   }
 
   .cadu-shop-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
-    padding: 0 14px;
+    max-width: 100%;
+    padding: 0;
     margin-top: 0;
     gap: 0;
+  }
+
+  .cadu-catalog-body {
+    padding: 0 14px 14px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .cadu-catalog-toolbar--desktop {
@@ -804,11 +840,15 @@
     position: sticky;
     top: calc(52px + env(safe-area-inset-top));
     z-index: 12;
-    margin: 0 -14px 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 14px;
     padding: 10px 14px 12px;
     background: rgba(225, 211, 199, 0.96);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--cadu-line);
+    overflow-x: clip;
   }
 
   .cadu-category-strip {
@@ -819,6 +859,7 @@
     gap: 8px;
     padding-bottom: 2px;
     margin: 0;
+    max-width: 100%;
   }
 
   .cadu-category-strip button {
@@ -838,8 +879,9 @@
   }
 
   .cadu-product-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+    max-width: 100%;
   }
 
   .cadu-product-card {

@@ -55,7 +55,28 @@ type DbOption = {
   label: string
   price_delta: number
   ativo: boolean | null
-  info?: string | null
+  detail_info?: string | null
+}
+
+function groupSelectionLimits(group: DbGroup): { min: number; max: number } {
+  let min =
+    group.min_escolhas == null
+      ? group.obrigatorio
+        ? 1
+        : 0
+      : Math.max(0, Math.floor(group.min_escolhas))
+  let max =
+    group.max_escolhas == null
+      ? group.tipo === 'extra'
+        ? Number.POSITIVE_INFINITY
+        : group.obrigatorio
+          ? 1
+          : 99
+      : Math.max(0, Math.floor(group.max_escolhas))
+  if (Number.isNaN(min)) min = 0
+  if (Number.isNaN(max)) max = Number.POSITIVE_INFINITY
+  if (max !== Number.POSITIVE_INFINITY && max < min) max = min
+  return { min, max }
 }
 
 export class OrderCalculationError extends Error {
@@ -107,7 +128,7 @@ export async function calculateOrderFromCart(
   if (groupIds.length > 0) {
     const { data: opts, error: optsError } = await supabase
       .from('item_opcoes')
-      .select('id, grupo_id, label, price_delta, ativo, info')
+      .select('id, grupo_id, label, price_delta, ativo, detail_info')
       .in('grupo_id', groupIds)
 
     if (optsError) {
@@ -163,7 +184,7 @@ export async function calculateOrderFromCart(
         groupName: group.nome,
         label: option.label,
         priceDeltaCents: deltaCents,
-        info: option.info ?? null,
+        info: option.detail_info ?? null,
       })
 
       const ids = selectedByGroup.get(group.id) ?? []
@@ -173,8 +194,7 @@ export async function calculateOrderFromCart(
 
     for (const group of itemGroups) {
       const count = (selectedByGroup.get(group.id) ?? []).length
-      const min = group.min_escolhas ?? (group.obrigatorio ? 1 : 0)
-      const max = group.max_escolhas ?? (group.obrigatorio ? 1 : 99)
+      const { min, max } = groupSelectionLimits(group)
       if (count < min || count > max) {
         throw new OrderCalculationError(
           `Seleção inválida para "${group.nome}" em ${product.nome}.`

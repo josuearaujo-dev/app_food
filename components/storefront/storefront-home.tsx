@@ -340,6 +340,7 @@ export function StorefrontHome() {
             </label>
           </div>
 
+          <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
               {[1, 2, 3, 4].map((i) => (
@@ -387,6 +388,7 @@ export function StorefrontHome() {
               )
             })
           )}
+          </div>
         </section>
 
         <aside className="cadu-desktop-cart desktop-cart">

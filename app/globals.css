@@ -139,6 +139,12 @@
   body {
     @apply bg-background text-foreground font-sans;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: clip;
+    max-width: 100%;
+  }
+  html {
+    overflow-x: clip;
+    max-width: 100%;
   }
   .brand-title {
     font-family: var(--font-display);
