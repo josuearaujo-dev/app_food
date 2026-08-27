@@ -27,6 +27,7 @@ rsync -av --delete \
   --exclude ".env.local" \
   --exclude ".env.*.local" \
   --exclude ".env.test" \
+  --exclude "env.txt" \
   --exclude ".vscode/" \
   --exclude ".idea/" \
   --exclude "github-upload-*/" \
