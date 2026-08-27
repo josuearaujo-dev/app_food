@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Confirmar e-mail</title>
+  <!--
+    Template para Supabase Auth (e-mail de confirmação de cadastro).
+    Cole o conteúdo do <body> (ou o HTML completo) em:
+    Dashboard > Authentication > Email Templates > "Confirm signup"
+
+    Variável principal do link:
+      {{ .ConfirmationURL }}
+
+    Outras variáveis úteis (opcional):
+      {{ .Email }}  {{ .SiteURL }}
+
+    Gmail: use estilos INLINE; evite <style> externo ou muito complexo.
+  -->
+</head>
+<body style="margin:0;padding:0;background-color:#E1D3C7;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <!-- wrapper full width -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E1D3C7;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <!-- card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background-color:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #D5C0B3;">
+          <tr>
+            <td style="padding:28px 24px 8px 24px;text-align:center;">
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#7A4A35;">
+                Cadu Cakes &amp; Lanches
+              </p>
+              <h1 style="margin:10px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.25;color:#531B04;">
+                Confirme seu e-mail
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 24px 0 24px;">
+              <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#531B04;">
+                Olá,
+              </p>
+              <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#531B04;">
+                Recebemos um pedido para criar ou verificar sua conta. Para concluir, confirme seu endereço de e-mail clicando no botão abaixo.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:20px 24px 8px 24px;">
+              <!-- botão principal (Gmail-friendly) -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#531B04" style="border-radius:14px;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:14px;">
+                      Confirmar e-mail
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 24px 24px 24px;">
+              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#7A4A35;">
+                Se o botão não funcionar, copie e cole este link no navegador:
+              </p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;word-break:break-all;color:#531B04;">
+                <a href="{{ .ConfirmationURL }}" style="color:#FB5B77;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 24px 24px;border-top:1px solid #F6EFEA;">
+              <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#7A4A35;">
+                Se você não solicitou esta conta, pode ignorar este e-mail com segurança.
+              </p>
+              <p style="margin:12px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#A08F84;">
+                Este é um e-mail automático. Não responda a esta mensagem.
+              </p>
+            </td>
+          </tr>
+        </table>
+        <!-- rodapé discreto -->
+        <p style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#7A4A35;text-align:center;max-width:560px;">
+          Cadu Cakes &amp; Lanches &middot; Cardápio digital
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

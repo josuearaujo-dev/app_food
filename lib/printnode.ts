@@ -1,0 +1,329 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { encodeKitchenReceiptEscPos, RECEIPT_MARKERS } from '@/lib/escpos-receipt'
+import { STORE_TIMEZONE } from '@/lib/kitchen-timezone'
+
+const PRINTNODE_API_BASE = 'https://api.printnode.com'
+
+export type PrintNodeConfig = {
+  enabled: boolean
+  apiKey: string
+  printerId: number | null
+  extraCopyCategoryIds: string[]
+  deliveryExtraCopies: number
+}
+
+export async function getPrintNodeConfig(): Promise<PrintNodeConfig> {
+  const supabase = createAdminClient()
+  let { data, error } = await supabase
+    .from('configuracoes_loja')
+    .select(
+      'printnode_ativo, printnode_api_key, printnode_printer_id, printnode_extra_via_categoria_ids, printnode_delivery_extra_vias'
+    )
+    .order('atualizado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle<{
+      printnode_ativo?: boolean | null
+      printnode_api_key?: string | null
+      printnode_printer_id?: number | null
+      printnode_extra_via_categoria_ids?: string[] | null
+      printnode_delivery_extra_vias?: number | null
+    }>()
+
+  if (error) {
+    const fallback = await supabase
+      .from('configuracoes_loja')
+      .select('printnode_ativo, printnode_api_key, printnode_printer_id')
+      .order('atualizado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle<{
+        printnode_ativo?: boolean | null
+        printnode_api_key?: string | null
+        printnode_printer_id?: number | null
+      }>()
+    data = fallback.data
+  }
+
+  const envKey = String(process.env.PRINTNODE_API_KEY ?? '').trim()
+  const dbKey = String(data?.printnode_api_key ?? '').trim()
+  const apiKey = dbKey || envKey
+  const printerRaw = Number(data?.printnode_printer_id ?? 0)
+  const printerId = Number.isFinite(printerRaw) && printerRaw > 0 ? Math.floor(printerRaw) : null
+  const deliveryCopiesRaw = Number(data?.printnode_delivery_extra_vias ?? 2)
+  const deliveryExtraCopies =
+    Number.isFinite(deliveryCopiesRaw) && deliveryCopiesRaw >= 0
+      ? Math.min(10, Math.floor(deliveryCopiesRaw))
+      : 2
+
+  return {
+    enabled: Boolean(data?.printnode_ativo) && Boolean(apiKey) && printerId != null,
+    apiKey,
+    printerId,
+    extraCopyCategoryIds: Array.isArray(data?.printnode_extra_via_categoria_ids)
+      ? data.printnode_extra_via_categoria_ids.map(String)
+      : [],
+    deliveryExtraCopies,
+  }
+}
+
+export function calculateKitchenReceiptCopyCount(input: {
+  fulfillmentType: 'take_out' | 'delivery'
+  items: Array<{ categoria_id?: string | null }>
+  extraCopyCategoryIds: string[]
+  deliveryExtraCopies: number
+}) {
+  const configuredCategories = new Set(input.extraCopyCategoryIds.filter(Boolean))
+  const matchedCategories = new Set<string>()
+
+  for (const item of input.items) {
+    const categoryId = String(item.categoria_id ?? '').trim()
+    if (categoryId && configuredCategories.has(categoryId)) {
+      matchedCategories.add(categoryId)
+    }
+  }
+
+  const deliveryCopies = input.fulfillmentType === 'delivery' ? input.deliveryExtraCopies : 0
+  return 1 + deliveryCopies + matchedCategories.size
+}
+
+function toBasicAuthHeader(apiKey: string) {
+  return `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`
+}
+
+export async function fetchPrintNodePrinters(apiKey: string) {
+  const response = await fetch(`${PRINTNODE_API_BASE}/printers`, {
+    method: 'GET',
+    headers: {
+      Authorization: toBasicAuthHeader(apiKey),
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`PrintNode printers failed: ${response.status} ${body}`)
+  }
+
+  return (await response.json()) as Array<{
+    id: number
+    name?: string
+    description?: string
+    computer?: { id?: number; name?: string }
+  }>
+}
+
+export async function createPrintNodeRawJob(input: {
+  apiKey: string
+  printerId: number
+  title: string
+  content: string
+  source?: string
+  idempotencyKey?: string
+}) {
+  const response = await fetch(`${PRINTNODE_API_BASE}/printjobs`, {
+    method: 'POST',
+    headers: {
+      Authorization: toBasicAuthHeader(input.apiKey),
+      'Content-Type': 'application/json',
+      ...(input.idempotencyKey ? { 'X-Idempotency-Key': input.idempotencyKey } : {}),
+    },
+    body: JSON.stringify({
+      printerId: input.printerId,
+      title: input.title,
+      contentType: 'raw_base64',
+      content: encodeKitchenReceiptEscPos(input.content).toString('base64'),
+      source: input.source ?? 'Cadu Cakes & Lanches',
+    }),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`PrintNode printjobs failed: ${response.status} ${body}`)
+  }
+
+  const body = await response.text()
+  const id = Number(body)
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error(`PrintNode returned invalid print job id: ${body}`)
+  }
+  return id
+}
+
+export async function createKitchenReceiptPrintJobs(input: {
+  apiKey: string
+  printerId: number
+  title: string
+  content: string
+  source?: string
+  idempotencyKey: string
+  copies: number
+}) {
+  const copies = Math.max(1, Math.min(20, Math.floor(input.copies)))
+  const printJobIds: number[] = []
+
+  for (let copy = 1; copy <= copies; copy += 1) {
+    const hasMultipleCopies = copies > 1
+    const printJobId = await createPrintNodeRawJob({
+      apiKey: input.apiKey,
+      printerId: input.printerId,
+      title: hasMultipleCopies ? `${input.title} - via ${copy}/${copies}` : input.title,
+      content: input.content,
+      source: input.source,
+      idempotencyKey: hasMultipleCopies
+        ? `${input.idempotencyKey}-via-${copy}`
+        : input.idempotencyKey,
+    })
+    printJobIds.push(printJobId)
+  }
+
+  return printJobIds
+}
+
+function formatReceiptMoney(currency: string, amount: number, negative = false): string {
+  const sym = currency.trim() || '$'
+  const prefix = negative && amount > 0 ? '- ' : ''
+  return `${prefix}${sym} ${amount.toFixed(2)}`
+}
+
+function formatReceiptDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const datePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: STORE_TIMEZONE,
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(d)
+  const timePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: STORE_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(d)
+    .toLowerCase()
+  return `${datePart} - ${timePart}`
+}
+
+function fulfillmentLabel(type: 'take_out' | 'delivery'): string {
+  return type === 'delivery' ? 'Entrega normal' : 'Retirada na loja'
+}
+
+function markerLine(marker: string, payload: string) {
+  return `${marker}${payload}`
+}
+
+export function buildKitchenReceiptText(input: {
+  orderNumber: string
+  createdAtISO: string
+  customerName: string
+  customerPhone: string
+  fulfillmentType: 'take_out' | 'delivery'
+  address?: string | null
+  items: Array<{
+    name: string
+    categoryName?: string | null
+    quantity: number
+    unitAmount: number
+    subtotal: number
+    observation?: string
+    options?: Array<{ label: string; groupName?: string; groupType: 'size' | 'quantity' | 'extra' }>
+  }>
+  subtotal: number
+  discount: number
+  deliveryFee: number
+  taxAmount?: number
+  total: number
+  currency: string
+  paymentLine?: string
+  reprint?: boolean
+}) {
+  const lines: string[] = []
+  const cur = input.currency.trim() || '$'
+
+  lines.push(markerLine(RECEIPT_MARKERS.TITLE, 'CADU CAKES E LANCHES'))
+  if (input.reprint) {
+    lines.push(markerLine(RECEIPT_MARKERS.REPRINT, 'REIMPRESSAO (2a VIA)'))
+  }
+
+  lines.push(markerLine(RECEIPT_MARKERS.SECTION, 'INFORMACOES DO PEDIDO'))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Codigo do pedido:|#${input.orderNumber}`))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL_ONLY, 'Data do pedido:'))
+  lines.push(formatReceiptDate(input.createdAtISO))
+  lines.push(
+    markerLine(
+      RECEIPT_MARKERS.LABEL,
+      `Forma de entrega:|${fulfillmentLabel(input.fulfillmentType)}`
+    )
+  )
+  if (input.paymentLine?.trim()) {
+    lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Formas de pagamento:|${input.paymentLine.trim()}`))
+  }
+
+  lines.push(RECEIPT_MARKERS.SEP)
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Cliente:|${input.customerName || '-'}`))
+  lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Telefone/WhatsApp:|${input.customerPhone || '-'}`))
+  if (input.fulfillmentType === 'delivery' && input.address?.trim()) {
+    lines.push(markerLine(RECEIPT_MARKERS.LABEL, `Endereco de entrega:|${input.address.trim()}`))
+  }
+
+  lines.push(RECEIPT_MARKERS.SEP)
+
+  const groupedItems = new Map<string, typeof input.items>()
+  for (const item of input.items) {
+    const categoryName = item.categoryName?.trim() || 'SEM CATEGORIA'
+    const key = categoryName.toUpperCase()
+    groupedItems.set(key, [...(groupedItems.get(key) ?? []), item])
+  }
+
+  let categoryIndex = 0
+  for (const [categoryName, categoryItems] of groupedItems) {
+    if (categoryIndex > 0) {
+      lines.push(RECEIPT_MARKERS.SEP)
+    }
+    lines.push(markerLine(RECEIPT_MARKERS.CATEGORY, categoryName))
+    categoryIndex += 1
+
+    for (const item of categoryItems) {
+      const itemName = item.name.trim().toUpperCase()
+      const qtyLabel = `(${item.quantity}X)`
+      lines.push(
+        markerLine(
+          RECEIPT_MARKERS.ITEM,
+          `${qtyLabel} ${itemName}|${formatReceiptMoney(cur, item.subtotal)}`
+        )
+      )
+
+      if (item.options?.length) {
+        for (const op of item.options) {
+          lines.push(`  - ${op.label.trim().toUpperCase()}`)
+        }
+      }
+      if (item.observation?.trim()) {
+        lines.push(`  OBS: ${item.observation.trim().toUpperCase()}`)
+      }
+    }
+  }
+
+  lines.push(RECEIPT_MARKERS.SEP)
+  lines.push(markerLine(RECEIPT_MARKERS.ROW, `Subtotal:|${formatReceiptMoney(cur, input.subtotal)}`))
+  if (input.deliveryFee > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Taxa de entrega:|${formatReceiptMoney(cur, input.deliveryFee)}`)
+    )
+  }
+  if ((input.taxAmount ?? 0) > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Imposto:|${formatReceiptMoney(cur, input.taxAmount ?? 0)}`)
+    )
+  }
+  if (input.discount > 0) {
+    lines.push(
+      markerLine(RECEIPT_MARKERS.ROW, `Desconto:|${formatReceiptMoney(cur, input.discount, true)}`)
+    )
+  }
+  lines.push(markerLine(RECEIPT_MARKERS.TOTAL, `Total:|${formatReceiptMoney(cur, input.total)}`))
+
+  return lines.join('\n')
+}
