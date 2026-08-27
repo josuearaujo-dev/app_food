@@ -8,7 +8,6 @@ import {
   BadgePercent,
   House,
   MapPin,
-  Minus,
   PackageOpen,
   Plus,
   Search,
@@ -23,6 +22,7 @@ import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
+import { DesktopCartCheckout } from '@/components/checkout/desktop-cart-checkout'
 
 interface Categoria {
   id: string
@@ -46,7 +46,7 @@ export function StorefrontHome() {
   const [isSplash, setIsSplash] = useState(true)
   const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
   const [splashLeaving, setSplashLeaving] = useState(false)
-  const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
+  const { items, totalItems } = useCart()
   const { t, lang, toggleLang } = useLang()
 
   const fetchData = useCallback(async () => {
@@ -115,78 +115,7 @@ export function StorefrontHome() {
     return filtered.filter((i) => i.categorias?.nome === section)
   }
 
-  const cartSidebar = (
-    <>
-      {items.length === 0 ? (
-        <div className="cadu-cart-empty">
-          <ShoppingBag size={48} strokeWidth={1.3} />
-          <strong>{t.emptyCart}</strong>
-          <p>{t.emptyCartHint}</p>
-        </div>
-      ) : (
-        <div className="cadu-cart-items">
-          {items.map((line) => (
-            <div key={line.cartItemId} className="cadu-cart-item">
-              <strong>
-                {line.quantity}x {line.item.nome}
-              </strong>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1 rounded-lg bg-[var(--cadu-surface)] p-1">
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-md bg-white"
-                    onClick={() =>
-                      line.quantity <= 1
-                        ? removeItem(line.cartItemId)
-                        : updateQuantity(line.cartItemId, line.quantity - 1)
-                    }
-                    aria-label="Diminuir"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="min-w-5 text-center text-sm font-bold">{line.quantity}</span>
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--cadu-brown)] text-white"
-                    onClick={() => updateQuantity(line.cartItemId, line.quantity + 1)}
-                    aria-label="Aumentar"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-                <strong className="text-[var(--cadu-pink)]">
-                  {t.currency}
-                  {line.totalPrice.toFixed(2)}
-                </strong>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="cadu-cart-footer">
-        {items.length > 0 && (
-          <div className="cadu-cart-total">
-            <span>{t.total}</span>
-            <span>
-              {t.currency}
-              {totalPrice.toFixed(2)}
-            </span>
-          </div>
-        )}
-        <Link
-          href="/carrinho"
-          className="cadu-cart-checkout"
-          aria-disabled={items.length === 0}
-          onClick={(e) => {
-            if (items.length === 0) e.preventDefault()
-          }}
-        >
-          {t.placeOrder}
-          <ArrowRight size={18} />
-        </Link>
-      </div>
-    </>
-  )
+  const cartSidebar = <DesktopCartCheckout />
 
   return (
     <main className="cadu-shop">
