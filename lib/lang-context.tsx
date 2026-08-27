@@ -1,0 +1,286 @@
+'use client'
+
+import { createContext, useContext, useState, type ReactNode } from 'react'
+
+export type Lang = 'en' | 'pt'
+
+export const translations = {
+  en: {
+    // Nav
+    home: 'Menu',
+    search: 'Search',
+    cart: 'Cart',
+    profile: 'Profile',
+    // Home
+    menuLabel: 'Menu',
+    ourDishes: 'Our Dishes',
+    searchPlaceholder: 'Search dishes...',
+    all: 'All',
+    featured: 'Featured',
+    featuredSubtitle: "Chef's picks",
+    fullMenu: 'Full Menu',
+    searchResults: 'Results',
+    noItemsFound: 'No items found',
+    noItemsHint: 'Try searching for a different dish or category',
+    addToCart: 'Add',
+    unavailable: 'Unavailable',
+    // Cart
+    myCart: 'My Cart',
+    emptyCart: 'Your cart is empty',
+    emptyCartHint: 'Add items from the menu to place your order.',
+    viewMenu: 'View Menu',
+    clearAll: 'Clear all',
+    items: 'items',
+    item: 'item',
+    total: 'Total',
+    placeOrder: 'Place Order',
+    viewCart: 'View cart',
+    // Home hero
+    heroWelcome: 'Welcome to Cadu',
+    heroSubtitle: 'Cakes, snacks & more — order in a few taps.',
+    heroCta: 'Browse menu',
+    // Price
+    currency: '$',
+    // Profile
+    profileTitle: 'Profile',
+    visitor: 'Visitor',
+    welcomeMsg: 'Welcome to our menu!',
+    myCartLink: 'My Cart',
+    adminPanel: 'Admin Panel',
+    appVersion: 'Digital Menu v1.0',
+    login: 'Sign in',
+    signup: 'Create account',
+    loggedInAs: 'Signed in as',
+    myAccount: 'My account',
+    signOut: 'Sign out',
+    // Orders
+    myOrders: 'My orders',
+    noOrdersYet: 'No orders yet',
+    noOrdersHint: 'Your paid orders will appear here.',
+    lookupOrder: 'Look up order',
+    lookupOrderHint: 'Enter your order number and email used at checkout.',
+    orderNumberLabel: 'Order number',
+    orderEmailLabel: 'Email',
+    lookupSubmit: 'Find order',
+    lookupError: 'Order not found. Check the number and email.',
+    orderDetailTitle: 'Order status',
+    orderProgress: 'Progress',
+    orderItems: 'Items',
+    orderStatusNew: 'Order received',
+    orderStatusPreparing: 'Preparing',
+    orderStatusDelivered: 'Ready / delivered',
+    orderNotFound: 'Order not found',
+    paymentConfirmed: 'Payment confirmed',
+    paymentConfirmedHint: 'Your order was placed successfully.',
+    trackOrder: 'Track order',
+    backToMenu: 'Back to menu',
+    back: 'Back',
+    recentOrders: 'Recent orders',
+    viewOrder: 'View',
+    // Search page
+    searchTitle: 'Search',
+    searchPagePlaceholder: 'Dishes, categories...',
+    results: 'Results for',
+    noResults: 'No results',
+    noResultsHint: 'Try different keywords',
+    recentSearches: 'Recent Searches',
+    // Admin
+    adminTitle: 'Menu Admin',
+    adminPanel: 'Panel',
+    tabItems: 'Items',
+    tabCategories: 'Categories',
+    newItem: 'New Item',
+    editItem: 'Edit Item',
+    newCategory: 'New Category',
+    editCategory: 'Edit Category',
+    fieldName: 'Name *',
+    fieldDesc: 'Description',
+    fieldPrice: 'Price (USD) *',
+    fieldImage: 'Product Image',
+    fieldCategory: 'Category',
+    fieldOrder: 'Order',
+    fieldAvailable: 'Available',
+    fieldFeatured: 'Featured',
+    fieldActive: 'Active',
+    fieldIcon: 'Icon (emoji)',
+    noCategory: 'No category',
+    placeholderName: 'Ex: Margherita Pizza',
+    placeholderDesc: 'Ingredients, details...',
+    placeholderPrice: 'Ex: 9.99',
+    placeholderIcon: '🍽️',
+    save: 'Save',
+    saving: 'Saving...',
+    logout: 'Logout',
+    deleteItemConfirm: 'Delete this menu item?',
+    deleteCatConfirm: 'Delete this category? Items will become uncategorized.',
+    noItems: 'No items yet',
+    noItemsHintAdmin: 'Add your first menu item.',
+    addItem: 'Add Item',
+    noCategories: 'No categories',
+    noCategoriesHint: 'Create categories to organize the menu.',
+    addCategory: 'Add Category',
+    available: 'Available',
+    hidden: 'Hidden',
+    active: 'Active',
+    inactive: 'Inactive',
+    order: 'Order:',
+    uploadPhoto: 'Tap to add photo',
+    uploadHint: 'JPG, PNG or WebP — max 5MB',
+    uploadError: 'Upload failed. Please try again.',
+    fileTooLarge: 'Image too large. Max: 5MB.',
+    invalidFile: 'Please select a valid image file.',
+  },
+  pt: {
+
+    // Nav
+    home: 'Cardapio',
+    search: 'Busca',
+    cart: 'Carrinho',
+    profile: 'Perfil',
+    // Home
+    menuLabel: 'Cardapio',
+    ourDishes: 'Nossos Pratos',
+    searchPlaceholder: 'Buscar pratos...',
+    all: 'Todas',
+    featured: 'Destaques',
+    featuredSubtitle: 'Escolhas da casa',
+    fullMenu: 'Cardapio Completo',
+    searchResults: 'Resultados',
+    noItemsFound: 'Nenhum item encontrado',
+    noItemsHint: 'Tente buscar por outro prato ou categoria',
+    addToCart: 'Adicionar',
+    unavailable: 'Indisponivel',
+    // Cart
+    myCart: 'Carrinho',
+    emptyCart: 'Carrinho vazio',
+    emptyCartHint: 'Adicione itens do cardapio para fazer seu pedido.',
+    viewMenu: 'Ver cardapio',
+    clearAll: 'Limpar tudo',
+    items: 'itens',
+    item: 'item',
+    total: 'Total',
+    placeOrder: 'Finalizar Pedido',
+    viewCart: 'Ver carrinho',
+    // Home hero
+    heroWelcome: 'Bem-vindo à Cadu',
+    heroSubtitle: 'Bolos, lanches e mais — peça em poucos toques.',
+    heroCta: 'Ver cardapio',
+    // Price
+    currency: '$',
+    // Profile
+    profileTitle: 'Perfil',
+    visitor: 'Visitante',
+    welcomeMsg: 'Bem-vindo ao nosso cardapio!',
+    myCartLink: 'Meu Carrinho',
+    adminPanel: 'Painel Admin',
+    appVersion: 'Cardapio Digital v1.0',
+    login: 'Entrar',
+    signup: 'Criar conta',
+    loggedInAs: 'Conectado como',
+    myAccount: 'Minha conta',
+    signOut: 'Sair',
+    // Orders
+    myOrders: 'Meus pedidos',
+    noOrdersYet: 'Nenhum pedido ainda',
+    noOrdersHint: 'Seus pedidos pagos aparecerão aqui.',
+    lookupOrder: 'Consultar pedido',
+    lookupOrderHint: 'Informe o número do pedido e o e-mail usado no checkout.',
+    orderNumberLabel: 'Número do pedido',
+    orderEmailLabel: 'E-mail',
+    lookupSubmit: 'Buscar pedido',
+    lookupError: 'Pedido não encontrado. Confira número e e-mail.',
+    orderDetailTitle: 'Status do pedido',
+    orderProgress: 'Andamento',
+    orderItems: 'Itens',
+    orderStatusNew: 'Pedido recebido',
+    orderStatusPreparing: 'Em preparo',
+    orderStatusDelivered: 'Pronto / entregue',
+    orderNotFound: 'Pedido não encontrado',
+    paymentConfirmed: 'Pagamento confirmado',
+    paymentConfirmedHint: 'Seu pedido foi registrado com sucesso.',
+    trackOrder: 'Acompanhar pedido',
+    backToMenu: 'Voltar ao cardápio',
+    back: 'Voltar',
+    recentOrders: 'Pedidos recentes',
+    viewOrder: 'Ver',
+    // Search page
+    searchTitle: 'Buscar',
+    searchPagePlaceholder: 'Pratos, categorias...',
+    results: 'Resultados para',
+    noResults: 'Sem resultados',
+    noResultsHint: 'Tente palavras diferentes',
+    recentSearches: 'Buscas Recentes',
+    // Admin
+    adminTitle: 'Admin Cardapio',
+    adminPanel: 'Painel',
+    tabItems: 'Itens',
+    tabCategories: 'Categorias',
+    newItem: 'Novo Item',
+    editItem: 'Editar Item',
+    newCategory: 'Nova Categoria',
+    editCategory: 'Editar Categoria',
+    fieldName: 'Nome *',
+    fieldDesc: 'Descricao',
+    fieldPrice: 'Preco (USD) *',
+    fieldImage: 'Imagem do Produto',
+    fieldCategory: 'Categoria',
+    fieldOrder: 'Ordem',
+    fieldAvailable: 'Disponivel',
+    fieldFeatured: 'Destaque',
+    fieldActive: 'Ativa',
+    fieldIcon: 'Icone (emoji)',
+    noCategory: 'Sem categoria',
+    placeholderName: 'Ex: Pizza Margherita',
+    placeholderDesc: 'Ingredientes, detalhes...',
+    placeholderPrice: 'Ex: 9.99',
+    placeholderIcon: '🍽️',
+    save: 'Salvar',
+    saving: 'Salvando...',
+    logout: 'Sair',
+    deleteItemConfirm: 'Excluir este item do cardapio?',
+    deleteCatConfirm: 'Excluir esta categoria? Os itens associados ficarao sem categoria.',
+    noItems: 'Nenhum item cadastrado',
+    noItemsHintAdmin: 'Crie o primeiro item do seu cardapio.',
+    addItem: 'Adicionar Item',
+    noCategories: 'Nenhuma categoria',
+    noCategoriesHint: 'Crie categorias para organizar o cardapio.',
+    addCategory: 'Adicionar Categoria',
+    available: 'Disponivel',
+    hidden: 'Oculto',
+    active: 'Ativa',
+    inactive: 'Inativa',
+    order: 'Ordem:',
+    uploadPhoto: 'Toque para adicionar foto',
+    uploadHint: 'JPG, PNG ou WebP — max. 5MB',
+    uploadError: 'Erro ao fazer upload. Tente novamente.',
+    fileTooLarge: 'Imagem muito grande. Maximo: 5MB.',
+    invalidFile: 'Selecione um arquivo de imagem valido.',
+  },
+} as const
+
+type Translations = typeof translations.en
+
+interface LangContextType {
+  lang: Lang
+  t: Translations
+  toggleLang: () => void
+}
+
+const LangContext = createContext<LangContextType | null>(null)
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLang] = useState<Lang>('en')
+  const toggleLang = () => setLang((l) => (l === 'en' ? 'pt' : 'en'))
+  const t = translations[lang]
+  return (
+    <LangContext.Provider value={{ lang, t, toggleLang }}>
+      {children}
+    </LangContext.Provider>
+  )
+}
+
+export function useLang() {
+  const ctx = useContext(LangContext)
+  if (!ctx) throw new Error('useLang must be used within LangProvider')
+  return ctx
+}
