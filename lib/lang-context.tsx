@@ -54,6 +54,13 @@ export const translations = {
     navCart: 'Cart',
     searchMenu: 'Search the menu',
     catalogLabel: 'MENU',
+    customizeProduct: 'Customize',
+    loadingProduct: 'Loading product...',
+    optionSize: 'Size',
+    optionQuantity: 'Quantity',
+    kitchenNote: 'Kitchen note',
+    kitchenNotePlaceholder: 'E.g.: no onions, well done...',
+    viewFullDetails: 'View full product page →',
     // Price
     currency: '$',
     // Profile
@@ -195,6 +202,13 @@ export const translations = {
     navCart: 'Carrinho',
     searchMenu: 'Buscar no cardápio',
     catalogLabel: 'CARDÁPIO',
+    customizeProduct: 'Personalize',
+    loadingProduct: 'Carregando produto...',
+    optionSize: 'Tamanho',
+    optionQuantity: 'Quantidade',
+    kitchenNote: 'Observação para a cozinha',
+    kitchenNotePlaceholder: 'Ex: sem cebola, ponto da carne...',
+    viewFullDetails: 'Ver página completa do produto →',
     // Price
     currency: '$',
     // Profile

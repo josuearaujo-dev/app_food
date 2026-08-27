@@ -700,3 +700,172 @@
     flex: 0 1 300px;
   }
 }
+
+/* Product customize modal */
+.cadu-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(83, 27, 4, 0.45);
+  backdrop-filter: blur(4px);
+  animation: cadu-modal-in 0.22s ease;
+}
+
+.cadu-modal-backdrop--closing {
+  animation: cadu-modal-out 0.18s ease forwards;
+}
+
+.cadu-product-modal {
+  width: min(520px, 100%);
+  max-height: min(92vh, 780px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  background: var(--cadu-page);
+  box-shadow: 0 -8px 40px rgba(83, 27, 4, 0.2);
+}
+
+@media (min-width: 640px) {
+  .cadu-modal-backdrop {
+    align-items: center;
+    padding: 20px;
+  }
+
+  .cadu-product-modal {
+    border-radius: 20px;
+    max-height: min(88vh, 780px);
+  }
+}
+
+.cadu-modal-handle {
+  width: 40px;
+  height: 4px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: var(--cadu-line);
+}
+
+.cadu-modal-header {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px 0;
+}
+
+.cadu-modal-kicker {
+  color: var(--cadu-pink);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.cadu-modal-header h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-family: Georgia, serif;
+}
+
+.cadu-modal-header p {
+  margin: 6px 0 0;
+  color: var(--cadu-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cadu-modal-close {
+  flex-shrink: 0;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--cadu-line);
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+}
+
+.cadu-modal-image {
+  width: calc(100% - 32px);
+  height: 160px;
+  object-fit: cover;
+  margin: 12px 16px 0;
+  border-radius: 14px;
+}
+
+.cadu-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cadu-option-label {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cadu-muted);
+}
+
+.cadu-option-pill {
+  border: 1px solid var(--cadu-line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cadu-ink);
+  background: white;
+  cursor: pointer;
+}
+
+.cadu-option-pill--on {
+  border-color: var(--cadu-brown);
+  color: white;
+  background: var(--cadu-brown);
+}
+
+.cadu-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--cadu-line);
+  background: white;
+}
+
+.cadu-modal-add {
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px;
+  color: white;
+  background: var(--cadu-brown);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@keyframes cadu-modal-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cadu-modal-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

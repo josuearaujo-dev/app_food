@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
+import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 
 interface Categoria {
   id: string
@@ -43,8 +44,9 @@ export function StorefrontHome() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isSplash, setIsSplash] = useState(true)
+  const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
   const [splashLeaving, setSplashLeaving] = useState(false)
-  const { items, totalItems, totalPrice, addItem, updateQuantity, removeItem } = useCart()
+  const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
   const { t, lang, toggleLang } = useLang()
 
   const fetchData = useCallback(async () => {
@@ -99,10 +101,6 @@ export function StorefrontHome() {
     const featured = filtered.filter((i) => i.destaque)
     return featured.length ? [t.featured, ...names] : names
   }, [categoriaSelecionada, categorias, filtered, t.featured])
-
-  function getQtd(id: string) {
-    return items.filter((ci) => ci.item.id === id).reduce((acc, ci) => acc + ci.quantity, 0)
-  }
 
   function scrollToCatalog() {
     document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -332,10 +330,8 @@ export function StorefrontHome() {
                       <ProductCard
                         key={item.id}
                         item={item}
-                        qtd={getQtd(item.id)}
-                        currency={t.currency}
                         addLabel={t.addToCart}
-                        onAdd={() => addItem(item, 1)}
+                        onAdd={() => setCustomizeItemId(item.id)}
                       />
                     ))}
                   </div>
@@ -353,19 +349,6 @@ export function StorefrontHome() {
           {cartSidebar}
         </aside>
       </div>
-
-      {totalItems > 0 && (
-        <Link href="/carrinho" className="cadu-mobile-cart-btn">
-          <span>
-            <ShoppingBag size={19} />
-            {totalItems} {totalItems === 1 ? t.item : t.items}
-          </span>
-          <span>
-            {t.currency}
-            {totalPrice.toFixed(2)} <ArrowRight size={17} />
-          </span>
-        </Link>
-      )}
 
       {isSplash && (
         <div
@@ -385,23 +368,35 @@ export function StorefrontHome() {
           </div>
         </div>
       )}
+
+      {totalItems > 0 && (
+        <Link href="/carrinho" className="cadu-mobile-cart-btn">
+          <span>
+            <ShoppingBag size={19} />
+            {totalItems} {totalItems === 1 ? t.item : t.items}
+          </span>
+          <span>
+            {t.currency}
+            {totalPrice.toFixed(2)} <ArrowRight size={17} />
+          </span>
+        </Link>
+      )}
+
+      <ProductCustomizeModal itemId={customizeItemId} onClose={() => setCustomizeItemId(null)} />
     </main>
   )
 }
 
 function ProductCard({
   item,
-  qtd,
-  currency,
   addLabel,
   onAdd,
 }: {
   item: ItemComCategoria
-  qtd: number
-  currency: string
   addLabel: string
   onAdd: () => void
 }) {
+  const { t } = useLang()
   return (
     <article className="cadu-product-card">
       <Link href={`/produto/${item.id}`} className="cadu-product-thumb block">
@@ -411,19 +406,17 @@ function ProductCard({
           <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
         )}
       </Link>
-      <div className="cadu-product-copy">
+      <Link href={`/produto/${item.id}`} className="cadu-product-copy block no-underline text-inherit">
         {item.categorias && <span>{item.categorias.nome}</span>}
-        <Link href={`/produto/${item.id}`}>
-          <h3>{item.nome}</h3>
-        </Link>
+        <h3>{item.nome}</h3>
         {item.descricao && <p>{item.descricao}</p>}
         <strong>
-          {currency}
+          {t.currency}
           {item.preco.toFixed(2)}
         </strong>
-      </div>
+      </Link>
       <button type="button" className="cadu-product-add" onClick={onAdd}>
-        {qtd > 0 ? `${qtd} · ${addLabel}` : addLabel} <Plus size={16} />
+        {addLabel} <Plus size={16} />
       </button>
     </article>
   )
