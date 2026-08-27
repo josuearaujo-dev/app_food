@@ -14,6 +14,10 @@ export type CloverChargeResponse = {
   status?: string
   paid?: boolean
   created?: number
+  outcome?: {
+    network_status?: string
+    type?: string
+  }
   source?: {
     brand?: string
     last4?: string

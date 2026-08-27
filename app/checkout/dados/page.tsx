@@ -11,10 +11,15 @@ import {
   saveCheckoutCustomer,
   type CheckoutCustomer,
 } from '@/lib/checkout-customer'
+import { useCart } from '@/lib/cart-context'
+import { useLang } from '@/lib/lang-context'
+import { CheckoutSteps } from '@/components/checkout/checkout-steps'
 
 export default function CheckoutDadosPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { totalItems, totalPrice } = useCart()
+  const { t } = useLang()
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -94,7 +99,7 @@ export default function CheckoutDadosPage() {
     }
 
     if (!isValidCheckoutCustomer(c)) {
-      setErro('Preencha nome (2+ letras), e-mail válido e telefone (8+ dígitos).')
+      setErro(t.checkoutFillError)
       return
     }
 
@@ -108,7 +113,6 @@ export default function CheckoutDadosPage() {
           telefone: c.telefone,
           aceita_sms_atualizacoes_pedido: aceitaSms,
           aceita_email_atualizacoes_pedido: aceitaEmail,
-          // Cartão salvo fica para fase 2 (Clover stored credentials).
           prefere_salvar_cartao_futuro: false,
         },
         { onConflict: 'user_id' }
@@ -127,152 +131,164 @@ export default function CheckoutDadosPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto min-h-screen max-w-lg bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <p className="text-sm text-muted-foreground">Carregando...</p>
+      <main className="cadu-checkout mx-auto max-w-lg">
+        <p className="cadu-checkout-body text-sm text-[var(--cadu-muted)]">{t.checkoutLoading}</p>
       </main>
     )
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-background pb-28">
-      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/carrinho"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
-            aria-label="Voltar"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-base font-bold text-foreground">Seus dados</h1>
-        </div>
+    <main className="cadu-checkout mx-auto max-w-lg">
+      <header className="cadu-checkout-header">
+        <Link href="/carrinho" className="cadu-checkout-back" aria-label={t.back}>
+          <ArrowLeft size={18} />
+        </Link>
+        <h1>{t.checkoutTitle}</h1>
       </header>
 
-      <section className="px-4 pt-5 space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Precisamos dessas informações para o pedido. Se você criar uma conta, guardamos para a próxima vez.
-        </p>
+      <section className="cadu-checkout-body">
+        <CheckoutSteps current={1} />
+
+        <div className="cadu-checkout-card">
+          <p className="text-sm leading-relaxed text-[var(--cadu-muted)]">{t.checkoutHint}</p>
+        </div>
+
+        {totalItems > 0 && (
+          <div className="cadu-checkout-card">
+            <p className="cadu-checkout-kicker">{t.myCart}</p>
+            <div className="cadu-checkout-summary-row">
+              <span>
+                {totalItems} {totalItems === 1 ? t.item : t.items}
+              </span>
+              <span>
+                {t.currency}
+                {totalPrice.toFixed(2)}
+              </span>
+            </div>
+            <div className="cadu-checkout-summary-total">
+              <span>{t.total}</span>
+              <strong>
+                {t.currency}
+                {totalPrice.toFixed(2)}
+              </strong>
+            </div>
+          </div>
+        )}
 
         {userId ? (
-          <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-3 py-2">
-            <p className="text-xs text-muted-foreground">Conta conectada</p>
+          <div className="cadu-checkout-card flex items-center justify-between gap-3">
+            <p className="text-xs text-[var(--cadu-muted)]">{t.checkoutConnectedAccount}</p>
             <button
               type="button"
               onClick={handleSair}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-accent"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[var(--cadu-pink)]"
             >
               <LogOut size={14} />
-              Sair
+              {t.signOut}
             </button>
           </div>
         ) : (
-          <div className="space-y-2 rounded-2xl border border-border bg-card p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Quer salvar seus dados para próximos pedidos?</p>
-            <div className="flex gap-2">
-              <Link
-                href="/conta/cadastro?next=%2Fcheckout%2Fdados"
-                className="flex-1 rounded-xl bg-primary py-2.5 text-center text-xs font-semibold text-primary-foreground"
-              >
-                Criar conta
+          <div className="cadu-checkout-card space-y-3">
+            <p className="text-xs text-[var(--cadu-muted)]">{t.checkoutWantAccount}</p>
+            <div className="cadu-checkout-auth-row">
+              <Link href="/conta/cadastro?next=%2Fcheckout%2Fdados" className="cadu-checkout-auth-primary">
+                {t.signup}
               </Link>
-              <Link
-                href="/conta/entrar?next=%2Fcheckout%2Fdados"
-                className="flex-1 rounded-xl border border-border py-2.5 text-center text-xs font-semibold"
-              >
-                Já tenho conta
+              <Link href="/conta/entrar?next=%2Fcheckout%2Fdados" className="cadu-checkout-auth-secondary">
+                {t.login}
               </Link>
             </div>
           </div>
         )}
 
         <form onSubmit={handleContinuar} className="space-y-3">
-          <div>
-            <label htmlFor="nome" className="text-xs font-semibold block mb-1">
-              Nome completo
-            </label>
-            <div className="relative">
-              <User size={16} className="absolute left-3 top-3 text-muted-foreground" />
-              <input
-                id="nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                required
-                minLength={2}
-                className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-accent/25"
-              />
+          <div className="cadu-checkout-card space-y-4">
+            <div>
+              <label htmlFor="nome" className="cadu-checkout-field-label">
+                {t.checkoutFullName}
+              </label>
+              <div className="cadu-checkout-input-wrap">
+                <User size={16} />
+                <input
+                  id="nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  required
+                  minLength={2}
+                  className="cadu-checkout-input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="telefone" className="cadu-checkout-field-label">
+                {t.checkoutPhone}
+              </label>
+              <div className="cadu-checkout-input-wrap">
+                <Phone size={16} />
+                <input
+                  id="telefone"
+                  type="tel"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  required
+                  className="cadu-checkout-input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="cadu-checkout-field-label">
+                {t.checkoutEmail}
+              </label>
+              <div className="cadu-checkout-input-wrap">
+                <Mail size={16} />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={!!userId}
+                  className="cadu-checkout-input"
+                />
+              </div>
+              {userId && (
+                <p className="mt-1 text-[10px] text-[var(--cadu-muted)]">{t.checkoutEmailLinked}</p>
+              )}
             </div>
           </div>
 
-          <div>
-            <label htmlFor="telefone" className="text-xs font-semibold block mb-1">
-              Telefone
-            </label>
-            <div className="relative">
-              <Phone size={16} className="absolute left-3 top-3 text-muted-foreground" />
-              <input
-                id="telefone"
-                type="tel"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                required
-                className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-accent/25"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="email" className="text-xs font-semibold block mb-1">
-              E-mail
-            </label>
-            <div className="relative">
-              <Mail size={16} className="absolute left-3 top-3 text-muted-foreground" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={!!userId}
-                className="w-full rounded-2xl border border-border bg-card py-3 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-70"
-              />
-            </div>
-            {userId && <p className="text-[10px] text-muted-foreground mt-1">E-mail vinculado à sua conta.</p>}
-          </div>
-
-          <div className="space-y-2.5 rounded-2xl border border-border bg-card p-3">
-            <p className="text-xs font-semibold text-foreground">Comunicação</p>
-            <label className="flex gap-2.5 items-start text-[11px] text-muted-foreground cursor-pointer leading-snug">
+          <div className="cadu-checkout-card space-y-3">
+            <p className="cadu-checkout-kicker">{t.checkoutCommunication}</p>
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-snug text-[var(--cadu-muted)]">
               <input
                 type="checkbox"
                 checked={aceitaSms}
                 onChange={(e) => setAceitaSms(e.target.checked)}
-                className="mt-0.5 rounded border-border shrink-0"
+                className="mt-0.5 rounded border-[var(--cadu-line)]"
               />
-              <span>Receber SMS com atualizações do pedido.</span>
+              <span>{t.checkoutSmsUpdates}</span>
             </label>
-            <label className="flex gap-2.5 items-start text-[11px] text-muted-foreground cursor-pointer leading-snug">
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-snug text-[var(--cadu-muted)]">
               <input
                 type="checkbox"
                 checked={aceitaEmail}
                 onChange={(e) => setAceitaEmail(e.target.checked)}
-                className="mt-0.5 rounded border-border shrink-0"
+                className="mt-0.5 rounded border-[var(--cadu-line)]"
               />
-              <span>Receber e-mails com atualizações do pedido.</span>
+              <span>{t.checkoutEmailUpdates}</span>
             </label>
           </div>
 
           {erro && (
-            <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl" role="alert">
+            <p className="cadu-checkout-error" role="alert">
               {erro}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground disabled:opacity-60"
-          >
-            {saving ? 'Salvando...' : 'Continuar para pagamento'}
+          <button type="submit" disabled={saving} className="cadu-checkout-btn cadu-checkout-btn--sticky">
+            {saving ? t.checkoutSaving : t.checkoutContinuePayment}
           </button>
         </form>
       </section>

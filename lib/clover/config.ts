@@ -27,6 +27,10 @@ export function getPaymentProvider(): 'clover' | 'paypal' {
 
 export function getCloverServerConfig(): CloverServerConfig {
   const env = resolveEnv(process.env.CLOVER_ENV ?? process.env.NEXT_PUBLIC_CLOVER_ENV)
+  const publicEnv = resolveEnv(process.env.NEXT_PUBLIC_CLOVER_ENV)
+  if (env !== publicEnv) {
+    console.warn('clover_env_mismatch', { server: env, public: publicEnv })
+  }
   const privateToken = process.env.CLOVER_PRIVATE_TOKEN?.trim()
   const merchantId = process.env.CLOVER_MERCHANT_ID?.trim()
 

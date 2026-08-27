@@ -7,7 +7,28 @@ import {
   markOrderPaid,
   markOrderPaymentFailed,
   markOrderReadyForPrint,
+  rotateOrderIdempotencyKey,
 } from '@/lib/orders/repository'
+
+function chargeLooksPaid(charge: {
+  paid?: boolean
+  status?: string
+  outcome?: { network_status?: string; type?: string }
+}): boolean {
+  const status = String(charge.status ?? '').toLowerCase()
+  const networkStatus = String(charge.outcome?.network_status ?? '').toLowerCase()
+  return (
+    charge.paid === true ||
+    status === 'succeeded' ||
+    status === 'paid' ||
+    networkStatus === 'approved_by_network'
+  )
+}
+
+function chargeLooksDeclined(charge: { status?: string }): boolean {
+  const status = String(charge.status ?? '').toLowerCase()
+  return ['failed', 'declined', 'canceled', 'cancelled'].includes(status)
+}
 
 function clientIpFromRequest(request: Request): string | undefined {
   const forwarded = request.headers.get('x-forwarded-for')
@@ -73,7 +94,7 @@ export async function POST(request: Request) {
     }
 
     const totalCents = order.total_cents
-    const idempotencyKey = order.idempotency_key
+    let idempotencyKey = order.idempotency_key
     if (!totalCents || totalCents <= 0 || !idempotencyKey) {
       return NextResponse.json(
         {
@@ -84,6 +105,13 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       )
+    }
+
+    if (
+      order.status_pagamento === 'payment_failed' ||
+      (order.status_pagamento === 'processing_payment' && !order.clover_charge_id)
+    ) {
+      idempotencyKey = await rotateOrderIdempotencyKey(order.id)
     }
 
     if (order.status_pagamento !== 'processing_payment') {
@@ -120,37 +148,62 @@ export async function POST(request: Request) {
         idempotencyKey,
         clientIp: clientIpFromRequest(request),
         description: `Pedido ${order.numero_pedido ?? order.id}`,
+        receiptEmail: order.cliente_email ?? undefined,
         metadata: {
           orderId: order.id,
           orderNumber: order.numero_pedido ?? '',
         },
       })
 
-      const paid =
-        charge.paid === true ||
-        String(charge.status ?? '').toLowerCase() === 'succeeded' ||
-        String(charge.status ?? '').toLowerCase() === 'paid'
+      const paid = chargeLooksPaid(charge)
+
+      if (!paid && charge.id && chargeLooksDeclined(charge)) {
+        await markOrderPaymentFailed({
+          orderId: order.id,
+          code: 'card_declined',
+          message: 'Pagamento recusado.',
+        })
+        console.error('clover_payment_failed', {
+          orderId: order.id,
+          orderNumber: order.numero_pedido,
+          errorCode: 'card_declined',
+          chargeStatus: charge.status,
+          chargeOutcome: charge.outcome,
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'card_declined',
+            error: 'Não foi possível aprovar o cartão. Confira os dados ou tente outro cartão.',
+            retryable: true,
+          },
+          { status: 402 }
+        )
+      }
 
       if (!paid && charge.id) {
-        // Algumas respostas Clover retornam id sem flag paid explícita — aceitar se houver id e amount.
-        // Se status indicar falha, tratar como erro.
-        const status = String(charge.status ?? '').toLowerCase()
-        if (status && ['failed', 'declined', 'canceled', 'cancelled'].includes(status)) {
-          await markOrderPaymentFailed({
-            orderId: order.id,
-            code: 'card_declined',
-            message: 'Pagamento recusado.',
-          })
-          return NextResponse.json(
-            {
-              success: false,
-              code: 'card_declined',
-              error: 'Não foi possível aprovar o cartão. Confira os dados ou tente outro cartão.',
-              retryable: true,
-            },
-            { status: 402 }
-          )
-        }
+        await markOrderPaymentFailed({
+          orderId: order.id,
+          code: 'unknown_error',
+          message: `Status inesperado: ${charge.status ?? 'sem status'}`,
+        })
+        console.error('clover_payment_failed', {
+          orderId: order.id,
+          orderNumber: order.numero_pedido,
+          errorCode: 'unknown_status',
+          chargeStatus: charge.status,
+          chargeOutcome: charge.outcome,
+          chargePaid: charge.paid,
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'unknown_error',
+            error: 'Não foi possível confirmar o pagamento. Tente novamente.',
+            retryable: true,
+          },
+          { status: 502 }
+        )
       }
 
       await markOrderPaid({
@@ -201,6 +254,7 @@ export async function POST(request: Request) {
           orderNumber: order.numero_pedido,
           errorCode: error.code,
           httpStatus: error.httpStatus,
+          providerMessage: error.message,
         })
         return NextResponse.json(
           {

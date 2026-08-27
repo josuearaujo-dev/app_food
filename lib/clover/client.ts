@@ -30,6 +30,7 @@ export async function createCloverCharge(input: {
   idempotencyKey: string
   clientIp?: string
   description?: string
+  receiptEmail?: string
   metadata?: Record<string, string>
 }): Promise<CloverChargeResponse> {
   if (!Number.isInteger(input.amount) || input.amount <= 0) {
@@ -74,6 +75,7 @@ export async function createCloverCharge(input: {
         source: input.source,
         description: input.description,
         metadata: input.metadata,
+        receipt_email: input.receiptEmail,
         ecomind: 'ecom',
       }),
       signal: controller.signal,
@@ -113,6 +115,12 @@ export async function createCloverCharge(input: {
       status: raw.status,
       paid: raw.paid,
       created: raw.created,
+      outcome: raw.outcome
+        ? {
+            network_status: raw.outcome.network_status,
+            type: raw.outcome.type,
+          }
+        : undefined,
       source: raw.source
         ? {
             brand: raw.source.brand,

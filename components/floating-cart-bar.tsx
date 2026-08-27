@@ -13,7 +13,7 @@ export function FloatingCartBar() {
   const { t } = useLang()
 
   if (totalItems === 0) return null
-  if (pathname.startsWith('/admin') || pathname.startsWith('/pagamento') || pathname === '/carrinho') {
+  if (pathname.startsWith('/admin') || pathname.startsWith('/pagamento') || pathname.startsWith('/checkout') || pathname === '/carrinho') {
     return null
   }
 

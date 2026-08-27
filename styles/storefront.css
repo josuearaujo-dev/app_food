@@ -1115,3 +1115,285 @@
 body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   display: none;
 }
+
+/* Checkout flow */
+.cadu-checkout {
+  min-height: 100vh;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  background: var(--cadu-page, #e1d3c7);
+  color: var(--cadu-ink, #531b04);
+}
+
+.cadu-checkout-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: max(0.75rem, env(safe-area-inset-top)) 16px 12px;
+  border-bottom: 1px solid var(--cadu-line, #d5c0b3);
+  background: rgba(225, 211, 199, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.cadu-checkout-back {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  border-radius: 14px;
+  background: white;
+  color: var(--cadu-ink, #531b04);
+  box-shadow: 0 2px 8px rgba(83, 27, 4, 0.06);
+}
+
+.cadu-checkout-header h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.cadu-checkout-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cadu-checkout-steps {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  border-radius: 16px;
+  background: white;
+}
+
+.cadu-checkout-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--cadu-muted, #7a4a35);
+}
+
+.cadu-checkout-step span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  background: var(--cadu-surface, #f6efea);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cadu-checkout-step p {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.cadu-checkout-step--on {
+  color: var(--cadu-ink, #531b04);
+}
+
+.cadu-checkout-step--on span {
+  border-color: var(--cadu-brown, #531b04);
+  background: var(--cadu-brown, #531b04);
+  color: white;
+}
+
+.cadu-checkout-step--done span {
+  border-color: var(--cadu-pink, #fb5b77);
+  background: var(--cadu-pink, #fb5b77);
+  color: white;
+}
+
+.cadu-checkout-step-line {
+  width: 36px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--cadu-line, #d5c0b3);
+}
+
+.cadu-checkout-card {
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  border-radius: 18px;
+  background: white;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(83, 27, 4, 0.05);
+}
+
+.cadu-checkout-card p,
+.cadu-checkout-card label {
+  margin: 0;
+}
+
+.cadu-checkout-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cadu-muted, #7a4a35);
+}
+
+.cadu-checkout-input-wrap {
+  position: relative;
+}
+
+.cadu-checkout-input-wrap svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cadu-muted, #7a4a35);
+  pointer-events: none;
+}
+
+.cadu-checkout-input {
+  width: 100%;
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  border-radius: 14px;
+  background: white;
+  padding: 12px 12px 12px 38px;
+  font-size: 14px;
+  color: var(--cadu-ink, #531b04);
+  outline: none;
+}
+
+.cadu-checkout-input:focus {
+  border-color: var(--cadu-pink, #fb5b77);
+  box-shadow: 0 0 0 3px rgba(251, 91, 119, 0.15);
+}
+
+.cadu-checkout-input:disabled {
+  opacity: 0.72;
+  background: var(--cadu-surface, #f6efea);
+}
+
+.cadu-checkout-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--cadu-muted, #7a4a35);
+}
+
+.cadu-checkout-summary-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.cadu-checkout-summary-total strong:last-child {
+  color: var(--cadu-pink, #fb5b77);
+}
+
+.cadu-clover-field {
+  height: 46px;
+  max-height: 46px;
+  overflow: hidden;
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  border-radius: 14px;
+  background: white;
+}
+
+.cadu-clover-field iframe {
+  display: block;
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 0 !important;
+  border: 0 !important;
+}
+
+.cadu-checkout-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--cadu-brown, #531b04);
+  color: white;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cadu-checkout-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cadu-checkout-btn--sticky {
+  position: sticky;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(83, 27, 4, 0.18);
+}
+
+.cadu-checkout-error {
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cadu-checkout-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cadu-muted, #7a4a35);
+}
+
+.cadu-checkout-field-error {
+  min-height: 16px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #b91c1c;
+}
+
+.cadu-checkout-auth-row {
+  display: flex;
+  gap: 8px;
+}
+
+.cadu-checkout-auth-row a {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cadu-checkout-auth-primary {
+  background: var(--cadu-brown, #531b04);
+  color: white;
+}
+
+.cadu-checkout-auth-secondary {
+  border: 1px solid var(--cadu-line, #d5c0b3);
+  background: white;
+  color: var(--cadu-ink, #531b04);
+}

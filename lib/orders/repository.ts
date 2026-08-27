@@ -147,6 +147,33 @@ export async function claimOrderForPayment(orderId: string): Promise<boolean> {
   return !!data
 }
 
+/** Nova chave antes de retentar cobrança — evita resposta idempotente de tentativa falha. */
+export async function rotateOrderIdempotencyKey(orderId: string): Promise<string> {
+  const supabase = createAdminClient()
+  const nextKey = crypto.randomUUID()
+  const { data, error } = await supabase
+    .from('pedidos')
+    .update({
+      idempotency_key: nextKey,
+      status_pagamento: 'payment_pending',
+    })
+    .eq('id', orderId)
+    .in('status_pagamento', ['payment_failed', 'processing_payment'])
+    .is('clover_charge_id', null)
+    .select('idempotency_key')
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data?.idempotency_key) {
+    const current = await getOrderById(orderId)
+    if (!current?.idempotency_key) {
+      throw new Error('Pedido sem chave de idempotência.')
+    }
+    return current.idempotency_key
+  }
+  return data.idempotency_key
+}
+
 export async function markOrderPaid(input: {
   orderId: string
   chargeId: string

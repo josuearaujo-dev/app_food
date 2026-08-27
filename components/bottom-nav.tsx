@@ -12,7 +12,7 @@ export function BottomNav() {
   const { totalItems } = useCart()
   const { lang, t, toggleLang } = useLang()
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/produto/')) return null
+  if (pathname.startsWith('/admin') || pathname.startsWith('/produto/') || pathname.startsWith('/checkout') || pathname === '/pagamento') return null
 
   const navItems = [
     { href: '/', icon: Home, label: t.home },
