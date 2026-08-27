@@ -190,7 +190,23 @@ export function StorefrontHome() {
 
   return (
     <main className="cadu-shop">
-      <nav className="cadu-top-nav" aria-label="Navegação principal">
+      <header className="cadu-mobile-header">
+        <div className="cadu-mobile-header-logo">
+          <Image src={logoPerfil} alt="" width={40} height={40} priority />
+        </div>
+        <div className="cadu-mobile-header-text">
+          <strong>{t.storeName}</strong>
+          <span>
+            <b>{t.storeOpen}</b> · {t.storeHours}
+          </span>
+        </div>
+        <Link href="/carrinho" className="cadu-mobile-header-cart" aria-label={t.cart}>
+          <ShoppingBag size={20} />
+          {totalItems > 0 && <span className="cadu-mobile-header-cart-count">{totalItems > 9 ? '9+' : totalItems}</span>}
+        </Link>
+      </header>
+
+      <nav className="cadu-top-nav cadu-top-nav--desktop" aria-label="Navegação principal">
         <button type="button" className="cadu-nav-active" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <House size={17} />
           {t.navHome}
@@ -220,7 +236,7 @@ export function StorefrontHome() {
             {t.heroKicker}
           </span>
           <h1>{t.heroHeadline}</h1>
-          <p>{t.heroSubtitle}</p>
+          <p className="cadu-hero-subtitle">{t.heroSubtitle}</p>
           <div className="cadu-hero-actions">
             <button type="button" className="cadu-hero-primary" onClick={scrollToCatalog}>
               {t.heroCta}
@@ -240,7 +256,7 @@ export function StorefrontHome() {
         </div>
       </section>
 
-      <section className="cadu-store-heading">
+      <section className="cadu-store-heading cadu-store-heading--desktop">
         <div className="cadu-store-logo">
           <Image src={logoPerfil} alt="" width={120} height={120} priority />
         </div>
@@ -260,7 +276,39 @@ export function StorefrontHome() {
 
       <div className="cadu-shop-layout" id="catalogo">
         <section className="cadu-catalog-column">
-          <div className="cadu-catalog-toolbar">
+          <div className="cadu-catalog-sticky">
+            <label className="cadu-catalog-search">
+              <Search size={18} />
+              <input
+                aria-label={t.searchMenu}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t.searchMenu}
+              />
+            </label>
+            <div className="cadu-category-strip scrollbar-hide" role="tablist" aria-label="Categorias">
+              <button
+                type="button"
+                className={categoriaSelecionada === 'todas' ? 'cadu-selected' : ''}
+                onClick={() => setCategoriaSelecionada('todas')}
+              >
+                {t.all}
+              </button>
+              {categorias.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={categoriaSelecionada === cat.id ? 'cadu-selected' : ''}
+                  onClick={() => setCategoriaSelecionada(cat.id)}
+                >
+                  {cat.icone ? `${cat.icone} ` : ''}
+                  {cat.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="cadu-catalog-toolbar cadu-catalog-toolbar--desktop">
             <div className="cadu-category-strip" role="tablist" aria-label="Categorias">
               <button
                 type="button"
@@ -367,19 +415,6 @@ export function StorefrontHome() {
             <i />
           </div>
         </div>
-      )}
-
-      {totalItems > 0 && (
-        <Link href="/carrinho" className="cadu-mobile-cart-btn">
-          <span>
-            <ShoppingBag size={19} />
-            {totalItems} {totalItems === 1 ? t.item : t.items}
-          </span>
-          <span>
-            {t.currency}
-            {totalPrice.toFixed(2)} <ArrowRight size={17} />
-          </span>
-        </Link>
       )}
 
       <ProductCustomizeModal itemId={customizeItemId} onClose={() => setCustomizeItemId(null)} />
