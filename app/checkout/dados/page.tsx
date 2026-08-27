@@ -22,6 +22,7 @@ export default function CheckoutDadosPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [aceitaSms, setAceitaSms] = useState(false)
   const [aceitaEmail, setAceitaEmail] = useState(false)
+  const [prefereSalvarCartao, setPrefereSalvarCartao] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -41,6 +42,7 @@ export default function CheckoutDadosPage() {
         setTelefone(saved.telefone)
         setAceitaSms(saved.aceitaSmsAtualizacoes)
         setAceitaEmail(saved.aceitaEmailAtualizacoes)
+        setPrefereSalvarCartao(saved.prefereSalvarCartao)
       }
       setLoading(false)
       return
@@ -53,7 +55,7 @@ export default function CheckoutDadosPage() {
     const { data: perfil } = await supabase
       .from('cliente_perfis')
       .select(
-        'nome_completo, telefone, aceita_sms_atualizacoes_pedido, aceita_email_atualizacoes_pedido'
+        'nome_completo, telefone, aceita_sms_atualizacoes_pedido, aceita_email_atualizacoes_pedido, prefere_salvar_cartao_futuro'
       )
       .eq('user_id', user.id)
       .maybeSingle()
@@ -62,6 +64,7 @@ export default function CheckoutDadosPage() {
     setTelefone(perfil?.telefone ?? meta.telefone ?? '')
     setAceitaSms(!!perfil?.aceita_sms_atualizacoes_pedido)
     setAceitaEmail(!!perfil?.aceita_email_atualizacoes_pedido)
+    setPrefereSalvarCartao(!!perfil?.prefere_salvar_cartao_futuro)
     setLoading(false)
   }, [supabase])
 
@@ -77,6 +80,7 @@ export default function CheckoutDadosPage() {
     setTelefone('')
     setAceitaSms(false)
     setAceitaEmail(false)
+    setPrefereSalvarCartao(false)
   }
 
   async function handleContinuar(e: React.FormEvent) {
@@ -90,7 +94,7 @@ export default function CheckoutDadosPage() {
       userId,
       aceitaSmsAtualizacoes: aceitaSms,
       aceitaEmailAtualizacoes: aceitaEmail,
-      prefereSalvarCartao: false,
+      prefereSalvarCartao,
     }
 
     if (!isValidCheckoutCustomer(c)) {
@@ -108,8 +112,7 @@ export default function CheckoutDadosPage() {
           telefone: c.telefone,
           aceita_sms_atualizacoes_pedido: aceitaSms,
           aceita_email_atualizacoes_pedido: aceitaEmail,
-          // Cartão salvo fica para fase 2 (Clover stored credentials).
-          prefere_salvar_cartao_futuro: false,
+          prefere_salvar_cartao_futuro: prefereSalvarCartao,
         },
         { onConflict: 'user_id' }
       )
@@ -240,7 +243,7 @@ export default function CheckoutDadosPage() {
           </div>
 
           <div className="space-y-2.5 rounded-2xl border border-border bg-card p-3">
-            <p className="text-xs font-semibold text-foreground">Comunicação</p>
+            <p className="text-xs font-semibold text-foreground">Comunicação e cartão</p>
             <label className="flex gap-2.5 items-start text-[11px] text-muted-foreground cursor-pointer leading-snug">
               <input
                 type="checkbox"
@@ -258,6 +261,18 @@ export default function CheckoutDadosPage() {
                 className="mt-0.5 rounded border-border shrink-0"
               />
               <span>Receber e-mails com atualizações do pedido.</span>
+            </label>
+            <label className="flex gap-2.5 items-start text-[11px] text-muted-foreground cursor-pointer leading-snug">
+              <input
+                type="checkbox"
+                checked={prefereSalvarCartao}
+                onChange={(e) => setPrefereSalvarCartao(e.target.checked)}
+                className="mt-0.5 rounded border-border shrink-0"
+              />
+              <span>
+                Autorizo salvar o cartão para próximas compras quando o PayPal permitir; no pagamento você confirma de
+                novo. Hoje o cartão ainda não fica guardado até ativarmos o vault.
+              </span>
             </label>
           </div>
 
