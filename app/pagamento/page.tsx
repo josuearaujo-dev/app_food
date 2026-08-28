@@ -16,6 +16,7 @@ import Script from 'next/script'
 import { OrderSuccessScreen } from '@/components/order-success-screen'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
 import { CheckoutSteps } from '@/components/checkout/checkout-steps'
+import { useRecaptchaBadgeFix } from '@/lib/checkout/use-recaptcha-badge-fix'
 
 type SuccessOrder = {
   orderId: string
@@ -147,6 +148,8 @@ function CloverCheckoutPage() {
       ? 'https://checkout.clover.com/sdk.js'
       : 'https://checkout.sandbox.dev.clover.com/sdk.js'
   const hasPublicConfig = !!publicToken && !!merchantId
+
+  useRecaptchaBadgeFix(sdkLoaded && hasPublicConfig)
 
   const fingerprint = useMemo(
     () =>

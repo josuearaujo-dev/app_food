@@ -1122,7 +1122,7 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
 /* Checkout flow */
 .cadu-checkout {
   min-height: 100vh;
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(3.25rem + env(safe-area-inset-bottom));
   background: var(--cadu-page, #e1d3c7);
   color: var(--cadu-ink, #531b04);
 }

@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
 import { AdminShell } from '@/components/layout/admin-shell'
+import { AdminHubNav } from '@/components/admin-hub-nav'
 
 const BUCKET = 'cardapio-imagens'
 
@@ -736,62 +737,65 @@ export default function AdminPage() {
   const isItemsTab = tab === t.tabItems
 
   return (
-    <AdminShell tone="default" width="narrow" flush className="mx-auto max-w-lg">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background border-b border-border px-4 pt-10 pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <ChefHat size={18} className="text-primary-foreground" />
+    <AdminShell tone="canvas" flush>
+      <div className="mx-auto w-full max-w-lg md:max-w-4xl">
+        <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary">
+                <ChefHat size={18} className="text-primary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">{t.adminPanel}</p>
+                <h1 className="truncate text-base font-bold leading-tight text-foreground">{t.adminTitle}</h1>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">{t.adminPanel}</p>
-              <h1 className="text-base font-bold text-foreground leading-tight">{t.adminTitle}</h1>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Link
+                href="/admin/ordens"
+                className="rounded-xl bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground"
+              >
+                {t.adminHubOrders}
+              </Link>
+              <button
+                type="button"
+                onClick={toggleLang}
+                className="rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-bold text-muted-foreground"
+                aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
+              >
+                {lang === 'en' ? 'PT' : 'EN'}
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1 rounded-xl px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                <LogOut size={14} />
+                <span className="hidden sm:inline">{t.logout}</span>
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/ordens"
-              className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-primary text-primary-foreground"
-            >
-              Ordens
-            </Link>
-            {/* Language toggle */}
-            <button
-              onClick={toggleLang}
-              className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-secondary text-muted-foreground"
-              aria-label={lang === 'en' ? 'Switch to Portuguese' : 'Mudar para Ingles'}
-            >
-              {lang === 'en' ? 'PT' : 'EN'}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground font-medium px-3 py-2 rounded-xl hover:bg-secondary transition-colors"
-            >
-              <LogOut size={15} />
-              {t.logout}
-            </button>
+
+          <div className="mt-3 flex gap-1 rounded-xl bg-secondary p-1">
+            {TABS.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setTab(a)}
+                className={cn(
+                  'flex-1 rounded-lg py-2 text-sm font-semibold transition-colors',
+                  tab === a ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground'
+                )}
+              >
+                {a}
+              </button>
+            ))}
           </div>
-        </div>
+        </header>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mt-3 bg-secondary rounded-xl p-1">
-          {TABS.map((a) => (
-            <button
-              key={a}
-              onClick={() => setTab(a)}
-              className={cn(
-                'flex-1 py-2 rounded-lg text-sm font-semibold transition-colors',
-                tab === a ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-      </header>
+        <AdminHubNav />
 
-      <div className="px-4 pt-4 pb-8">
+        <div className="px-4 py-4 pb-8">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-secondary rounded-2xl animate-pulse" />)}
@@ -925,6 +929,7 @@ export default function AdminPage() {
             )}
           </>
         )}
+      </div>
       </div>
 
       {/* Modal Item */}

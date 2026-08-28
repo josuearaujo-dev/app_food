@@ -168,3 +168,24 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Google reCAPTCHA (antifraude Clover) — badge compacto no canto da tela */
+.grecaptcha-badge {
+  position: fixed !important;
+  right: 6px !important;
+  bottom: max(6px, env(safe-area-inset-bottom)) !important;
+  z-index: 60 !important;
+  width: 70px !important;
+  overflow: hidden !important;
+  transform: scale(0.72) !important;
+  transform-origin: bottom right !important;
+  box-shadow: none !important;
+  transition: width 0.2s ease !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .grecaptcha-badge:hover {
+    width: 256px !important;
+    overflow: visible !important;
+  }
+}

@@ -11,6 +11,7 @@ import {
   type CloverElementsApi,
   type CloverSdk,
 } from '@/lib/checkout/clover-ui'
+import { useRecaptchaBadgeFix } from '@/lib/checkout/use-recaptcha-badge-fix'
 
 declare global {
   interface Window {
@@ -59,6 +60,8 @@ export function useCloverCheckout({
   const mountedRef = useRef(false)
   const payingLockRef = useRef(false)
   const mountIds = useMemo(() => cloverMountIds(mountPrefix), [mountPrefix])
+
+  useRecaptchaBadgeFix(enabled && sdkLoaded)
 
   const publicToken = process.env.NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN ?? ''
   const merchantId = process.env.NEXT_PUBLIC_CLOVER_MERCHANT_ID ?? ''
