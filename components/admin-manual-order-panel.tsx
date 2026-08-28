@@ -6,9 +6,8 @@ import { Loader2, Minus, Plus, Search, ShoppingBag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateOrderTax } from '@/lib/order-tax'
 import { useLang } from '@/lib/lang-context'
-import { AdminHeader } from '@/components/layout/admin-header'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { cn } from '@/lib/utils'
 
 type MenuItem = {
@@ -194,28 +193,8 @@ export function AdminManualOrderPanel() {
   }
 
   return (
-    <AdminShell
-      header={
-        <AdminHeader
-          width="board"
-          title={t.manualOrderTitle}
-          eyebrow={t.ordersKitchenEyebrow}
-          backHref="/admin/ordens"
-          backLabel={t.back}
-          trailing={
-            <Link
-              href="/admin/ordens"
-              className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
-            >
-              {t.manualOrderViewBoard}
-            </Link>
-          }
-        />
-      }
-      flush
-      width="board"
-    >
-      <div className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <AdminPageContent title={t.manualOrderTitle} eyebrow={t.ordersKitchenEyebrow} width="board">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-4">
           <div className="relative">
             <Search
@@ -465,6 +444,6 @@ export function AdminManualOrderPanel() {
           </div>
         </aside>
       </div>
-    </AdminShell>
+    </AdminPageContent>
   )
 }

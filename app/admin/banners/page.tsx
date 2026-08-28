@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { AdminHeader } from '@/components/layout/admin-header'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { useLang } from '@/lib/lang-context'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
@@ -229,25 +228,17 @@ export default function AdminBannersPage() {
   }
 
   return (
-    <AdminShell
-      header={
-        <AdminHeader
-          title="Banners"
-          eyebrow={t.adminPanel}
-          backLabel={t.back}
-          trailing={
-            <button
-              type="button"
-              onClick={openNew}
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              <Plus size={15} className="mr-1 inline" />
-              Novo banner
-            </button>
-          }
-        />
-      }
-    >
+    <AdminPageContent title={t.adminNavBanners} eyebrow={t.adminPanel} width="wide">
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={openNew}
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          <Plus size={15} className="mr-1 inline" />
+          Novo banner
+        </button>
+      </div>
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         {banners.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center text-sm text-muted-foreground">
@@ -420,7 +411,7 @@ export default function AdminBannersPage() {
           </div>
         </div>
       )}
-    </AdminShell>
+    </AdminPageContent>
   )
 }
 

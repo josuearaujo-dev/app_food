@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Loader2, Printer, RefreshCw, Send } from 'lucide-react'
-import { AdminHeader } from '@/components/layout/admin-header'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell, adminContentWidthClass } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
 import {
   KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE,
@@ -98,20 +97,8 @@ export default function AdminImpressaoPage() {
   }
 
   return (
-    <AdminShell
-      flush
-      width="print"
-      header={
-        <AdminHeader
-          width="print"
-          title="Área de impressão"
-          eyebrow={t.adminPanel}
-          backLabel={t.back}
-          trailing={<Printer size={20} className="text-primary" />}
-        />
-      }
-    >
-      <section id="config-vias" className={`${adminContentWidthClass('print')} mx-auto scroll-mt-24 px-4 pt-6`}>
+    <AdminPageContent title={t.adminNavPrint} eyebrow={t.adminPanel} width="print">
+      <section id="config-vias" className="scroll-mt-24">
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
           <p className="text-sm font-bold text-foreground">Configurar vias extras</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -122,7 +109,7 @@ export default function AdminImpressaoPage() {
         <AdminPrintNodePanel />
       </section>
 
-      <section className={`${adminContentWidthClass('print')} mx-auto grid gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]`}>
+      <section className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -224,6 +211,6 @@ export default function AdminImpressaoPage() {
           </div>
         </aside>
       </section>
-    </AdminShell>
+    </AdminPageContent>
   )
 }

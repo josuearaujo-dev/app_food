@@ -6,9 +6,8 @@ import { Check, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
-import { AdminHeader } from '@/components/layout/admin-header'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 
 type OptionLine = {
   label: string
@@ -236,15 +235,7 @@ export default function AdminExtrasBibliotecaPage() {
   }
 
   return (
-    <AdminShell
-      header={
-        <AdminHeader
-          title="Biblioteca de grupos de extras"
-          eyebrow={t.adminPanel}
-          backLabel={t.back}
-        />
-      }
-    >
+    <AdminPageContent title={t.adminHubExtras} eyebrow={t.adminPanel} width="wide">
       <p className="mb-4 text-xs text-muted-foreground">
         Edite ou exclua grupos de pré-cadastro. Excluir não remove grupos já importados nos produtos.
       </p>
@@ -357,7 +348,7 @@ export default function AdminExtrasBibliotecaPage() {
           />
         </Modal>
       )}
-    </AdminShell>
+    </AdminPageContent>
   )
 }
 

@@ -34,7 +34,9 @@ Projeto ativo: raiz do `siteKaduLanches`
 ### Fase 3 — Admin / operação (em andamento)
 - [x] Realtime Supabase no admin (`/admin/ordens` — script `038_realtime_pedidos.sql`)
 - [x] Pedido manual balcão (`/admin/pedido-manual`, API `/api/admin/orders/manual`)
-- [ ] Painel de pedidos estilo `OrderOperationsBoard`
+- [x] Layout global admin + nav horizontal (`app/admin/layout.tsx`)
+- [x] Dashboard Operações em `/admin` + cardápio em `/admin/cardapio`
+- [ ] Painel de pedidos estilo `OrderOperationsBoard` (detalhe modal, mais estágios)
 - [ ] Worker de impressão (`print_jobs`)
 
 ### Fase 4 — Crescimento (opcional)

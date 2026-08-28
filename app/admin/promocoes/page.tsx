@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChefHat, ImageIcon, Loader2, Pencil, Plus, Tag, Trash2, Upload, X } from 'lucide-react'
+import { ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell, adminContentWidthClass } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { cn } from '@/lib/utils'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
@@ -640,9 +640,35 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
     return <AdminLoadingState message={t.loadingAdmin} />
   }
 
+  const pageActions = !embedded ? (
+    <div className="mb-4 flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={abrirNovo}
+        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
+      >
+        <Plus size={18} />
+        {t.promoAdd}
+      </button>
+      <Link
+        href="/admin/banners"
+        className="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground"
+      >
+        {t.adminNavBanners}
+      </Link>
+      <Link
+        href="/admin/delivery"
+        className="inline-flex items-center justify-center rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground"
+      >
+        {t.adminNavDelivery}
+      </Link>
+    </div>
+  ) : null
+
   const content = (
     <>
-      <div className={`${embedded ? '' : 'mx-auto max-w-4xl'} px-4 py-6`}>
+      {pageActions}
+      <div className={`${embedded ? '' : ''}`}>
         {!embedded ? null : (
           <div className="mb-4 flex justify-end gap-2">
             <Link
@@ -1058,59 +1084,13 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
     </>
   )
 
-  const promoHeader = (
-    <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <div className={`${adminContentWidthClass('wide')} mx-auto flex flex-col gap-3`}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
-              aria-label={t.promoBackAdmin}
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <p className="text-xs text-muted-foreground">{t.adminPanel}</p>
-              <h1 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <Tag size={20} className="text-primary" />
-                {t.promoPageTitle}
-              </h1>
-            </div>
-          </div>
-          <ChefHat size={20} className="shrink-0 text-primary" />
-        </div>
-        <p className="text-sm text-muted-foreground">{t.promoPageSubtitle}</p>
-        <button
-          type="button"
-          onClick={abrirNovo}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm sm:w-auto sm:self-start sm:px-5"
-        >
-          <Plus size={18} />
-          {t.promoAdd}
-        </button>
-        <Link
-          href="/admin/banners"
-          className="mt-2 inline-flex w-full items-center justify-center rounded-xl border border-border bg-white py-2.5 text-sm font-semibold text-foreground sm:mt-0 sm:ml-2 sm:w-auto sm:px-5"
-        >
-          Gerenciar banners
-        </Link>
-        <Link
-          href="/admin/delivery"
-          className="mt-2 inline-flex w-full items-center justify-center rounded-xl border border-border bg-white py-2.5 text-sm font-semibold text-foreground sm:mt-0 sm:ml-2 sm:w-auto sm:px-5"
-        >
-          Gerenciar entregas
-        </Link>
-      </div>
-    </header>
-  )
-
   if (embedded) return content
 
   return (
-    <AdminShell flush header={promoHeader}>
+    <AdminPageContent title={t.promoPageTitle} eyebrow={t.adminPanel} width="wide">
+      <p className="mb-4 text-sm text-muted-foreground">{t.promoPageSubtitle}</p>
       {content}
-    </AdminShell>
+    </AdminPageContent>
   )
 }
 

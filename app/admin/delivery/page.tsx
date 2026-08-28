@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, MapPin, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
-import { AdminHeader } from '@/components/layout/admin-header'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
-import { AdminShell } from '@/components/layout/admin-shell'
+import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { cn } from '@/lib/utils'
 
 type DeliveryLocationRow = {
@@ -104,16 +103,7 @@ export default function AdminDeliveryPage() {
   }
 
   return (
-    <AdminShell
-      header={
-        <AdminHeader
-          title="Gerenciar entregas"
-          eyebrow={t.adminPanel}
-          backLabel={t.back}
-          trailing={<MapPin size={20} className="text-primary" />}
-        />
-      }
-    >
+    <AdminPageContent title={t.adminNavDelivery} eyebrow={t.adminPanel} width="wide">
       <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-foreground">Taxas de entrega por localidade</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -197,6 +187,6 @@ export default function AdminDeliveryPage() {
             ))
           )}
         </div>
-    </AdminShell>
+    </AdminPageContent>
   )
 }
