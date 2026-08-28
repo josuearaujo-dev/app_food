@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Minus, Plus } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio, type SelectedOption } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-footer'
+import { StorefrontHeader } from '@/components/layout/storefront-header'
+import { StorefrontLoadingState } from '@/components/layout/storefront-loading-state'
+import { StorefrontShell } from '@/components/layout/storefront-shell'
 
 type OptionItem = {
   id: string
@@ -59,12 +61,16 @@ function clampMinMax(min: number | null, max: number | null) {
   return { minEf, maxEf }
 }
 
+function formatComboSelectionError(template: string, item: string, group: string) {
+  return template.replace('{item}', item).replace('{group}', group)
+}
+
 export default function ComboDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
   const { addItem } = useCart()
-  const { t, lang } = useLang()
+  const { t } = useLang()
   const [loading, setLoading] = useState(true)
   const [combo, setCombo] = useState<ComboData | null>(null)
   const [groupsByItem, setGroupsByItem] = useState<Record<string, GroupItem[]>>({})
@@ -90,7 +96,7 @@ export default function ComboDetailPage() {
 
       if (!active) return
       if (comboErr || !comboData) {
-        setErro(comboErr?.message ?? (lang === 'pt' ? 'Combo não encontrado.' : 'Combo not found.'))
+        setErro(comboErr?.message ?? t.comboNotFound)
         setLoading(false)
         return
       }
@@ -177,7 +183,7 @@ export default function ComboDetailPage() {
     return () => {
       active = false
     }
-  }, [params?.id, supabase, lang])
+  }, [params?.id, supabase, t.comboNotFound])
 
   const extraDelta = useMemo(() => {
     if (!combo) return 0
@@ -219,7 +225,6 @@ export default function ComboDetailPage() {
         if (selected.length <= minEf) return prev
         selected.splice(idx, 1)
       } else {
-        // Para grupos de escolha única (max=1), trocar a opção selecionada em um clique.
         if (maxEf === 1) {
           selected.splice(0, selected.length, optionId)
         } else {
@@ -261,12 +266,8 @@ export default function ComboDetailPage() {
         const chosen = sel.extrasByGroup[g.id] ?? []
         const { minEf, maxEf } = clampMinMax(g.min_escolhas, g.max_escolhas)
         if (chosen.length < minEf || chosen.length > maxEf) {
-          const itemName = line.itens_cardapio?.nome ?? 'Item'
-          setErro(
-            lang === 'pt'
-              ? `No item "${itemName}", ajuste as escolhas de "${g.nome}".`
-              : `For "${itemName}", adjust selections for "${g.nome}".`
-          )
+          const itemName = line.itens_cardapio?.nome ?? t.comboItemDefault
+          setErro(formatComboSelectionError(t.comboSelectionError, itemName, g.nome))
           return
         }
       }
@@ -274,7 +275,7 @@ export default function ComboDetailPage() {
 
     const selectedOptions: SelectedOption[] = []
     for (const line of combo.combo_itens ?? []) {
-      const itemName = line.itens_cardapio?.nome ?? 'Item'
+      const itemName = line.itens_cardapio?.nome ?? t.comboItemDefault
       const qty = Math.max(1, Number(line.quantidade) || 1)
       const groups = groupsByItem[line.item_id] ?? []
       const sel = selections[line.item_id]
@@ -329,27 +330,27 @@ export default function ComboDetailPage() {
     router.push('/carrinho')
   }
 
-  if (loading) return <LogoLoadingScreen message={lang === 'pt' ? 'Carregando combo...' : 'Loading combo...'} />
+  if (loading) {
+    return <StorefrontLoadingState message={t.comboLoading} />
+  }
+
   if (!combo) {
     return (
-      <main className="mx-auto min-h-screen w-full max-w-lg bg-background px-4 py-6">
-        <Link href="/" className="text-sm font-semibold text-primary">Voltar</Link>
-        <p className="mt-4 text-sm text-muted-foreground">{erro ?? 'Combo não encontrado.'}</p>
-      </main>
+      <StorefrontShell
+        header={<StorefrontHeader title={t.comboNotFound} backHref="/" backLabel={t.back} />}
+      >
+        <div className="px-4 pt-4">
+          <p className="text-sm text-muted-foreground">{erro ?? t.comboNotFound}</p>
+        </div>
+      </StorefrontShell>
     )
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-lg bg-background pb-28">
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-card/85 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/80 bg-card shadow-sm">
-            <ArrowLeft size={18} />
-          </Link>
-          <h1 className="text-base font-bold text-foreground">{combo.nome}</h1>
-        </div>
-      </header>
-
+    <StorefrontShell
+      bottomPadding="cta-only"
+      header={<StorefrontHeader title={combo.nome} backHref="/" backLabel={t.back} />}
+    >
       <section className="space-y-4 px-4 pt-4">
         {combo.imagem_url ? (
           <img
@@ -362,7 +363,7 @@ export default function ComboDetailPage() {
         {(combo.combo_itens ?? []).map((line) => {
           const groups = groupsByItem[line.item_id] ?? []
           const sel = selections[line.item_id]
-          const itemName = line.itens_cardapio?.nome ?? (lang === 'pt' ? 'Item do combo' : 'Combo item')
+          const itemName = line.itens_cardapio?.nome ?? t.comboItemDefault
           return (
             <article key={line.item_id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
               <div className="mb-2 flex items-center gap-3">
@@ -378,9 +379,7 @@ export default function ComboDetailPage() {
                 </p>
               </div>
               {groups.length === 0 ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {lang === 'pt' ? 'Sem variações para este item.' : 'No variations for this item.'}
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{t.comboNoVariations}</p>
               ) : (
                 <div className="mt-2 space-y-2">
                   {groups.map((g) => (
@@ -395,13 +394,21 @@ export default function ComboDetailPage() {
                             <button
                               key={op.id}
                               type="button"
-                              onClick={() => (g.tipo === 'extra' ? toggleExtra(line.item_id, g, op.id) : selectSingle(line.item_id, g.id, op.id))}
+                              onClick={() =>
+                                g.tipo === 'extra'
+                                  ? toggleExtra(line.item_id, g, op.id)
+                                  : selectSingle(line.item_id, g.id, op.id)
+                              }
                               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                                active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground'
+                                active
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border bg-card text-foreground'
                               }`}
                             >
                               {op.label}
-                              {op.price_delta !== 0 ? ` (${op.price_delta > 0 ? '+' : ''}${t.currency}${op.price_delta.toFixed(2)})` : ''}
+                              {op.price_delta !== 0
+                                ? ` (${op.price_delta > 0 ? '+' : ''}${t.currency}${op.price_delta.toFixed(2)})`
+                                : ''}
                             </button>
                           )
                         })}
@@ -415,55 +422,54 @@ export default function ComboDetailPage() {
         })}
 
         <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-          <label className="mb-1 block text-xs font-semibold text-foreground">
-            {lang === 'pt' ? 'Observação para o combo' : 'Combo observation'}
-          </label>
+          <label className="mb-1 block text-xs font-semibold text-foreground">{t.comboObservation}</label>
           <textarea
             value={observation}
             onChange={(e) => setObservation(e.target.value)}
             rows={3}
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-            placeholder={lang === 'pt' ? 'Ex: sem cebola no lanche' : 'Ex: no onion in burger'}
+            placeholder={t.comboObservationPlaceholder}
           />
         </div>
 
         {erro ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p> : null}
-
-        <button
-          type="button"
-          onClick={handleAddCombo}
-          className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm"
-        >
-          {lang === 'pt' ? 'Concluir e adicionar ao carrinho' : 'Finish and add to cart'}
-        </button>
       </section>
 
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-lg border-t border-border/80 bg-card/95 px-4 pt-3 backdrop-blur-xl"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}
-      >
+      <StorefrontFixedFooter withBottomNav={false}>
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{lang === 'pt' ? 'Total' : 'Total'}</p>
+            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{t.total}</p>
             <p className="text-xl font-bold text-accent">
-              {t.currency}{(unitPrice * qtd).toFixed(2)}
+              {t.currency}
+              {(unitPrice * qtd).toFixed(2)}
             </p>
           </div>
           <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary px-1 py-1">
-            <button type="button" onClick={() => setQtd((v) => Math.max(1, v - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-card">
+            <button
+              type="button"
+              onClick={() => setQtd((v) => Math.max(1, v - 1))}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-card"
+            >
               <Minus size={14} />
             </button>
             <span className="w-6 text-center text-sm font-bold">{qtd}</span>
-            <button type="button" onClick={() => setQtd((v) => v + 1)} className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <button
+              type="button"
+              onClick={() => setQtd((v) => v + 1)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            >
               <Plus size={14} />
             </button>
           </div>
         </div>
-        <button type="button" onClick={handleAddCombo} className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground">
-          {lang === 'pt' ? 'Adicionar combo ao carrinho' : 'Add combo to cart'}
+        <button
+          type="button"
+          onClick={handleAddCombo}
+          className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
+        >
+          {t.comboAddToCart}
         </button>
-      </div>
-    </main>
+      </StorefrontFixedFooter>
+    </StorefrontShell>
   )
 }
-

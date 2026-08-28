@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, ArrowLeft, Plus, Minus } from 'lucide-react'
+import { Search, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import { cn } from '@/lib/utils'
+import { StorefrontHeader } from '@/components/layout/storefront-header'
+import { StorefrontShell } from '@/components/layout/storefront-shell'
 
 interface ItemComCategoria extends ItemCardapio {
   disponivel: boolean
@@ -54,17 +56,10 @@ export default function BuscaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background max-w-lg mx-auto pb-28">
-      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 backdrop-blur-md">
-        <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-          <Link
-            href="/"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
-            aria-label={t.home}
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <label className="relative block min-w-0 flex-1">
+    <StorefrontShell
+      header={
+        <StorefrontHeader backHref="/" backLabel={t.home}>
+          <label className="relative block min-w-0">
             <span className="sr-only">{t.searchPagePlaceholder}</span>
             <Search
               size={18}
@@ -82,9 +77,9 @@ export default function BuscaPage() {
               className="h-12 w-full rounded-2xl border border-border bg-card pl-11 pr-4 text-[15px] text-foreground placeholder:text-muted-foreground shadow-sm outline-none transition-shadow focus:border-accent/40 focus:ring-2 focus:ring-accent/25"
             />
           </label>
-        </div>
-      </header>
-
+        </StorefrontHeader>
+      }
+    >
       <div className="px-4 pt-4">
         {loading ? (
           <div className="space-y-3" aria-busy="true">
@@ -198,6 +193,6 @@ export default function BuscaPage() {
           </>
         )}
       </div>
-    </main>
+    </StorefrontShell>
   )
 }

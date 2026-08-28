@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Loader2, Printer, RefreshCw, Send } from 'lucide-react'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { Loader2, Printer, RefreshCw, Send } from 'lucide-react'
+import { AdminHeader } from '@/components/layout/admin-header'
+import { AdminLoadingState } from '@/components/layout/admin-loading-state'
+import { AdminShell, adminContentWidthClass } from '@/components/layout/admin-shell'
 import { AdminPrintNodePanel } from '@/components/admin-printnode-panel'
 import {
   KITCHEN_RECEIPT_PRINT_CHARS_PER_LINE,
@@ -93,37 +94,24 @@ export default function AdminImpressaoPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-background">
-        <LogoLoadingScreen variant="fullscreen" message={t.loadingAdmin} />
-      </main>
-    )
+    return <AdminLoadingState message={t.loadingAdmin} />
   }
 
   return (
-    <main className="min-h-screen bg-[#F6F7FA]">
-      <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
-              aria-label="Voltar ao admin"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <p className="text-xs text-muted-foreground">{t.adminPanel}</p>
-              <h1 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <Printer size={20} className="text-primary" />
-                Área de impressão
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <section id="config-vias" className="mx-auto max-w-5xl scroll-mt-24 px-4 pt-6">
+    <AdminShell
+      flush
+      width="print"
+      header={
+        <AdminHeader
+          width="print"
+          title="Área de impressão"
+          eyebrow={t.adminPanel}
+          backLabel={t.back}
+          trailing={<Printer size={20} className="text-primary" />}
+        />
+      }
+    >
+      <section id="config-vias" className={`${adminContentWidthClass('print')} mx-auto scroll-mt-24 px-4 pt-6`}>
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
           <p className="text-sm font-bold text-foreground">Configurar vias extras</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -134,7 +122,7 @@ export default function AdminImpressaoPage() {
         <AdminPrintNodePanel />
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className={`${adminContentWidthClass('print')} mx-auto grid gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]`}>
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -236,6 +224,6 @@ export default function AdminImpressaoPage() {
           </div>
         </aside>
       </section>
-    </main>
+    </AdminShell>
   )
 }

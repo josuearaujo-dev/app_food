@@ -9,26 +9,32 @@ Projeto ativo: raiz do `siteKaduLanches`
 
 ## Fases
 
-### Fase 1 — UX base (em andamento)
-- [x] Plano documentado
-- [x] Carrinho persistente (`localStorage`)
-- [x] Barra flutuante “Ver carrinho” no mobile
-- [x] Hero de boas-vindas na home (identidade Cadu)
-- [x] Perfil com estado de login (Supabase)
-- [x] Layout storefront premium (referência + cores Cadu) — v1.3.0
+### Fase 0 — Padronização de páginas (concluída)
+- [x] Tokens de layout (`--storefront-bottom-inset`, etc.)
+- [x] Regras centralizadas de bottom nav / floating cart (`lib/layout/page-chrome.ts`)
+- [x] `StorefrontShell`, `StorefrontHeader`, `StorefrontFixedFooter`
+- [x] Migrar páginas cliente principais para o shell
+- [x] `AdminShell` + `AdminHeader` em todas as rotas admin
+- [x] Sweep i18n parcial (produto, combo, conta, admin/login, ordens)
+- [x] Paridade produto/combo (nav + CTA fixo)
+
+**Storefront:** `/busca`, `/perfil`, `/carrinho`, `/pedido/[id]`, `/conta/*`, `/produto/[id]`, `/combo/[id]`  
+**Admin:** todas as rotas `/admin/*`
+
+### Fase 1 — UX base (concluída)
 
 **Não toca:** `app/pagamento`, `lib/clover/*`, APIs de pagamento
 
-### Fase 2 — Cliente
+### Fase 2 — Cliente (concluída)
 - [x] Histórico de pedidos no perfil
 - [x] Detalhe do pedido / status (`/pedido/[id]`)
 - [x] Melhor pós-pagamento (número + link acompanhar)
 - [x] Guest order lookup (API + formulário no perfil)
 
-### Fase 3 — Admin / operação
+### Fase 3 — Admin / operação (em andamento)
+- [x] Realtime Supabase no admin (`/admin/ordens` — script `038_realtime_pedidos.sql`)
+- [x] Pedido manual balcão (`/admin/pedido-manual`, API `/api/admin/orders/manual`)
 - [ ] Painel de pedidos estilo `OrderOperationsBoard`
-- [ ] Realtime Supabase no admin
-- [ ] Pedido manual (balcão — sem pagamento online)
 - [ ] Worker de impressão (`print_jobs`)
 
 ### Fase 4 — Crescimento (opcional)

@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
+import { ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { AdminHeader } from '@/components/layout/admin-header'
+import { AdminLoadingState } from '@/components/layout/admin-loading-state'
+import { AdminShell } from '@/components/layout/admin-shell'
+import { useLang } from '@/lib/lang-context'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
 
@@ -38,6 +40,7 @@ function pathFromPublicStorageUrl(url: string): string | null {
 
 export default function AdminBannersPage() {
   const supabase = createClient()
+  const { t } = useLang()
   const inputRef = useRef<HTMLInputElement>(null)
   const inputRefEn = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
@@ -222,35 +225,30 @@ export default function AdminBannersPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-background">
-        <LogoLoadingScreen variant="fullscreen" message="Carregando banners..." />
-      </main>
-    )
+    return <AdminLoadingState message={t.loadingAdmin} />
   }
 
   return (
-    <main className="min-h-screen bg-[#F6F7FA]">
-      <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link href="/admin" className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary" aria-label="Voltar">
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <p className="text-xs text-muted-foreground">Painel</p>
-              <h1 className="text-lg font-bold text-foreground">Banners</h1>
-            </div>
-          </div>
-          <button type="button" onClick={openNew} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-            <Plus size={15} className="mr-1 inline" />
-            Novo banner
-          </button>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-4xl px-4 py-6">
-        {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <AdminShell
+      header={
+        <AdminHeader
+          title="Banners"
+          eyebrow={t.adminPanel}
+          backLabel={t.back}
+          trailing={
+            <button
+              type="button"
+              onClick={openNew}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              <Plus size={15} className="mr-1 inline" />
+              Novo banner
+            </button>
+          }
+        />
+      }
+    >
+      {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         {banners.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center text-sm text-muted-foreground">
             Nenhum banner cadastrado.
@@ -277,7 +275,6 @@ export default function AdminBannersPage() {
             ))}
           </ul>
         )}
-      </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
@@ -423,7 +420,7 @@ export default function AdminBannersPage() {
           </div>
         </div>
       )}
-    </main>
+    </AdminShell>
   )
 }
 

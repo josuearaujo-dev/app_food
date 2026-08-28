@@ -21,6 +21,8 @@ import {
   kitchenStatusLabel,
   type CustomerOrderSummary,
 } from '@/lib/orders/order-presentation'
+import { StorefrontHeader } from '@/components/layout/storefront-header'
+import { StorefrontShell } from '@/components/layout/storefront-shell'
 
 type OrderRow = CustomerOrderSummary & { displayNumber?: string }
 
@@ -125,11 +127,9 @@ export default function PerfilPage() {
   const showRecent = !isLoggedIn && recentOrders.length > 0
 
   return (
-    <main className="min-h-screen bg-background pb-28 max-w-lg mx-auto">
-      <header className="border-b border-border/90 bg-background/90 px-4 pb-6 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <h1 className="text-xl font-bold text-foreground">{t.profileTitle}</h1>
-      </header>
-
+    <StorefrontShell
+      header={<StorefrontHeader title={t.profileTitle} sticky={false} className="[&>div]:pb-6" />}
+    >
       <div className="px-4 mb-6 mt-4">
         <div className="bg-card rounded-3xl p-5 border border-border flex items-center gap-4 shadow-sm">
           <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-accent/10">
@@ -308,6 +308,6 @@ export default function PerfilPage() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground mt-10">{t.appVersion}</p>
-    </main>
+    </StorefrontShell>
   )
 }

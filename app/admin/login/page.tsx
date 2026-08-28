@@ -4,9 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Lock, Mail, ChefHat } from 'lucide-react'
+import { AdminShell } from '@/components/layout/admin-shell'
+import { useLang } from '@/lib/lang-context'
 
 export default function AdminLoginPage() {
   const router = useRouter()
+  const { t } = useLang()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -22,7 +25,7 @@ export default function AdminLoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
 
     if (error) {
-      setErro('E-mail ou senha inválidos. Tente novamente.')
+      setErro(t.authInvalidCredentials)
       setLoading(false)
       return
     }
@@ -30,7 +33,7 @@ export default function AdminLoginPage() {
     const role = data.user?.user_metadata?.role as string | undefined
     if (role === 'customer') {
       await supabase.auth.signOut()
-      setErro('Esta conta é de cliente. Use o acesso pelo cardápio.')
+      setErro(t.authCustomerAccount)
       setLoading(false)
       return
     }
@@ -40,21 +43,19 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background flex flex-col items-center justify-center px-6 max-w-lg mx-auto">
-      {/* Logo */}
-      <div className="flex flex-col items-center mb-10">
+    <AdminShell centered tone="default">
+      <div className="mb-10 flex w-full flex-col items-center">
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-accent/30">
           <ChefHat size={30} className="text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground">Área Admin</h1>
-        <p className="text-muted-foreground text-sm mt-1">Gerencie o cardápio do restaurante</p>
+        <h1 className="text-2xl font-bold text-foreground">{t.adminLoginTitle}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t.adminLoginSubtitle}</p>
       </div>
 
       <form onSubmit={handleLogin} className="w-full space-y-4">
-        {/* Email */}
         <div>
-          <label htmlFor="email" className="text-sm font-semibold text-foreground block mb-1.5">
-            E-mail
+          <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-foreground">
+            {t.authEmail}
           </label>
           <div className="relative">
             <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -71,10 +72,9 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* Senha */}
         <div>
-          <label htmlFor="senha" className="text-sm font-semibold text-foreground block mb-1.5">
-            Senha
+          <label htmlFor="senha" className="mb-1.5 block text-sm font-semibold text-foreground">
+            {t.authPassword}
           </label>
           <div className="relative">
             <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -92,32 +92,29 @@ export default function AdminLoginPage() {
               type="button"
               onClick={() => setMostrarSenha(!mostrarSenha)}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-label={mostrarSenha ? t.authHidePassword : t.authShowPassword}
             >
               {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
 
-        {/* Erro */}
-        {erro && (
-          <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl" role="alert">
+        {erro ? (
+          <p className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-500" role="alert">
             {erro}
           </p>
-        )}
+        ) : null}
 
         <button
           type="submit"
           disabled={loading}
           className="mt-2 w-full rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground transition-opacity active:opacity-90 disabled:opacity-60"
         >
-          {loading ? 'Entrando...' : 'Entrar'}
+          {loading ? t.authSigningIn : t.authSignIn}
         </button>
       </form>
 
-      <p className="text-xs text-muted-foreground mt-8 text-center">
-        Acesso exclusivo para administradores do restaurante.
-      </p>
-    </main>
+      <p className="mt-8 text-center text-xs text-muted-foreground">{t.adminLoginExclusive}</p>
+    </AdminShell>
   )
 }

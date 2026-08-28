@@ -5,6 +5,7 @@ import { ShoppingBag } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { shouldHideFloatingCart } from '@/lib/layout/page-chrome'
 
 /** Barra fixa acima da bottom nav quando há itens no carrinho (inspirado no açaí). */
 export function FloatingCartBar() {
@@ -13,14 +14,12 @@ export function FloatingCartBar() {
   const { t } = useLang()
 
   if (totalItems === 0) return null
-  if (pathname.startsWith('/admin') || pathname.startsWith('/pagamento') || pathname.startsWith('/checkout') || pathname === '/carrinho') {
-    return null
-  }
+  if (shouldHideFloatingCart(pathname)) return null
 
   return (
     <div
       className="fixed left-0 right-0 z-40 mx-auto max-w-lg px-4"
-      style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))' }}
+      style={{ bottom: 'var(--floating-cart-offset)' }}
     >
       <Link
         href="/carrinho"

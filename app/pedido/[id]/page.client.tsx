@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Package } from 'lucide-react'
+import { Clock, Package } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useLang } from '@/lib/lang-context'
 import {
@@ -11,6 +11,8 @@ import {
   kitchenStatusLabel,
   paymentStatusLabel,
 } from '@/lib/orders/order-presentation'
+import { StorefrontHeader } from '@/components/layout/storefront-header'
+import { StorefrontShell } from '@/components/layout/storefront-shell'
 
 type Props = {
   orderId: string
@@ -79,18 +81,11 @@ export default function PedidoDetailPage({ orderId }: Props) {
     : -1
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-background pb-28">
-      <header className="border-b border-border/90 bg-background/90 px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <Link
-          href="/perfil"
-          className="mb-3 inline-flex items-center gap-1 text-sm font-semibold text-accent"
-        >
-          <ArrowLeft size={16} />
-          {t.back}
-        </Link>
-        <h1 className="text-xl font-bold text-foreground">{t.orderDetailTitle}</h1>
-      </header>
-
+    <StorefrontShell
+      header={
+        <StorefrontHeader title={t.orderDetailTitle} backHref="/perfil" backLabel={t.back} sticky={false} />
+      }
+    >
       <div className="px-4 pt-4">
         {loading && (
           <div className="space-y-3">
@@ -172,7 +167,8 @@ export default function PedidoDetailPage({ orderId }: Props) {
                         {item.quantidade}x {item.nome_item}
                       </p>
                       <p className="text-sm font-semibold text-foreground">
-                        ${Number(item.subtotal).toFixed(2)}
+                        {t.currency}
+                        {Number(item.subtotal).toFixed(2)}
                       </p>
                     </div>
                     {item.opcoes_selecionadas?.length ? (
@@ -189,13 +185,14 @@ export default function PedidoDetailPage({ orderId }: Props) {
               <div className="mt-4 flex justify-between border-t border-border pt-3">
                 <span className="text-sm font-bold text-foreground">{t.total}</span>
                 <span className="text-base font-bold text-accent">
-                  ${Number(order.valor_total).toFixed(2)}
+                  {t.currency}
+                  {Number(order.valor_total).toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
         )}
       </div>
-    </main>
+    </StorefrontShell>
   )
 }

@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Plus, Minus } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useParams, useRouter } from 'next/navigation'
 import { useLang } from '@/lib/lang-context'
+import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-footer'
+import { StorefrontHeader } from '@/components/layout/storefront-header'
+import { StorefrontLoadingState } from '@/components/layout/storefront-loading-state'
+import { StorefrontShell } from '@/components/layout/storefront-shell'
 
 type ItemDetalhe = ItemCardapio & {
   disponivel: boolean
@@ -281,17 +284,18 @@ export default function ProdutoDetalhePage() {
     }, 0)
 
   if (loading) {
-    return <main className="min-h-screen bg-background max-w-lg mx-auto p-4" />
+    return <StorefrontLoadingState message={t.loadingProduct} />
   }
 
   if (!item) {
     return (
-      <main className="min-h-screen bg-background max-w-lg mx-auto p-4">
-        <Link href="/" className="text-sm font-semibold text-accent">
-          Voltar
-        </Link>
-        <p className="mt-4 text-sm text-muted-foreground">Produto nao encontrado.</p>
-      </main>
+      <StorefrontShell
+        header={<StorefrontHeader title={t.productDetailTitle} backHref="/" backLabel={t.back} />}
+      >
+        <div className="px-4 pt-4">
+          <p className="text-sm text-muted-foreground">{t.productNotFound}</p>
+        </div>
+      </StorefrontShell>
     )
   }
 
@@ -302,21 +306,13 @@ export default function ProdutoDetalhePage() {
     selectedSize?.info || selectedQuantity?.info || item.quantidade_info
 
   return (
-    <main className="min-h-screen bg-background max-w-lg mx-auto pb-32">
-      <header className="sticky top-0 z-40 border-b border-border/90 bg-background/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-card shadow-sm transition-colors active:bg-secondary"
-            aria-label="Back"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <h1 className="text-base font-bold text-foreground">Detalhes do produto</h1>
-        </div>
-      </header>
-
-      <section className="px-4 pt-4 space-y-4">
+    <StorefrontShell
+      bottomPadding="cta-only"
+      header={
+        <StorefrontHeader title={t.productDetailTitle} backHref="/" backLabel={t.back} />
+      }
+    >
+      <section className="space-y-4 px-4 pt-4">
         {item.imagem_url ? (
           <img src={item.imagem_url} alt={item.nome} className="w-full h-52 object-cover rounded-2xl" />
         ) : (
@@ -335,7 +331,9 @@ export default function ProdutoDetalhePage() {
 
         {sizeOptions.length > 0 && (
           <div>
-            <p className="text-[12px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">Tamanho</p>
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t.optionSize}
+            </p>
             <div className="flex flex-wrap gap-2">
               {sizeOptions.map((op) => (
                 <button
@@ -358,7 +356,9 @@ export default function ProdutoDetalhePage() {
 
         {quantityOptions.length > 0 && (
           <div>
-            <p className="text-[12px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">Quantidade</p>
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t.optionQuantity}
+            </p>
             <div className="flex flex-wrap gap-2">
               {quantityOptions.map((op) => (
                 <button
@@ -517,12 +517,12 @@ export default function ProdutoDetalhePage() {
           <div className="bg-card border border-border rounded-xl p-3 space-y-2">
             {dynamicQuantityInfo && (
               <p className="text-sm text-foreground">
-                <span className="font-semibold">Quantidade:</span> {dynamicQuantityInfo}
+                <span className="font-semibold">{t.productQuantityInfo}:</span> {dynamicQuantityInfo}
               </p>
             )}
             {item.tamanhos_disponiveis && (
               <p className="text-sm text-foreground">
-                <span className="font-semibold">Tamanhos:</span> {item.tamanhos_disponiveis}
+                <span className="font-semibold">{t.productSizes}:</span> {item.tamanhos_disponiveis}
               </p>
             )}
           </div>
@@ -530,39 +530,38 @@ export default function ProdutoDetalhePage() {
 
         {item.ingredientes_info && (
           <div>
-            <p className="text-[12px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">Ingredientes</p>
+            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {t.productIngredients}
+            </p>
             <p className="text-sm text-foreground">{item.ingredientes_info}</p>
           </div>
         )}
 
         {item.alergenicos_alerta && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-[12px] font-semibold text-amber-700">Alergenicos</p>
+            <p className="text-[12px] font-semibold text-amber-700">{t.productAllergens}</p>
             <p className="text-xs text-amber-700 mt-0.5">{item.alergenicos_alerta}</p>
           </div>
         )}
 
         <div>
-          <label className="text-[12px] uppercase tracking-wide text-muted-foreground font-semibold block mb-1.5">
-            Observacao para a cozinha
+          <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t.kitchenNote}
           </label>
           <textarea
             value={observation}
             onChange={(e) => setObservation(e.target.value)}
-            placeholder="Ex: sem cebola, ponto da carne..."
+            placeholder={t.kitchenNotePlaceholder}
             rows={3}
             className="w-full resize-none rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent/30"
           />
         </div>
       </section>
 
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border px-4 pt-2.5 max-w-lg mx-auto"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
-      >
-        <div className="flex items-center justify-between gap-3 mb-2.5">
+      <StorefrontFixedFooter withBottomNav={false}>
+        <div className="mb-2.5 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Preco</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.productPrice}</p>
             <p className="text-2xl font-bold leading-none text-foreground">
               {t.currency}
               {(unitPrice * qtd).toFixed(2)}
@@ -591,9 +590,9 @@ export default function ProdutoDetalhePage() {
           onClick={handleAdd}
           className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground"
         >
-          Adicionar ao carrinho
+          {t.productAddToCart}
         </button>
-      </div>
-    </main>
+      </StorefrontFixedFooter>
+    </StorefrontShell>
   )
 }

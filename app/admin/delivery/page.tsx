@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Loader2, MapPin, Plus, Trash2 } from 'lucide-react'
+import { Loader2, MapPin, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { AdminHeader } from '@/components/layout/admin-header'
+import { AdminLoadingState } from '@/components/layout/admin-loading-state'
+import { AdminShell } from '@/components/layout/admin-shell'
 import { cn } from '@/lib/utils'
 
 type DeliveryLocationRow = {
@@ -99,38 +100,21 @@ export default function AdminDeliveryPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-background">
-        <LogoLoadingScreen variant="fullscreen" message={t.loadingAdmin} />
-      </main>
-    )
+    return <AdminLoadingState message={t.loadingAdmin} />
   }
 
   return (
-    <main className="min-h-screen bg-[#F6F7FA]">
-      <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-secondary/80"
-              aria-label="Voltar ao admin"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <p className="text-xs text-muted-foreground">{t.adminPanel}</p>
-              <h1 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <MapPin size={20} className="text-primary" />
-                Gerenciar entregas
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-4xl px-4 py-6">
-        <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+    <AdminShell
+      header={
+        <AdminHeader
+          title="Gerenciar entregas"
+          eyebrow={t.adminPanel}
+          backLabel={t.back}
+          trailing={<MapPin size={20} className="text-primary" />}
+        />
+      }
+    >
+      <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-foreground">Taxas de entrega por localidade</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Cadastre a localidade (cidade/bairro) e a taxa usada no checkout.
@@ -213,7 +197,6 @@ export default function AdminDeliveryPage() {
             ))
           )}
         </div>
-      </section>
-    </main>
+    </AdminShell>
   )
 }

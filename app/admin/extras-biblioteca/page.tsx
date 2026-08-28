@@ -2,12 +2,13 @@
 
 import type { HTMLAttributes, ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
+import { Check, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
-import { LogoLoadingScreen } from '@/components/logo-loading-screen'
+import { AdminHeader } from '@/components/layout/admin-header'
+import { AdminLoadingState } from '@/components/layout/admin-loading-state'
+import { AdminShell } from '@/components/layout/admin-shell'
 
 type OptionLine = {
   label: string
@@ -231,31 +232,22 @@ export default function AdminExtrasBibliotecaPage() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-background">
-        <LogoLoadingScreen variant="fullscreen" message="Carregando biblioteca de extras..." />
-      </main>
-    )
+    return <AdminLoadingState message="Carregando biblioteca de extras..." />
   }
 
   return (
-    <main className="min-h-screen bg-[#F6F7FA]">
-      <header className="sticky top-0 z-40 border-b border-border bg-white px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <Link href="/admin" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary" aria-label="Voltar">
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">Painel</p>
-            <h1 className="text-lg font-bold text-foreground">Biblioteca de grupos de extras</h1>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Edite ou exclua grupos de pré-cadastro. Excluir não remove grupos já importados nos produtos.
-            </p>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-4xl px-4 py-6">
+    <AdminShell
+      header={
+        <AdminHeader
+          title="Biblioteca de grupos de extras"
+          eyebrow={t.adminPanel}
+          backLabel={t.back}
+        />
+      }
+    >
+      <p className="mb-4 text-xs text-muted-foreground">
+        Edite ou exclua grupos de pré-cadastro. Excluir não remove grupos já importados nos produtos.
+      </p>
         {toast && (
           <p
             className={cn(
@@ -300,7 +292,6 @@ export default function AdminExtrasBibliotecaPage() {
             ))}
           </ul>
         )}
-      </div>
 
       {modalOpen && form && (
         <Modal
@@ -366,7 +357,7 @@ export default function AdminExtrasBibliotecaPage() {
           />
         </Modal>
       )}
-    </main>
+    </AdminShell>
   )
 }
 

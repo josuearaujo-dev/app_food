@@ -46,6 +46,14 @@
   --sidebar-accent-foreground: #FFFFFF;
   --sidebar-border: #D5C0B3;
   --sidebar-ring: var(--brand-pink);
+
+  /* Layout storefront — chrome mobile */
+  --bottom-nav-height: 4.75rem;
+  --storefront-bottom-inset: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  --storefront-bottom-inset-with-footer: calc(var(--bottom-nav-height) + 7.5rem + env(safe-area-inset-bottom));
+  --storefront-bottom-inset-with-cta: calc(var(--bottom-nav-height) + 5.5rem + env(safe-area-inset-bottom));
+  --storefront-cta-inset: calc(5.75rem + env(safe-area-inset-bottom));
+  --floating-cart-offset: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
 }
 
 .dark {

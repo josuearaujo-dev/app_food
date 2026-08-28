@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
+import { AdminShell } from '@/components/layout/admin-shell'
 
 const BUCKET = 'cardapio-imagens'
 
@@ -735,7 +736,7 @@ export default function AdminPage() {
   const isItemsTab = tab === t.tabItems
 
   return (
-    <main className="min-h-screen bg-background max-w-lg mx-auto">
+    <AdminShell tone="default" width="narrow" flush className="mx-auto max-w-lg">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background border-b border-border px-4 pt-10 pb-3">
         <div className="flex items-center justify-between">
@@ -1152,7 +1153,7 @@ export default function AdminPage() {
           <Toggle label={t.fieldActive} value={formCat.ativo} onChange={(v) => setFormCat({ ...formCat, ativo: v })} />
         </Modal>
       )}
-    </main>
+    </AdminShell>
   )
 }
 

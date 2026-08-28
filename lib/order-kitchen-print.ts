@@ -60,6 +60,9 @@ function mapOptionsFromJson(
 function paymentLineForPedido(
   order: Pick<PedidoRow, 'origem_pagamento' | 'status_pagamento'>
 ): string {
+  if (order.origem_pagamento === 'counter') {
+    return 'Balcão (pago)'
+  }
   if (
     order.origem_pagamento === 'cash_on_delivery' ||
     order.status_pagamento === 'pay_on_delivery'

@@ -6,13 +6,14 @@ import { Home, Search, ShoppingBag, User } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import { cn } from '@/lib/utils'
+import { shouldHideBottomNav } from '@/lib/layout/page-chrome'
 
 export function BottomNav() {
   const pathname = usePathname()
   const { totalItems } = useCart()
   const { lang, t, toggleLang } = useLang()
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/produto/') || pathname.startsWith('/checkout') || pathname === '/pagamento') return null
+  if (shouldHideBottomNav(pathname)) return null
 
   const navItems = [
     { href: '/', icon: Home, label: t.home },
