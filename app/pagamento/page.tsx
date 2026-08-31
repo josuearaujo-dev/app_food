@@ -8,8 +8,11 @@ import {
   loadCheckoutCustomer,
   isValidCheckoutCustomer,
   clearCheckoutCustomer,
+  customerToPayload,
   type CheckoutCustomer,
 } from '@/lib/checkout-customer'
+import { buildOrderFingerprint, resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { ArrowLeft, CreditCard, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import Script from 'next/script'
@@ -121,6 +124,7 @@ function CloverCheckoutPage() {
   const router = useRouter()
   const { items, totalPrice, totalItems, clearCart } = useCart()
   const { t, lang } = useLang()
+  const { deliveryFee, locations } = useCheckoutConfig()
   const [checkoutCustomer, setCheckoutCustomer] = useState<CheckoutCustomer | null>(null)
   const [customerChecked, setCustomerChecked] = useState(false)
   const [sdkLoaded, setSdkLoaded] = useState(false)
@@ -151,7 +155,7 @@ function CloverCheckoutPage() {
 
   useRecaptchaBadgeFix(sdkLoaded && hasPublicConfig)
 
-  const fingerprint = useMemo(
+  const cartFingerprint = useMemo(
     () =>
       items
         .map((ci) => {
@@ -166,19 +170,40 @@ function CloverCheckoutPage() {
     [items]
   )
 
+  const orderFingerprint = useMemo(() => {
+    if (!checkoutCustomer) return cartFingerprint
+    return buildOrderFingerprint(cartFingerprint, customerToPayload(checkoutCustomer))
+  }, [cartFingerprint, checkoutCustomer])
+
+  const deliveryFeeAmount = useMemo(() => {
+    if (!checkoutCustomer) return 0
+    return resolveClientDeliveryFee(
+      checkoutCustomer.fulfillmentType,
+      checkoutCustomer.localidadeEntregaId,
+      locations,
+      deliveryFee
+    )
+  }, [checkoutCustomer, locations, deliveryFee])
+
+  const checkoutTotal = Number((totalPrice + deliveryFeeAmount).toFixed(2))
+  const displayTotal =
+    preparedOrder?.totalCents != null
+      ? Number((preparedOrder.totalCents / 100).toFixed(2))
+      : checkoutTotal
+
   useEffect(() => {
     const c = loadCheckoutCustomer()
-    if (!isValidCheckoutCustomer(c)) {
+    if (!isValidCheckoutCustomer(c, { deliveryLocationsCount: locations.length })) {
       router.replace('/checkout/dados')
       return
     }
     setCheckoutCustomer(c)
     setCustomerChecked(true)
-  }, [router])
+  }, [router, locations.length])
 
   useEffect(() => {
-    setPreparedOrder((prev) => (prev && prev.fingerprint !== fingerprint ? null : prev))
-  }, [fingerprint])
+    setPreparedOrder((prev) => (prev && prev.fingerprint !== orderFingerprint ? null : prev))
+  }, [orderFingerprint])
 
   useEffect(() => {
     if (!customerChecked || !checkoutCustomer || !sdkLoaded || !hasPublicConfig) return
@@ -247,19 +272,11 @@ function CloverCheckoutPage() {
   const customerPayload = useCallback(() => {
     const c = checkoutCustomer
     if (!c) throw new Error('Dados do cliente ausentes.')
-    return {
-      nome: c.nome.trim(),
-      email: c.email.trim(),
-      telefone: c.telefone.trim(),
-      userId: c.userId,
-      aceitaSmsAtualizacoes: c.aceitaSmsAtualizacoes,
-      aceitaEmailAtualizacoes: c.aceitaEmailAtualizacoes,
-      consentiuSalvarCartao: false,
-    }
+    return customerToPayload(c)
   }, [checkoutCustomer])
 
   async function ensurePreparedOrder() {
-    if (preparedOrder && preparedOrder.fingerprint === fingerprint) {
+    if (preparedOrder && preparedOrder.fingerprint === orderFingerprint) {
       return preparedOrder
     }
 
@@ -280,7 +297,7 @@ function CloverCheckoutPage() {
       orderId: data.orderId as string,
       orderNumber: String(data.orderNumber),
       totalCents: Number(data.totalCents),
-      fingerprint,
+      fingerprint: orderFingerprint,
     }
     setPreparedOrder(next)
     return next
@@ -388,6 +405,14 @@ function CloverCheckoutPage() {
           <p className="text-sm font-bold text-[var(--cadu-ink)]">{checkoutCustomer.nome}</p>
           <p>{checkoutCustomer.email}</p>
           <p>{checkoutCustomer.telefone}</p>
+          <p>
+            {checkoutCustomer.fulfillmentType === 'delivery'
+              ? t.checkoutDelivery
+              : t.checkoutPickup}
+            {checkoutCustomer.fulfillmentType === 'delivery' && checkoutCustomer.enderecoEntrega
+              ? ` · ${checkoutCustomer.enderecoEntrega}`
+              : ''}
+          </p>
           <Link href="/checkout/dados" className="inline-block pt-1 text-xs font-bold text-[var(--cadu-pink)]">
             {t.paymentEditData}
           </Link>
@@ -403,11 +428,20 @@ function CloverCheckoutPage() {
               {totalPrice.toFixed(2)}
             </span>
           </div>
+          {checkoutCustomer.fulfillmentType === 'delivery' && deliveryFeeAmount > 0 ? (
+            <div className="cadu-checkout-summary-row">
+              <span>{t.checkoutDeliveryFee}</span>
+              <span>
+                {t.currency}
+                {deliveryFeeAmount.toFixed(2)}
+              </span>
+            </div>
+          ) : null}
           <div className="cadu-checkout-summary-total">
             <span>{t.total}</span>
             <strong>
               {t.currency}
-              {totalPrice.toFixed(2)}
+              {displayTotal.toFixed(2)}
             </strong>
           </div>
         </div>
@@ -478,7 +512,7 @@ function CloverCheckoutPage() {
           >
             {paying
               ? t.paymentProcessing
-              : `${t.paymentPayConfirm} · ${t.currency}${totalPrice.toFixed(2)}`}
+              : `${t.paymentPayConfirm} · ${t.currency}${displayTotal.toFixed(2)}`}
           </button>
         </div>
       </section>

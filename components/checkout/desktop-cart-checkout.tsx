@@ -14,9 +14,13 @@ import {
   loadCheckoutCustomer,
   saveCheckoutCustomer,
   type CheckoutCustomer,
+  type FulfillmentType,
 } from '@/lib/checkout-customer'
 import { useCloverCheckout } from '@/lib/checkout/use-clover-checkout'
 import { CloverCardFields } from '@/components/checkout/clover-card-fields'
+import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
+import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
 
 type SuccessOrder = {
@@ -32,6 +36,7 @@ export function DesktopCartCheckout() {
   const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
   const { t } = useLang()
   const supabase = createClient()
+  const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -39,10 +44,22 @@ export function DesktopCartCheckout() {
   const [userId, setUserId] = useState<string | null>(null)
   const [aceitaSms, setAceitaSms] = useState(false)
   const [aceitaEmail, setAceitaEmail] = useState(false)
+  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>('take_out')
+  const [localidadeId, setLocalidadeId] = useState('')
+  const [localidadeNome, setLocalidadeNome] = useState('')
+  const [enderecoEntrega, setEnderecoEntrega] = useState('')
   const [customerReady, setCustomerReady] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [sdkLoaded, setSdkLoaded] = useState(false)
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+
+  const deliveryFeeAmount = resolveClientDeliveryFee(
+    fulfillmentType,
+    localidadeId || null,
+    locations,
+    deliveryFee
+  )
+  const checkoutTotal = Number((totalPrice + deliveryFeeAmount).toFixed(2))
 
   const cloverEnv = process.env.NEXT_PUBLIC_CLOVER_ENV === 'production' ? 'production' : 'sandbox'
   const sdkSrc =
@@ -62,8 +79,24 @@ export function DesktopCartCheckout() {
       aceitaSmsAtualizacoes: aceitaSms,
       aceitaEmailAtualizacoes: aceitaEmail,
       prefereSalvarCartao: false,
+      fulfillmentType,
+      localidadeEntregaId: fulfillmentType === 'delivery' ? localidadeId || null : null,
+      localidadeEntregaNome: fulfillmentType === 'delivery' ? localidadeNome || null : null,
+      enderecoEntrega: fulfillmentType === 'delivery' ? enderecoEntrega.trim() || null : null,
     }
-  }, [customerReady, nome, email, telefone, userId, aceitaSms, aceitaEmail])
+  }, [
+    customerReady,
+    nome,
+    email,
+    telefone,
+    userId,
+    aceitaSms,
+    aceitaEmail,
+    fulfillmentType,
+    localidadeId,
+    localidadeNome,
+    enderecoEntrega,
+  ])
 
   const loadSession = useCallback(async () => {
     const {
@@ -79,6 +112,10 @@ export function DesktopCartCheckout() {
         setTelefone(saved.telefone)
         setAceitaSms(saved.aceitaSmsAtualizacoes)
         setAceitaEmail(saved.aceitaEmailAtualizacoes)
+        setFulfillmentType(saved.fulfillmentType)
+        setLocalidadeId(saved.localidadeEntregaId ?? '')
+        setLocalidadeNome(saved.localidadeEntregaNome ?? '')
+        setEnderecoEntrega(saved.enderecoEntrega ?? '')
       }
       setCustomerReady(true)
       return
@@ -133,10 +170,18 @@ export function DesktopCartCheckout() {
       aceitaSmsAtualizacoes: aceitaSms,
       aceitaEmailAtualizacoes: aceitaEmail,
       prefereSalvarCartao: false,
+      fulfillmentType,
+      localidadeEntregaId: fulfillmentType === 'delivery' ? localidadeId || null : null,
+      localidadeEntregaNome: fulfillmentType === 'delivery' ? localidadeNome || null : null,
+      enderecoEntrega: fulfillmentType === 'delivery' ? enderecoEntrega.trim() || null : null,
     }
 
-    if (!isValidCheckoutCustomer(c)) {
-      setFormError(t.checkoutFillError)
+    if (!isValidCheckoutCustomer(c, { deliveryLocationsCount: locations.length })) {
+      setFormError(
+        fulfillmentType === 'delivery' && enderecoEntrega.trim().length < 10
+          ? t.checkoutDeliveryAddressError
+          : t.checkoutFillError
+      )
       return null
     }
 
@@ -258,6 +303,20 @@ export function DesktopCartCheckout() {
           </div>
 
           <div className="cadu-desktop-checkout-panel">
+            <FulfillmentSelector
+              fulfillmentType={fulfillmentType}
+              onFulfillmentTypeChange={setFulfillmentType}
+              localidadeId={localidadeId}
+              onLocalidadeIdChange={setLocalidadeId}
+              localidadeNome={localidadeNome}
+              onLocalidadeNomeChange={setLocalidadeNome}
+              endereco={enderecoEntrega}
+              onEnderecoChange={setEnderecoEntrega}
+              locations={locations}
+              defaultDeliveryFee={deliveryFee}
+              loading={configLoading}
+            />
+
             <p className="cadu-sidebar-section-title">{t.checkoutTitle}</p>
 
             {!userId && (
@@ -325,6 +384,22 @@ export function DesktopCartCheckout() {
                   {totalPrice.toFixed(2)}
                 </strong>
               </div>
+              {fulfillmentType === 'delivery' && deliveryFeeAmount > 0 ? (
+                <div className="cadu-sidebar-summary-row">
+                  <span>{t.checkoutDeliveryFee}</span>
+                  <strong>
+                    {t.currency}
+                    {deliveryFeeAmount.toFixed(2)}
+                  </strong>
+                </div>
+              ) : null}
+              <div className="cadu-sidebar-summary-row">
+                <span>{t.total}</span>
+                <strong>
+                  {t.currency}
+                  {checkoutTotal.toFixed(2)}
+                </strong>
+              </div>
             </div>
 
             {(formError || error) && (
@@ -341,7 +416,7 @@ export function DesktopCartCheckout() {
             >
               {paying
                 ? t.paymentProcessing
-                : `${t.paymentPayConfirm} · ${t.currency}${totalPrice.toFixed(2)}`}
+                : `${t.paymentPayConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`}
             </button>
           </div>
         </div>

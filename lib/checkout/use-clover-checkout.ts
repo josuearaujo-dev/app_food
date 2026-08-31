@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import type { CheckoutCustomer } from '@/lib/checkout-customer'
+import { customerToPayload } from '@/lib/checkout-customer'
+import { buildOrderFingerprint } from '@/lib/checkout/fulfillment'
 import {
   buildCartPayload,
   CLOVER_FIELD_STYLES,
@@ -67,7 +69,7 @@ export function useCloverCheckout({
   const merchantId = process.env.NEXT_PUBLIC_CLOVER_MERCHANT_ID ?? ''
   const hasPublicConfig = !!publicToken && !!merchantId
 
-  const fingerprint = useMemo(
+  const cartFingerprint = useMemo(
     () =>
       items
         .map((ci) => {
@@ -82,9 +84,14 @@ export function useCloverCheckout({
     [items]
   )
 
+  const orderFingerprint = useMemo(() => {
+    if (!checkoutCustomer) return cartFingerprint
+    return buildOrderFingerprint(cartFingerprint, customerToPayload(checkoutCustomer))
+  }, [cartFingerprint, checkoutCustomer])
+
   useEffect(() => {
-    setPreparedOrder((prev) => (prev && prev.fingerprint !== fingerprint ? null : prev))
-  }, [fingerprint])
+    setPreparedOrder((prev) => (prev && prev.fingerprint !== orderFingerprint ? null : prev))
+  }, [orderFingerprint])
 
   useEffect(() => {
     if (!enabled || !sdkLoaded || !hasPublicConfig) return
@@ -158,19 +165,11 @@ export function useCloverCheckout({
     setPaying(true)
     setError(null)
 
-    const payload = {
-      nome: activeCustomer.nome.trim(),
-      email: activeCustomer.email.trim(),
-      telefone: activeCustomer.telefone.trim(),
-      userId: activeCustomer.userId,
-      aceitaSmsAtualizacoes: activeCustomer.aceitaSmsAtualizacoes,
-      aceitaEmailAtualizacoes: activeCustomer.aceitaEmailAtualizacoes,
-      consentiuSalvarCartao: false,
-    }
+    const payload = customerToPayload(activeCustomer)
 
     try {
       const prepared = await (async () => {
-        if (preparedOrder && preparedOrder.fingerprint === fingerprint) {
+        if (preparedOrder && preparedOrder.fingerprint === orderFingerprint) {
           return preparedOrder
         }
         const response = await fetch('/api/checkout/prepare', {
@@ -189,7 +188,7 @@ export function useCloverCheckout({
           orderId: data.orderId as string,
           orderNumber: String(data.orderNumber),
           totalCents: Number(data.totalCents),
-          fingerprint,
+          fingerprint: orderFingerprint,
         }
         setPreparedOrder(next)
         return next

@@ -26,11 +26,17 @@ function generateOrderNumber(): string {
 export async function createPendingOrder(input: {
   customer: CustomerPayload
   calculated: CalculatedOrder
+  deliveryFeeCents?: number
+  orderFingerprint?: string
 }): Promise<{ orderId: string; orderNumber: string; totalCents: number }> {
   const supabase = createAdminClient()
   const idempotencyKey = crypto.randomUUID()
   const numeroPedido = generateOrderNumber()
-  const totalDollars = centsToDollars(input.calculated.totalCents)
+  const deliveryFeeCents = Math.max(0, input.deliveryFeeCents ?? 0)
+  const totalCents = input.calculated.subtotalCents + deliveryFeeCents
+  const totalDollars = centsToDollars(totalCents)
+  const deliveryFeeDollars = centsToDollars(deliveryFeeCents)
+  const cartFingerprint = input.orderFingerprint ?? input.calculated.fingerprint
 
   const { data: order, error } = await supabase
     .from('pedidos')
@@ -41,14 +47,19 @@ export async function createPendingOrder(input: {
       status_producao: 'new',
       valor_total: totalDollars,
       subtotal_cents: input.calculated.subtotalCents,
-      total_cents: input.calculated.totalCents,
+      total_cents: totalCents,
+      taxa_entrega: deliveryFeeDollars,
       moeda: 'USD',
       origem_pagamento: 'clover',
-      cart_fingerprint: input.calculated.fingerprint,
+      cart_fingerprint: cartFingerprint,
       cliente_nome: input.customer.nome,
       cliente_email: input.customer.email,
       cliente_telefone: input.customer.telefone,
       cliente_user_id: input.customer.userId,
+      tipo_atendimento: input.customer.fulfillmentType,
+      localidade_entrega_id: input.customer.localidadeEntregaId,
+      localidade_entrega_nome: input.customer.localidadeEntregaNome,
+      endereco_entrega: input.customer.enderecoEntrega,
       cliente_aceita_sms_atualizacoes: input.customer.aceitaSmsAtualizacoes,
       cliente_aceita_email_atualizacoes: input.customer.aceitaEmailAtualizacoes,
       cliente_consentiu_salvar_cartao: false,
@@ -90,7 +101,7 @@ export async function createPendingOrder(input: {
   return {
     orderId: order.id,
     orderNumber: order.numero_pedido ?? numeroPedido,
-    totalCents: order.total_cents ?? input.calculated.totalCents,
+    totalCents: order.total_cents ?? totalCents,
   }
 }
 

@@ -10,16 +10,21 @@ import {
   loadCheckoutCustomer,
   saveCheckoutCustomer,
   type CheckoutCustomer,
+  type FulfillmentType,
 } from '@/lib/checkout-customer'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import { CheckoutSteps } from '@/components/checkout/checkout-steps'
+import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
+import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 
 export default function CheckoutDadosPage() {
   const router = useRouter()
   const supabase = createClient()
   const { totalItems, totalPrice } = useCart()
   const { t } = useLang()
+  const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -27,9 +32,21 @@ export default function CheckoutDadosPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [aceitaSms, setAceitaSms] = useState(false)
   const [aceitaEmail, setAceitaEmail] = useState(false)
+  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>('take_out')
+  const [localidadeId, setLocalidadeId] = useState('')
+  const [localidadeNome, setLocalidadeNome] = useState('')
+  const [enderecoEntrega, setEnderecoEntrega] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+
+  const deliveryFeeAmount = resolveClientDeliveryFee(
+    fulfillmentType,
+    localidadeId || null,
+    locations,
+    deliveryFee
+  )
+  const checkoutTotal = Number((totalPrice + deliveryFeeAmount).toFixed(2))
 
   const loadSession = useCallback(async () => {
     setLoading(true)
@@ -46,6 +63,10 @@ export default function CheckoutDadosPage() {
         setTelefone(saved.telefone)
         setAceitaSms(saved.aceitaSmsAtualizacoes)
         setAceitaEmail(saved.aceitaEmailAtualizacoes)
+        setFulfillmentType(saved.fulfillmentType)
+        setLocalidadeId(saved.localidadeEntregaId ?? '')
+        setLocalidadeNome(saved.localidadeEntregaNome ?? '')
+        setEnderecoEntrega(saved.enderecoEntrega ?? '')
       }
       setLoading(false)
       return
@@ -96,10 +117,18 @@ export default function CheckoutDadosPage() {
       aceitaSmsAtualizacoes: aceitaSms,
       aceitaEmailAtualizacoes: aceitaEmail,
       prefereSalvarCartao: false,
+      fulfillmentType,
+      localidadeEntregaId: fulfillmentType === 'delivery' ? localidadeId || null : null,
+      localidadeEntregaNome: fulfillmentType === 'delivery' ? localidadeNome || null : null,
+      enderecoEntrega: fulfillmentType === 'delivery' ? enderecoEntrega.trim() || null : null,
     }
 
-    if (!isValidCheckoutCustomer(c)) {
-      setErro(t.checkoutFillError)
+    if (!isValidCheckoutCustomer(c, { deliveryLocationsCount: locations.length })) {
+      setErro(
+        fulfillmentType === 'delivery' && enderecoEntrega.trim().length < 10
+          ? t.checkoutDeliveryAddressError
+          : t.checkoutFillError
+      )
       return
     }
 
@@ -165,11 +194,20 @@ export default function CheckoutDadosPage() {
                 {totalPrice.toFixed(2)}
               </span>
             </div>
+            {fulfillmentType === 'delivery' && deliveryFeeAmount > 0 ? (
+              <div className="cadu-checkout-summary-row">
+                <span>{t.checkoutDeliveryFee}</span>
+                <span>
+                  {t.currency}
+                  {deliveryFeeAmount.toFixed(2)}
+                </span>
+              </div>
+            ) : null}
             <div className="cadu-checkout-summary-total">
               <span>{t.total}</span>
               <strong>
                 {t.currency}
-                {totalPrice.toFixed(2)}
+                {checkoutTotal.toFixed(2)}
               </strong>
             </div>
           </div>
@@ -202,6 +240,20 @@ export default function CheckoutDadosPage() {
         )}
 
         <form onSubmit={handleContinuar} className="space-y-3">
+          <FulfillmentSelector
+            fulfillmentType={fulfillmentType}
+            onFulfillmentTypeChange={setFulfillmentType}
+            localidadeId={localidadeId}
+            onLocalidadeIdChange={setLocalidadeId}
+            localidadeNome={localidadeNome}
+            onLocalidadeNomeChange={setLocalidadeNome}
+            endereco={enderecoEntrega}
+            onEnderecoChange={setEnderecoEntrega}
+            locations={locations}
+            defaultDeliveryFee={deliveryFee}
+            loading={configLoading}
+          />
+
           <div className="cadu-checkout-card space-y-4">
             <div>
               <label htmlFor="nome" className="cadu-checkout-field-label">
