@@ -1,0 +1,13 @@
+Arquivos alterados nesta versão (cash + fix Pay & Confirm)
+
+Substitua estes arquivos no repositório GitHub (mantenha a mesma estrutura de pastas):
+
+- styles/storefront.css
+- components/bottom-nav.tsx
+- components/floating-cart-bar.tsx
+- lib/lang-context.tsx
+- lib/checkout/place-cash-order.ts  (NOVO)
+- components/checkout/desktop-cart-checkout.tsx
+- app/pagamento/page.tsx
+
+O arquivo place-cash-order.ts é novo — precisa ser adicionado.

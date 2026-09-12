@@ -13,13 +13,17 @@ import {
 } from '@/lib/checkout-customer'
 import { buildOrderFingerprint, resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
-import { ArrowLeft, CreditCard, Wallet } from 'lucide-react'
+import { ArrowLeft, Banknote, CreditCard, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { OrderSuccessScreen } from '@/components/order-success-screen'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
 import { CheckoutSteps } from '@/components/checkout/checkout-steps'
 import { useRecaptchaBadgeFix } from '@/lib/checkout/use-recaptcha-badge-fix'
+import {
+  placeCashOrder,
+  type CustomerPaymentMethod,
+} from '@/lib/checkout/place-cash-order'
 
 type SuccessOrder = {
   orderId: string
@@ -133,6 +137,7 @@ function CloverCheckoutPage() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<CustomerPaymentMethod>('card')
   const [preparedOrder, setPreparedOrder] = useState<{
     orderId: string
     orderNumber: string
@@ -304,7 +309,29 @@ function CloverCheckoutPage() {
   }
 
   async function handlePay() {
-    if (payingLockRef.current || paying || !cloverRef.current) return
+    if (payingLockRef.current || paying || !checkoutCustomer) return
+
+    if (paymentMethod === 'cash') {
+      payingLockRef.current = true
+      setPaying(true)
+      setError(null)
+      try {
+        const order = await placeCashOrder({ customer: checkoutCustomer, items })
+        const email = checkoutCustomer.email.trim()
+        saveRecentOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
+        setSuccessOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
+        clearCheckoutCustomer()
+        clearCart()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Falha ao criar pedido.')
+      } finally {
+        setPaying(false)
+        payingLockRef.current = false
+      }
+      return
+    }
+
+    if (!cloverRef.current) return
     payingLockRef.current = true
     setPaying(true)
     setError(null)
@@ -447,55 +474,88 @@ function CloverCheckoutPage() {
         </div>
 
         <div className="cadu-checkout-card space-y-3">
-          <p className="cadu-checkout-kicker">{t.paymentCardTitle}</p>
-          <p className="text-xs leading-relaxed text-[var(--cadu-muted)]">{t.paymentSecureNote}</p>
+          <p className="cadu-checkout-kicker">{t.paymentMethodTitle}</p>
+          <div className="cadu-payment-method-toggle" role="group" aria-label={t.paymentMethodTitle}>
+            <button
+              type="button"
+              className={paymentMethod === 'card' ? 'is-active' : undefined}
+              onClick={() => setPaymentMethod('card')}
+              disabled={paying}
+            >
+              <CreditCard size={14} />
+              {t.paymentMethodCard}
+            </button>
+            <button
+              type="button"
+              className={paymentMethod === 'cash' ? 'is-active' : undefined}
+              onClick={() => setPaymentMethod('cash')}
+              disabled={paying}
+            >
+              <Banknote size={14} />
+              {t.paymentMethodCash}
+            </button>
+          </div>
 
-          {!hasPublicConfig && (
-            <p className="cadu-checkout-error">
-              Configure NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN e NEXT_PUBLIC_CLOVER_MERCHANT_ID.
-            </p>
+          {paymentMethod === 'cash' ? (
+            <p className="text-xs leading-relaxed text-[var(--cadu-muted)]">{t.paymentCashNote}</p>
+          ) : (
+            <>
+              <p className="cadu-checkout-kicker">{t.paymentCardTitle}</p>
+              <p className="text-xs leading-relaxed text-[var(--cadu-muted)]">{t.paymentSecureNote}</p>
+
+              {!hasPublicConfig && (
+                <p className="cadu-checkout-error">
+                  Configure NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN e NEXT_PUBLIC_CLOVER_MERCHANT_ID.
+                </p>
+              )}
+            </>
           )}
 
-          <div>
-            <label htmlFor="card-number" className="cadu-checkout-field-label">
-              {t.paymentCardNumber}
-            </label>
-            <div id="card-number" className="cadu-clover-field" />
-            <p className="cadu-checkout-field-error" role="alert">
-              {fieldErrors['card-number']}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          <div
+            className={paymentMethod === 'card' ? 'space-y-3' : 'cadu-clover-fields-hidden'}
+            aria-hidden={paymentMethod !== 'card'}
+          >
             <div>
-              <label htmlFor="card-date" className="cadu-checkout-field-label">
-                {t.paymentCardExpiry}
+              <label htmlFor="card-number" className="cadu-checkout-field-label">
+                {t.paymentCardNumber}
               </label>
-              <div id="card-date" className="cadu-clover-field" />
+              <div id="card-number" className="cadu-clover-field" />
               <p className="cadu-checkout-field-error" role="alert">
-                {fieldErrors['card-date']}
+                {fieldErrors['card-number']}
               </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="card-date" className="cadu-checkout-field-label">
+                  {t.paymentCardExpiry}
+                </label>
+                <div id="card-date" className="cadu-clover-field" />
+                <p className="cadu-checkout-field-error" role="alert">
+                  {fieldErrors['card-date']}
+                </p>
+              </div>
+              <div>
+                <label htmlFor="card-cvv" className="cadu-checkout-field-label">
+                  {t.paymentCardCvv}
+                </label>
+                <div id="card-cvv" className="cadu-clover-field" />
+                <p className="cadu-checkout-field-error" role="alert">
+                  {fieldErrors['card-cvv']}
+                </p>
+              </div>
+            </div>
+
             <div>
-              <label htmlFor="card-cvv" className="cadu-checkout-field-label">
-                {t.paymentCardCvv}
+              <label htmlFor="card-postal-code" className="cadu-checkout-field-label">
+                {t.paymentCardZip}
               </label>
-              <div id="card-cvv" className="cadu-clover-field" />
+              <div id="card-postal-code" className="cadu-clover-field" />
+              <p className="mt-1 text-[11px] text-[var(--cadu-muted)]">{t.paymentZipHint}</p>
               <p className="cadu-checkout-field-error" role="alert">
-                {fieldErrors['card-cvv']}
+                {fieldErrors['card-postal-code']}
               </p>
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="card-postal-code" className="cadu-checkout-field-label">
-              {t.paymentCardZip}
-            </label>
-            <div id="card-postal-code" className="cadu-clover-field" />
-            <p className="mt-1 text-[11px] text-[var(--cadu-muted)]">{t.paymentZipHint}</p>
-            <p className="cadu-checkout-field-error" role="alert">
-              {fieldErrors['card-postal-code']}
-            </p>
           </div>
 
           {error && (
@@ -507,12 +567,17 @@ function CloverCheckoutPage() {
           <button
             type="button"
             onClick={handlePay}
-            disabled={paying || !fieldsReady || !hasPublicConfig}
+            disabled={
+              paying ||
+              (paymentMethod === 'card' && (!fieldsReady || !hasPublicConfig))
+            }
             className="cadu-checkout-btn cadu-checkout-btn--sticky"
           >
             {paying
               ? t.paymentProcessing
-              : `${t.paymentPayConfirm} · ${t.currency}${displayTotal.toFixed(2)}`}
+              : paymentMethod === 'cash'
+                ? `${t.paymentCashConfirm} · ${t.currency}${displayTotal.toFixed(2)}`
+                : `${t.paymentPayConfirm} · ${t.currency}${displayTotal.toFixed(2)}`}
           </button>
         </div>
       </section>
@@ -532,8 +597,9 @@ function PayPalCheckoutPage() {
   const [resultMessage, setResultMessage] = useState('')
   const [cardFieldsEligible, setCardFieldsEligible] = useState(false)
   const [cardFieldsLoading, setCardFieldsLoading] = useState(false)
-  const [method, setMethod] = useState<'paypal' | 'card'>('paypal')
+  const [method, setMethod] = useState<'paypal' | 'card' | 'cash'>('paypal')
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+  const [cashPaying, setCashPaying] = useState(false)
   const isRenderingRef = useRef(false)
   const cardFieldsRef = useRef<ReturnType<NonNullable<typeof window.paypal>['CardFields']> | null>(
     null
@@ -759,7 +825,7 @@ function PayPalCheckoutPage() {
             {totalItems} {totalItems === 1 ? t.item : t.items}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-3xl border border-border bg-card p-2">
+        <div className="grid grid-cols-3 gap-2 rounded-3xl border border-border bg-card p-2">
           <button
             type="button"
             onClick={() => setMethod('paypal')}
@@ -776,7 +842,16 @@ function PayPalCheckoutPage() {
             className={`h-11 rounded-2xl text-sm font-semibold disabled:opacity-40 ${method === 'card' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
           >
             <span className="inline-flex items-center gap-1.5">
-              <CreditCard size={14} /> Card
+              <CreditCard size={14} /> {t.paymentMethodCard}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMethod('cash')}
+            className={`h-11 rounded-2xl text-sm font-semibold ${method === 'cash' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Banknote size={14} /> {t.paymentMethodCash}
             </span>
           </button>
         </div>
@@ -807,6 +882,35 @@ function PayPalCheckoutPage() {
             className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground"
           >
             {cardFieldsLoading ? 'Processing...' : 'Pay & Confirm'}
+          </button>
+        </div>
+        <div className={`${method === 'cash' ? '' : 'hidden'} space-y-3 rounded-3xl border border-border bg-card p-4`}>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t.paymentCashNote}</p>
+          <button
+            type="button"
+            disabled={cashPaying || !checkoutCustomer}
+            onClick={async () => {
+              if (!checkoutCustomer || cashPaying) return
+              setCashPaying(true)
+              setPaypalError(null)
+              try {
+                const order = await placeCashOrder({ customer: checkoutCustomer, items })
+                const email = checkoutCustomer.email.trim()
+                saveRecentOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
+                setSuccessOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
+                clearCheckoutCustomer()
+                clearCart()
+              } catch (e) {
+                setPaypalError(e instanceof Error ? e.message : 'Falha ao criar pedido.')
+              } finally {
+                setCashPaying(false)
+              }
+            }}
+            className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          >
+            {cashPaying
+              ? t.paymentProcessing
+              : `${t.paymentCashConfirm} · ${t.currency}${totalPrice.toFixed(2)}`}
           </button>
         </div>
         {paypalError && <p className="text-xs text-red-500">{paypalError}</p>}

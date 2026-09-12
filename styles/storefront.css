@@ -467,6 +467,7 @@
 .cadu-desktop-cart {
   position: sticky;
   top: 80px;
+  /* Reserve space for top offset; bottom nav is hidden on desktop (≥981px). */
   max-height: calc(100vh - 96px);
   overflow: hidden;
   display: flex;
@@ -941,6 +942,12 @@
   .cadu-catalog-toolbar--desktop .cadu-catalog-search {
     flex: 0 1 300px;
   }
+
+  /* Mobile chrome — desktop uses top nav + "Your bag" sidebar checkout */
+  .cadu-bottom-nav,
+  .cadu-floating-cart {
+    display: none !important;
+  }
 }
 
 /* Product customize modal */
@@ -1349,6 +1356,50 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   box-shadow: 0 8px 24px rgba(83, 27, 4, 0.18);
 }
 
+.cadu-payment-method-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cadu-payment-method-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  border: 1px solid var(--cadu-line);
+  border-radius: 12px;
+  background: var(--cadu-surface, #f7f1ec);
+  color: var(--cadu-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cadu-payment-method-toggle button.is-active {
+  border-color: var(--cadu-brown);
+  background: var(--cadu-brown);
+  color: #fff;
+}
+
+.cadu-payment-method-toggle button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cadu-clover-fields-hidden {
+  height: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cadu-checkout-error {
   border-radius: 12px;
   background: #fef2f2;
@@ -1477,6 +1528,7 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-bottom: 16px;
 }
 
 .cadu-cart-items--checkout {

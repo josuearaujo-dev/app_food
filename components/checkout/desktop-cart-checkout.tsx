@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
-import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
@@ -17,6 +17,10 @@ import {
   type FulfillmentType,
 } from '@/lib/checkout-customer'
 import { useCloverCheckout } from '@/lib/checkout/use-clover-checkout'
+import {
+  placeCashOrder,
+  type CustomerPaymentMethod,
+} from '@/lib/checkout/place-cash-order'
 import { CloverCardFields } from '@/components/checkout/clover-card-fields'
 import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
@@ -33,7 +37,7 @@ const MOUNT_PREFIX = 'desktop-'
 
 export function DesktopCartCheckout() {
   const isDesktop = useMediaMinWidth(981)
-  const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
+  const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart()
   const { t } = useLang()
   const supabase = createClient()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
@@ -52,6 +56,8 @@ export function DesktopCartCheckout() {
   const [formError, setFormError] = useState<string | null>(null)
   const [sdkLoaded, setSdkLoaded] = useState(false)
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<CustomerPaymentMethod>('card')
+  const [cashPaying, setCashPaying] = useState(false)
 
   const deliveryFeeAmount = resolveClientDeliveryFee(
     fulfillmentType,
@@ -160,6 +166,10 @@ export function DesktopCartCheckout() {
     onSuccess: handleSuccess,
   })
 
+  const isPaying = paymentMethod === 'cash' ? cashPaying : paying
+  const canSubmitCard = fieldsReady && hasPublicConfig
+  const canSubmit = paymentMethod === 'cash' ? !cashPaying : canSubmitCard && !paying
+
   async function persistCustomer(): Promise<CheckoutCustomer | null> {
     setFormError(null)
     const c: CheckoutCustomer = {
@@ -206,6 +216,26 @@ export function DesktopCartCheckout() {
   async function onPayClick() {
     const saved = await persistCustomer()
     if (!saved) return
+
+    if (paymentMethod === 'cash') {
+      setCashPaying(true)
+      setFormError(null)
+      try {
+        const order = await placeCashOrder({ customer: saved, items })
+        handleSuccess({
+          orderId: order.orderId,
+          orderNumber: order.orderNumber,
+          email: saved.email.trim(),
+        })
+        clearCart()
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : 'Falha ao criar pedido.')
+      } finally {
+        setCashPaying(false)
+      }
+      return
+    }
+
     await handlePay(saved)
   }
 
@@ -365,14 +395,49 @@ export function DesktopCartCheckout() {
               </label>
             </div>
 
-            <p className="cadu-sidebar-section-title">{t.paymentCardTitle}</p>
-            <p className="cadu-sidebar-note">{t.paymentSecureNote}</p>
+            <p className="cadu-sidebar-section-title">{t.paymentMethodTitle}</p>
+            <div className="cadu-payment-method-toggle" role="group" aria-label={t.paymentMethodTitle}>
+              <button
+                type="button"
+                className={paymentMethod === 'card' ? 'is-active' : undefined}
+                onClick={() => setPaymentMethod('card')}
+                disabled={isPaying}
+              >
+                <CreditCard size={14} />
+                {t.paymentMethodCard}
+              </button>
+              <button
+                type="button"
+                className={paymentMethod === 'cash' ? 'is-active' : undefined}
+                onClick={() => setPaymentMethod('cash')}
+                disabled={isPaying}
+              >
+                <Banknote size={14} />
+                {t.paymentMethodCash}
+              </button>
+            </div>
 
-            {!hasPublicConfig ? (
-              <p className="cadu-sidebar-error">Clover não configurado.</p>
+            {paymentMethod === 'cash' ? (
+              <p className="cadu-sidebar-note">{t.paymentCashNote}</p>
             ) : (
-              <CloverCardFields mountPrefix={MOUNT_PREFIX} fieldErrors={fieldErrors} compact />
+              <>
+                <p className="cadu-sidebar-section-title">{t.paymentCardTitle}</p>
+                <p className="cadu-sidebar-note">{t.paymentSecureNote}</p>
+                {!hasPublicConfig ? (
+                  <p className="cadu-sidebar-error">Clover não configurado.</p>
+                ) : null}
+              </>
             )}
+
+            {/* Always keep mounts in the DOM so Clover SDK stays attached across method switches */}
+            <div
+              className={paymentMethod === 'card' ? undefined : 'cadu-clover-fields-hidden'}
+              aria-hidden={paymentMethod !== 'card'}
+            >
+              {hasPublicConfig ? (
+                <CloverCardFields mountPrefix={MOUNT_PREFIX} fieldErrors={fieldErrors} compact />
+              ) : null}
+            </div>
 
             <div className="cadu-sidebar-summary">
               <div className="cadu-sidebar-summary-row">
@@ -402,7 +467,7 @@ export function DesktopCartCheckout() {
               </div>
             </div>
 
-            {(formError || error) && (
+            {(formError || (paymentMethod === 'card' && error)) && (
               <p className="cadu-sidebar-error" role="alert">
                 {formError ?? error}
               </p>
@@ -411,12 +476,14 @@ export function DesktopCartCheckout() {
             <button
               type="button"
               className="cadu-sidebar-pay"
-              disabled={paying || !fieldsReady || !hasPublicConfig}
+              disabled={!canSubmit || isPaying}
               onClick={onPayClick}
             >
-              {paying
+              {isPaying
                 ? t.paymentProcessing
-                : `${t.paymentPayConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`}
+                : paymentMethod === 'cash'
+                  ? `${t.paymentCashConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`
+                  : `${t.paymentPayConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`}
             </button>
           </div>
         </div>

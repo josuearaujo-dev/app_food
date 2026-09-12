@@ -18,7 +18,7 @@ export function FloatingCartBar() {
 
   return (
     <div
-      className="fixed left-0 right-0 z-40 mx-auto max-w-lg px-4"
+      className="cadu-floating-cart fixed left-0 right-0 z-40 mx-auto max-w-lg px-4"
       style={{ bottom: 'var(--floating-cart-offset)' }}
     >
       <Link
