@@ -1,10 +1,9 @@
 Arquivos alterados nesta versão
-- Perfil em modal (detalhes, pedidos ativos, histórico)
-- Página admin /admin/historico
-- Botão reimprimir comanda
+- Modal de perfil ajustado (mais limpo, badges, telefone formatado)
+- Histórico admin + reimprimir comanda
 - Entregues saem do quadro no fim do dia
 
-Substitua estes arquivos no repositório GitHub (mesma estrutura de pastas).
+Substitua no GitHub mantendo a estrutura de pastas.
 Arquivos NOVOS (adicione):
 - app/admin/historico/page.tsx
 - components/profile/profile-modal.tsx

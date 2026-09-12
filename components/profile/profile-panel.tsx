@@ -6,9 +6,7 @@ import {
   ChevronRight,
   LogIn,
   LogOut,
-  Mail,
   Package,
-  Phone,
   Search,
   User,
   UserPlus,
@@ -30,6 +28,18 @@ type OrderRow = CustomerOrderSummary & { displayNumber?: string }
 type ProfilePanelProps = {
   onClose?: () => void
   compact?: boolean
+}
+
+function formatPhoneDisplay(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11) {
+    return `+${digits.slice(0, 1)} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  return raw.trim()
 }
 
 export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
@@ -135,6 +145,7 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
   }
 
   const displayName = nome?.trim() || email?.split('@')[0] || t.visitor
+  const phoneDisplay = formatPhoneDisplay(telefone)
   const isLoggedIn = !!email
   const showRecent = !isLoggedIn && recentOrders.length > 0
 
@@ -148,15 +159,18 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
     return { activeOrders: active, historyOrders: history }
   }, [orders])
 
-  function orderHref(order: OrderRow) {
-    return `/pedido/${order.id}`
-  }
-
   function renderOrderLink(order: OrderRow, active: boolean) {
+    const fulfillment =
+      order.tipo_atendimento === 'delivery'
+        ? t.checkoutDelivery
+        : order.tipo_atendimento
+          ? t.checkoutPickup
+          : null
+
     return (
       <Link
         key={order.id}
-        href={orderHref(order)}
+        href={`/pedido/${order.id}`}
         onClick={() => onClose?.()}
         className={`cadu-profile-order ${active ? 'cadu-profile-order--active' : ''}`}
       >
@@ -164,20 +178,18 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
           <Package size={16} />
         </div>
         <div className="cadu-profile-order-body">
-          <strong>#{order.displayNumber ?? order.numero_pedido}</strong>
-          <span>
-            {formatOrderDate(order.criado_em, lang)} ·{' '}
-            {kitchenStatusLabel(order.status_producao, lang)}
-          </span>
-          <span className="cadu-profile-order-meta">
-            {formatOrderMoney(order.valor_total, t.currency)} ·{' '}
-            {paymentStatusLabel(order.status_pagamento, lang)}
-            {order.tipo_atendimento === 'delivery'
-              ? ` · ${t.checkoutDelivery}`
-              : order.tipo_atendimento
-                ? ` · ${t.checkoutPickup}`
-                : ''}
-          </span>
+          <div className="cadu-profile-order-top">
+            <strong>#{order.displayNumber ?? order.numero_pedido}</strong>
+            <span className={`cadu-profile-status ${active ? 'is-active' : 'is-done'}`}>
+              {kitchenStatusLabel(order.status_producao, lang)}
+            </span>
+          </div>
+          <span className="cadu-profile-order-date">{formatOrderDate(order.criado_em, lang)}</span>
+          <div className="cadu-profile-order-meta">
+            <span>{formatOrderMoney(order.valor_total, t.currency)}</span>
+            <span>{paymentStatusLabel(order.status_pagamento, lang)}</span>
+            {fulfillment ? <span>{fulfillment}</span> : null}
+          </div>
         </div>
         <ChevronRight size={16} className="cadu-profile-order-chevron" />
       </Link>
@@ -188,7 +200,7 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
     <div className={`cadu-profile-panel ${compact ? 'cadu-profile-panel--compact' : ''}`}>
       <div className="cadu-profile-hero">
         <div className="cadu-profile-avatar">
-          <User size={28} />
+          <User size={26} />
         </div>
         <div className="cadu-profile-hero-text">
           {loading ? (
@@ -196,7 +208,14 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
           ) : (
             <>
               <h2>{displayName}</h2>
-              <p>{isLoggedIn ? email : t.welcomeMsg}</p>
+              {isLoggedIn ? (
+                <>
+                  <p>{email}</p>
+                  {phoneDisplay ? <p className="cadu-profile-hero-phone">{phoneDisplay}</p> : null}
+                </>
+              ) : (
+                <p>{t.welcomeMsg}</p>
+              )}
             </>
           )}
         </div>
@@ -227,33 +246,21 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
       )}
 
       {!loading && isLoggedIn && (
-        <section className="cadu-profile-card">
-          <p className="cadu-profile-card-title">{t.profileDetails}</p>
-          <div className="cadu-profile-detail-row">
-            <Mail size={15} />
-            <div>
-              <span>{t.profileEmail}</span>
-              <strong>{email}</strong>
-            </div>
-          </div>
-          <div className="cadu-profile-detail-row">
-            <Phone size={15} />
-            <div>
-              <span>{t.profilePhone}</span>
-              <strong>{telefone?.trim() || t.profileNoPhone}</strong>
-            </div>
-          </div>
-          <button type="button" className="cadu-profile-signout" onClick={handleSignOut}>
-            <LogOut size={15} />
-            {t.signOut}
-          </button>
-        </section>
+        <button type="button" className="cadu-profile-signout" onClick={handleSignOut}>
+          <LogOut size={15} />
+          {t.signOut}
+        </button>
       )}
 
       {isLoggedIn && (
         <>
           <section className="cadu-profile-card">
-            <p className="cadu-profile-card-title">{t.activeOrders}</p>
+            <div className="cadu-profile-card-head">
+              <p className="cadu-profile-card-title">{t.activeOrders}</p>
+              {!ordersLoading && activeOrders.length > 0 ? (
+                <span className="cadu-profile-count">{activeOrders.length}</span>
+              ) : null}
+            </div>
             {ordersLoading ? (
               <div className="cadu-profile-skeleton cadu-profile-skeleton--block" />
             ) : activeOrders.length === 0 ? (
@@ -266,7 +273,12 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
           </section>
 
           <section className="cadu-profile-card">
-            <p className="cadu-profile-card-title">{t.orderHistory}</p>
+            <div className="cadu-profile-card-head">
+              <p className="cadu-profile-card-title">{t.orderHistory}</p>
+              {!ordersLoading && historyOrders.length > 0 ? (
+                <span className="cadu-profile-count">{historyOrders.length}</span>
+              ) : null}
+            </div>
             {ordersLoading ? (
               <div className="cadu-profile-skeleton cadu-profile-skeleton--block" />
             ) : historyOrders.length === 0 ? (
@@ -295,8 +307,10 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
                   <Package size={16} />
                 </div>
                 <div className="cadu-profile-order-body">
-                  <strong>#{ref.orderNumber}</strong>
-                  <span>{t.viewOrder}</span>
+                  <div className="cadu-profile-order-top">
+                    <strong>#{ref.orderNumber}</strong>
+                  </div>
+                  <span className="cadu-profile-order-date">{t.viewOrder}</span>
                 </div>
                 <ChevronRight size={16} className="cadu-profile-order-chevron" />
               </Link>
@@ -305,33 +319,39 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
         </section>
       )}
 
-      <section className="cadu-profile-card">
-        <form onSubmit={handleLookup} className="cadu-profile-lookup">
-          <div className="cadu-profile-lookup-head">
-            <Search size={16} />
-            <p>{t.lookupOrder}</p>
-          </div>
-          <p className="cadu-profile-empty">{t.lookupOrderHint}</p>
-          <input
-            type="text"
-            value={lookupNumber}
-            onChange={(e) => setLookupNumber(e.target.value)}
-            placeholder={t.orderNumberLabel}
-            required
-          />
-          <input
-            type="email"
-            value={lookupEmail}
-            onChange={(e) => setLookupEmail(e.target.value)}
-            placeholder={t.orderEmailLabel}
-            required
-          />
-          {lookupError && <p className="cadu-profile-error">{lookupError}</p>}
-          <button type="submit" disabled={lookupLoading} className="cadu-profile-btn cadu-profile-btn--primary">
-            {lookupLoading ? '...' : t.lookupSubmit}
-          </button>
-        </form>
-      </section>
+      {!isLoggedIn && (
+        <section className="cadu-profile-card">
+          <form onSubmit={handleLookup} className="cadu-profile-lookup">
+            <div className="cadu-profile-lookup-head">
+              <Search size={16} />
+              <p>{t.lookupOrder}</p>
+            </div>
+            <p className="cadu-profile-empty">{t.lookupOrderHint}</p>
+            <input
+              type="text"
+              value={lookupNumber}
+              onChange={(e) => setLookupNumber(e.target.value)}
+              placeholder={t.orderNumberLabel}
+              required
+            />
+            <input
+              type="email"
+              value={lookupEmail}
+              onChange={(e) => setLookupEmail(e.target.value)}
+              placeholder={t.orderEmailLabel}
+              required
+            />
+            {lookupError && <p className="cadu-profile-error">{lookupError}</p>}
+            <button
+              type="submit"
+              disabled={lookupLoading}
+              className="cadu-profile-btn cadu-profile-btn--primary"
+            >
+              {lookupLoading ? '...' : t.lookupSubmit}
+            </button>
+          </form>
+        </section>
+      )}
     </div>
   )
 }
