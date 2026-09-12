@@ -23,6 +23,7 @@ import { useLang } from '@/lib/lang-context'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { DesktopCartCheckout } from '@/components/checkout/desktop-cart-checkout'
+import { useProfileModal } from '@/lib/profile-modal-context'
 
 interface Categoria {
   id: string
@@ -48,6 +49,7 @@ export function StorefrontHome() {
   const [splashLeaving, setSplashLeaving] = useState(false)
   const { items, totalItems } = useCart()
   const { t, lang, toggleLang } = useLang()
+  const { openProfile } = useProfileModal()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -149,10 +151,10 @@ export function StorefrontHome() {
           {t.navCart}
           {totalItems > 0 && <span className="cadu-nav-count">{totalItems > 9 ? '9+' : totalItems}</span>}
         </Link>
-        <Link href="/perfil">
+        <button type="button" onClick={openProfile}>
           <UserRound size={17} />
           {t.profile}
-        </Link>
+        </button>
         <button type="button" onClick={toggleLang} aria-label={lang === 'en' ? 'PT' : 'EN'}>
           {lang === 'en' ? '🇧🇷 PT' : '🇺🇸 EN'}
         </button>

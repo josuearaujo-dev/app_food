@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { History, Plus, Printer } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { useLang } from '@/lib/lang-context'
+import { reprintOrder, storeDayStartISO } from '@/lib/admin/kitchen-board'
 
 type KitchenStatus = 'new' | 'preparing' | 'delivered'
 
@@ -31,7 +32,10 @@ type KitchenOrder = {
   pedido_itens: OrderItem[]
 }
 
-const STATUS_COLUMNS: Array<{ key: KitchenStatus; titleKey: 'ordersColNew' | 'ordersColPreparing' | 'ordersColDelivered' }> = [
+const STATUS_COLUMNS: Array<{
+  key: KitchenStatus
+  titleKey: 'ordersColNew' | 'ordersColPreparing' | 'ordersColDelivered'
+}> = [
   { key: 'new', titleKey: 'ordersColNew' },
   { key: 'preparing', titleKey: 'ordersColPreparing' },
   { key: 'delivered', titleKey: 'ordersColDelivered' },
@@ -42,13 +46,19 @@ export default function AdminOrdensPage() {
   const { t } = useLang()
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [reprintingId, setReprintingId] = useState<string | null>(null)
+  const [reprintMsg, setReprintMsg] = useState<string | null>(null)
 
   const fetchOrders = useCallback(async () => {
+    const dayStart = storeDayStartISO()
+    // Quadro: todos ativos + entregues só do dia (no fuso da loja).
+    // Entregues antigos saem sozinhos e ficam em /admin/historico.
     const { data } = await supabase
       .from('pedidos')
       .select(
         'id, criado_em, valor_total, valor_pago, cliente_nome, cliente_email, cliente_telefone, origem_pagamento, status_producao, pedido_itens(nome_item, quantidade, observacao, opcoes_selecionadas)'
       )
+      .or(`status_producao.neq.delivered,and(status_producao.eq.delivered,criado_em.gte.${dayStart})`)
       .order('criado_em', { ascending: false })
 
     setOrders((data as KitchenOrder[]) ?? [])
@@ -96,13 +106,33 @@ export default function AdminOrdensPage() {
     }
   }
 
+  async function handleReprint(orderId: string) {
+    setReprintingId(orderId)
+    setReprintMsg(null)
+    try {
+      await reprintOrder(orderId)
+      setReprintMsg(t.ordersReprintOk)
+    } catch (err) {
+      setReprintMsg(err instanceof Error ? err.message : t.ordersReprintError)
+    } finally {
+      setReprintingId(null)
+      window.setTimeout(() => setReprintMsg(null), 3500)
+    }
+  }
+
   return (
-    <AdminPageContent
-      width="board"
-      title={t.adminNavOrders}
-      eyebrow={t.ordersKitchenEyebrow}
-    >
-      <div className="mb-4 flex justify-end">
+    <AdminPageContent width="board" title={t.adminNavOrders} eyebrow={t.ordersKitchenEyebrow}>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        {reprintMsg && (
+          <p className="mr-auto text-xs font-medium text-muted-foreground">{reprintMsg}</p>
+        )}
+        <Link
+          href="/admin/historico"
+          className="inline-flex items-center gap-1 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-foreground"
+        >
+          <History size={14} />
+          {t.ordersOpenHistory}
+        </Link>
         <Link
           href="/admin/pedido-manual"
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
@@ -127,6 +157,12 @@ export default function AdminOrdensPage() {
                     {columnOrders.length}
                   </span>
                 </div>
+
+                {col.key === 'delivered' && (
+                  <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+                    {t.ordersDeliveredHint}
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   {columnOrders.length === 0 && (
@@ -185,6 +221,15 @@ export default function AdminOrdensPage() {
                           </button>
                         ))}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleReprint(order.id)}
+                        disabled={reprintingId === order.id}
+                        className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-2 py-1.5 text-[11px] font-semibold text-foreground disabled:opacity-55"
+                      >
+                        <Printer size={13} />
+                        {reprintingId === order.id ? t.ordersReprinting : t.ordersReprint}
+                      </button>
                       <div className="mt-2 space-y-1">
                         {order.pedido_itens?.map((it, i) => (
                           <div key={`${order.id}-${i}`} className="text-xs">

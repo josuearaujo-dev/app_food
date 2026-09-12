@@ -2045,3 +2045,345 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
 .admin-status-delivered {
   background: #ecfdf5;
 }
+
+/* Profile modal + panel */
+.cadu-profile-modal {
+  width: min(520px, 100%);
+  max-height: min(92vh, 820px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  background: var(--cadu-page);
+  box-shadow: 0 -8px 40px rgba(83, 27, 4, 0.2);
+}
+
+@media (min-width: 640px) {
+  .cadu-profile-modal {
+    border-radius: 20px;
+    max-height: min(88vh, 820px);
+  }
+}
+
+.cadu-profile-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 12px;
+}
+
+.cadu-profile-modal-header h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-family: Georgia, serif;
+  color: var(--cadu-ink);
+}
+
+.cadu-profile-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 14px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cadu-profile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cadu-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(83, 27, 4, 0.96), rgba(122, 74, 53, 0.96));
+  color: #fff;
+}
+
+.cadu-profile-avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.cadu-profile-hero-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.cadu-profile-hero-text h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cadu-profile-hero-text p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cadu-profile-skeleton {
+  height: 16px;
+  width: 40%;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  animation: cadu-pulse 1.2s ease infinite;
+}
+
+.cadu-profile-skeleton--block {
+  width: 100%;
+  height: 56px;
+  background: rgba(83, 27, 4, 0.08);
+}
+
+@keyframes cadu-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.cadu-profile-card {
+  border: 1px solid var(--cadu-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+  box-shadow: 0 2px 10px rgba(83, 27, 4, 0.04);
+}
+
+.cadu-profile-card-title {
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cadu-muted);
+}
+
+.cadu-profile-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  color: var(--cadu-muted);
+}
+
+.cadu-profile-detail-row + .cadu-profile-detail-row {
+  border-top: 1px solid var(--cadu-line);
+}
+
+.cadu-profile-detail-row div {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cadu-profile-detail-row span {
+  font-size: 11px;
+}
+
+.cadu-profile-detail-row strong {
+  color: var(--cadu-ink);
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.cadu-profile-signout {
+  margin-top: 8px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--cadu-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--cadu-surface, #f7f1ec);
+  color: var(--cadu-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cadu-profile-auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cadu-profile-guest-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cadu-muted);
+}
+
+.cadu-profile-auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cadu-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.cadu-profile-btn--primary {
+  background: var(--cadu-brown);
+  color: #fff;
+}
+
+.cadu-profile-btn--ghost {
+  background: #fff;
+  color: var(--cadu-ink);
+  border: 1px solid var(--cadu-line);
+}
+
+.cadu-profile-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cadu-profile-empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--cadu-muted);
+}
+
+.cadu-profile-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cadu-profile-order {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--cadu-line);
+  background: var(--cadu-surface, #f7f1ec);
+  text-decoration: none;
+  color: inherit;
+}
+
+.cadu-profile-order--active {
+  border-color: rgba(251, 91, 119, 0.35);
+  background: rgba(251, 91, 119, 0.08);
+}
+
+.cadu-profile-order-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(251, 91, 119, 0.12);
+  color: var(--cadu-pink);
+}
+
+.cadu-profile-order-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cadu-profile-order-body strong {
+  font-size: 13px;
+  color: var(--cadu-ink);
+}
+
+.cadu-profile-order-body span {
+  font-size: 11px;
+  color: var(--cadu-muted);
+  line-height: 1.35;
+}
+
+.cadu-profile-order-meta {
+  font-weight: 600;
+}
+
+.cadu-profile-order-chevron {
+  color: var(--cadu-muted);
+  flex-shrink: 0;
+}
+
+.cadu-profile-lookup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cadu-profile-lookup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cadu-pink);
+}
+
+.cadu-profile-lookup-head p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--cadu-ink);
+}
+
+.cadu-profile-lookup input {
+  width: 100%;
+  border: 1px solid var(--cadu-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--cadu-ink);
+  background: #fff;
+  outline: none;
+}
+
+.cadu-profile-lookup input:focus {
+  border-color: var(--cadu-pink);
+  box-shadow: 0 0 0 2px rgba(251, 91, 119, 0.15);
+}
+
+.cadu-profile-error {
+  margin: 0;
+  font-size: 12px;
+  color: #b91c1c;
+}

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Home, Search, ShoppingBag, User } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { useProfileModal } from '@/lib/profile-modal-context'
 import { cn } from '@/lib/utils'
 import { shouldHideBottomNav } from '@/lib/layout/page-chrome'
 
@@ -12,6 +13,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const { totalItems } = useCart()
   const { lang, t, toggleLang } = useLang()
+  const { openProfile, open } = useProfileModal()
 
   if (shouldHideBottomNav(pathname)) return null
 
@@ -19,7 +21,6 @@ export function BottomNav() {
     { href: '/', icon: Home, label: t.home },
     { href: '/busca', icon: Search, label: t.search },
     { href: '/carrinho', icon: ShoppingBag, label: t.cart },
-    { href: '/perfil', icon: User, label: t.profile },
   ]
 
   return (
@@ -57,7 +58,33 @@ export function BottomNav() {
           )
         })}
 
-        {/* Botão de idioma */}
+        <button
+          type="button"
+          onClick={openProfile}
+          className={cn(
+            'flex flex-col items-center gap-1 relative px-3 py-1 rounded-xl transition-colors',
+            open || pathname.startsWith('/perfil')
+              ? 'text-accent'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-label={t.profile}
+          aria-expanded={open}
+        >
+          <User
+            size={22}
+            strokeWidth={open || pathname.startsWith('/perfil') ? 2.5 : 1.8}
+            className={open || pathname.startsWith('/perfil') ? 'text-accent' : ''}
+          />
+          <span
+            className={cn(
+              'text-[10px] font-medium',
+              open || pathname.startsWith('/perfil') ? 'text-accent' : ''
+            )}
+          >
+            {t.profile}
+          </span>
+        </button>
+
         <button
           onClick={toggleLang}
           className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-muted-foreground hover:text-foreground transition-colors"

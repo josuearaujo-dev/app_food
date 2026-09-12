@@ -1,13 +1,13 @@
-Arquivos alterados nesta versão (cash + fix Pay & Confirm)
+Arquivos alterados nesta versão
+- Perfil em modal (detalhes, pedidos ativos, histórico)
+- Página admin /admin/historico
+- Botão reimprimir comanda
+- Entregues saem do quadro no fim do dia
 
-Substitua estes arquivos no repositório GitHub (mantenha a mesma estrutura de pastas):
-
-- styles/storefront.css
-- components/bottom-nav.tsx
-- components/floating-cart-bar.tsx
-- lib/lang-context.tsx
-- lib/checkout/place-cash-order.ts  (NOVO)
-- components/checkout/desktop-cart-checkout.tsx
-- app/pagamento/page.tsx
-
-O arquivo place-cash-order.ts é novo — precisa ser adicionado.
+Substitua estes arquivos no repositório GitHub (mesma estrutura de pastas).
+Arquivos NOVOS (adicione):
+- app/admin/historico/page.tsx
+- components/profile/profile-modal.tsx
+- components/profile/profile-panel.tsx
+- lib/profile-modal-context.tsx
+- lib/admin/kitchen-board.ts

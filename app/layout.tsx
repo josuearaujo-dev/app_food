@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { CartProvider } from '@/lib/cart-context'
 import { LangProvider } from '@/lib/lang-context'
+import { ProfileModalProvider } from '@/lib/profile-modal-context'
 import { BottomNav } from '@/components/bottom-nav'
 import { FloatingCartBar } from '@/components/floating-cart-bar'
 import './globals.css'
@@ -38,9 +39,11 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <LangProvider>
           <CartProvider>
-            {children}
-            <FloatingCartBar />
-            <BottomNav />
+            <ProfileModalProvider>
+              {children}
+              <FloatingCartBar />
+              <BottomNav />
+            </ProfileModalProvider>
           </CartProvider>
         </LangProvider>
         <Analytics />

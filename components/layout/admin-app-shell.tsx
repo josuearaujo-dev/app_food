@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   ClipboardList,
+  History,
   ImageIcon,
   LayoutDashboard,
   LogOut,
@@ -27,6 +28,7 @@ type NavItem = {
     | 'adminNavOperations'
     | 'adminNavNewOrder'
     | 'adminNavOrders'
+    | 'adminNavHistory'
     | 'adminNavMenu'
     | 'adminNavCombos'
     | 'adminNavPromos'
@@ -41,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin', labelKey: 'adminNavOperations', icon: LayoutDashboard, exact: true },
   { href: '/admin/pedido-manual', labelKey: 'adminNavNewOrder', icon: PlusCircle },
   { href: '/admin/ordens', labelKey: 'adminNavOrders', icon: ClipboardList },
+  { href: '/admin/historico', labelKey: 'adminNavHistory', icon: History },
   { href: '/admin/cardapio', labelKey: 'adminNavMenu', icon: UtensilsCrossed },
   { href: '/admin/combos', labelKey: 'adminNavCombos', icon: Layers },
   { href: '/admin/promocoes', labelKey: 'adminNavPromos', icon: Tag },

@@ -10,6 +10,9 @@ export type CustomerOrderSummary = {
   criado_em: string
   pago_em: string | null
   cliente_nome: string | null
+  cliente_email?: string | null
+  tipo_atendimento?: 'take_out' | 'delivery' | string | null
+  origem_pagamento?: string | null
 }
 
 export type CustomerOrderItem = {
@@ -31,9 +34,14 @@ export function displayOrderNumber(order: { numero_pedido: string | null; id: st
   return order.numero_pedido ?? order.id.replace(/-/g, '').slice(-8).toUpperCase()
 }
 
+export function isActiveKitchenStatus(status: KitchenStatus | string): boolean {
+  return status === 'new' || status === 'preparing'
+}
+
 export function paymentStatusLabel(status: string, lang: 'en' | 'pt'): string {
   const map: Record<string, { en: string; pt: string }> = {
     paid: { en: 'Paid', pt: 'Pago' },
+    pay_on_delivery: { en: 'Cash on delivery', pt: 'Dinheiro na entrega' },
     payment_pending: { en: 'Pending payment', pt: 'Aguardando pagamento' },
     payment_failed: { en: 'Payment failed', pt: 'Pagamento falhou' },
     processing_payment: { en: 'Processing', pt: 'Processando' },
@@ -59,4 +67,8 @@ export function formatOrderDate(iso: string, lang: 'en' | 'pt'): string {
   } catch {
     return iso
   }
+}
+
+export function formatOrderMoney(amount: number, currencySymbol = '$'): string {
+  return `${currencySymbol}${Number(amount).toFixed(2)}`
 }
