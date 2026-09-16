@@ -1,12 +1,11 @@
-Arquivos alterados nesta versão
-- Modal de perfil ajustado (mais limpo, badges, telefone formatado)
-- Histórico admin + reimprimir comanda
-- Entregues saem do quadro no fim do dia
+Correções pagamento / comanda v1.4.0
 
-Substitua no GitHub mantendo a estrutura de pastas.
-Arquivos NOVOS (adicione):
-- app/admin/historico/page.tsx
-- components/profile/profile-modal.tsx
-- components/profile/profile-panel.tsx
-- lib/profile-modal-context.tsx
-- lib/admin/kitchen-board.ts
+Problemas corrigidos:
+1) Cartão cobrava SEM imposto — agora inclui 7.35%
+2) Comanda mostrava "Pago via PayPal" em pedido Clover — agora "Pago no cartão (Clover)"
+3) Comanda inventava Imposto + Desconto iguais (cliente "não pagava imposto") — corrigido
+4) Campos Clover quebravam ao alternar Cartão/Dinheiro — remount só no modo cartão
+5) Arquivos de checkout que estavam VAZIOS (0 bytes) foram restaurados
+
+Arquivo NOVO:
+- lib/checkout/order-totals.ts

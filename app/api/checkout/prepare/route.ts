@@ -4,6 +4,7 @@ import { buildOrderFingerprint } from '@/lib/checkout/fulfillment'
 import { calculateOrderFromCart, OrderCalculationError } from '@/lib/checkout/calculate-order'
 import { dollarsToCents } from '@/lib/checkout/validation'
 import { validatePrepareCheckoutPayload } from '@/lib/checkout/validation'
+import { computePayableTotals } from '@/lib/checkout/order-totals'
 import { createPendingOrder, findReusablePendingOrder } from '@/lib/orders/repository'
 import { getPaymentProvider } from '@/lib/clover/config'
 import { getDeliveryFeeAmount, listDeliveryLocations } from '@/lib/store-settings'
@@ -37,7 +38,11 @@ export async function POST(request: Request) {
         ? await getDeliveryFeeAmount(parsedCustomer.customer.localidadeEntregaId)
         : 0
     const deliveryFeeCents = dollarsToCents(deliveryFeeDollars)
-    const totalCents = calculated.subtotalCents + deliveryFeeCents
+    const payable = computePayableTotals({
+      subtotalCents: calculated.subtotalCents,
+      deliveryFeeCents,
+    })
+    const totalCents = payable.totalCents
     const orderFingerprint = buildOrderFingerprint(calculated.fingerprint, parsedCustomer.customer)
 
     const reusable = await findReusablePendingOrder({
@@ -52,6 +57,7 @@ export async function POST(request: Request) {
         orderNumber: reusable.numero_pedido,
         totalCents: reusable.total_cents,
         deliveryFeeCents,
+        taxCents: payable.taxCents,
         currency: 'usd',
         reused: true,
       })
@@ -69,6 +75,7 @@ export async function POST(request: Request) {
       orderNumber: created.orderNumber,
       totalCents: created.totalCents,
       deliveryFeeCents,
+      taxCents: payable.taxCents,
       currency: 'usd',
       reused: false,
     })

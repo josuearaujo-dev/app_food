@@ -24,6 +24,7 @@ import {
 import { CloverCardFields } from '@/components/checkout/clover-card-fields'
 import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
 
@@ -65,7 +66,12 @@ export function DesktopCartCheckout() {
     locations,
     deliveryFee
   )
-  const checkoutTotal = Number((totalPrice + deliveryFeeAmount).toFixed(2))
+  const payableTotals = computePayableTotalsFromDollars({
+    subtotal: totalPrice,
+    deliveryFee: deliveryFeeAmount,
+  })
+  const taxAmount = payableTotals.taxAmount
+  const checkoutTotal = payableTotals.total
 
   const cloverEnv = process.env.NEXT_PUBLIC_CLOVER_ENV === 'production' ? 'production' : 'sandbox'
   const sdkSrc =
@@ -156,7 +162,8 @@ export function DesktopCartCheckout() {
     setSuccessOrder(order)
   }, [])
 
-  const cloverEnabled = isDesktop && items.length > 0 && customerReady
+  const cloverEnabled =
+    isDesktop && items.length > 0 && customerReady && paymentMethod === 'card'
 
   const { fieldsReady, paying, error, fieldErrors, handlePay } = useCloverCheckout({
     mountPrefix: MOUNT_PREFIX,
@@ -429,15 +436,9 @@ export function DesktopCartCheckout() {
               </>
             )}
 
-            {/* Always keep mounts in the DOM so Clover SDK stays attached across method switches */}
-            <div
-              className={paymentMethod === 'card' ? undefined : 'cadu-clover-fields-hidden'}
-              aria-hidden={paymentMethod !== 'card'}
-            >
-              {hasPublicConfig ? (
-                <CloverCardFields mountPrefix={MOUNT_PREFIX} fieldErrors={fieldErrors} compact />
-              ) : null}
-            </div>
+            {paymentMethod === 'card' && hasPublicConfig ? (
+              <CloverCardFields mountPrefix={MOUNT_PREFIX} fieldErrors={fieldErrors} compact />
+            ) : null}
 
             <div className="cadu-sidebar-summary">
               <div className="cadu-sidebar-summary-row">
@@ -455,6 +456,15 @@ export function DesktopCartCheckout() {
                   <strong>
                     {t.currency}
                     {deliveryFeeAmount.toFixed(2)}
+                  </strong>
+                </div>
+              ) : null}
+              {taxAmount > 0 ? (
+                <div className="cadu-sidebar-summary-row">
+                  <span>{t.checkoutTax}</span>
+                  <strong>
+                    {t.currency}
+                    {taxAmount.toFixed(2)}
                   </strong>
                 </div>
               ) : null}

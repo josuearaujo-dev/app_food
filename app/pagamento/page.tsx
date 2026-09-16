@@ -12,6 +12,7 @@ import {
   type CheckoutCustomer,
 } from '@/lib/checkout-customer'
 import { buildOrderFingerprint, resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { ArrowLeft, Banknote, CreditCard, Wallet } from 'lucide-react'
 import Link from 'next/link'
@@ -190,7 +191,16 @@ function CloverCheckoutPage() {
     )
   }, [checkoutCustomer, locations, deliveryFee])
 
-  const checkoutTotal = Number((totalPrice + deliveryFeeAmount).toFixed(2))
+  const payableTotals = useMemo(
+    () =>
+      computePayableTotalsFromDollars({
+        subtotal: totalPrice,
+        deliveryFee: deliveryFeeAmount,
+      }),
+    [totalPrice, deliveryFeeAmount]
+  )
+  const taxAmount = payableTotals.taxAmount
+  const checkoutTotal = payableTotals.total
   const displayTotal =
     preparedOrder?.totalCents != null
       ? Number((preparedOrder.totalCents / 100).toFixed(2))
@@ -211,6 +221,12 @@ function CloverCheckoutPage() {
   }, [orderFingerprint])
 
   useEffect(() => {
+    if (paymentMethod !== 'card') {
+      cloverRef.current = null
+      mountedRef.current = false
+      setFieldsReady(false)
+      return
+    }
     if (!customerChecked || !checkoutCustomer || !sdkLoaded || !hasPublicConfig) return
     if (!window.Clover || mountedRef.current || items.length === 0) return
 
@@ -263,6 +279,7 @@ function CloverCheckoutPage() {
       setFieldsReady(false)
     }
   }, [
+    paymentMethod,
     customerChecked,
     checkoutCustomer,
     sdkLoaded,
@@ -464,6 +481,25 @@ function CloverCheckoutPage() {
               </span>
             </div>
           ) : null}
+          {taxAmount > 0 ? (
+            <div className="cadu-checkout-summary-row">
+              <span>{t.checkoutTax}</span>
+              <span>
+                {t.currency}
+                {(
+                  preparedOrder?.totalCents != null
+                    ? Number(
+                        (
+                          preparedOrder.totalCents / 100 -
+                          totalPrice -
+                          deliveryFeeAmount
+                        ).toFixed(2)
+                      )
+                    : taxAmount
+                ).toFixed(2)}
+              </span>
+            </div>
+          ) : null}
           <div className="cadu-checkout-summary-total">
             <span>{t.total}</span>
             <strong>
@@ -511,52 +547,51 @@ function CloverCheckoutPage() {
             </>
           )}
 
-          <div
-            className={paymentMethod === 'card' ? 'space-y-3' : 'cadu-clover-fields-hidden'}
-            aria-hidden={paymentMethod !== 'card'}
-          >
-            <div>
-              <label htmlFor="card-number" className="cadu-checkout-field-label">
-                {t.paymentCardNumber}
-              </label>
-              <div id="card-number" className="cadu-clover-field" />
-              <p className="cadu-checkout-field-error" role="alert">
-                {fieldErrors['card-number']}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+          {paymentMethod === 'card' ? (
+            <div className="space-y-3">
               <div>
-                <label htmlFor="card-date" className="cadu-checkout-field-label">
-                  {t.paymentCardExpiry}
+                <label htmlFor="card-number" className="cadu-checkout-field-label">
+                  {t.paymentCardNumber}
                 </label>
-                <div id="card-date" className="cadu-clover-field" />
+                <div id="card-number" className="cadu-clover-field" />
                 <p className="cadu-checkout-field-error" role="alert">
-                  {fieldErrors['card-date']}
+                  {fieldErrors['card-number']}
                 </p>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="card-date" className="cadu-checkout-field-label">
+                    {t.paymentCardExpiry}
+                  </label>
+                  <div id="card-date" className="cadu-clover-field" />
+                  <p className="cadu-checkout-field-error" role="alert">
+                    {fieldErrors['card-date']}
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="card-cvv" className="cadu-checkout-field-label">
+                    {t.paymentCardCvv}
+                  </label>
+                  <div id="card-cvv" className="cadu-clover-field" />
+                  <p className="cadu-checkout-field-error" role="alert">
+                    {fieldErrors['card-cvv']}
+                  </p>
+                </div>
+              </div>
+
               <div>
-                <label htmlFor="card-cvv" className="cadu-checkout-field-label">
-                  {t.paymentCardCvv}
+                <label htmlFor="card-postal-code" className="cadu-checkout-field-label">
+                  {t.paymentCardZip}
                 </label>
-                <div id="card-cvv" className="cadu-clover-field" />
+                <div id="card-postal-code" className="cadu-clover-field" />
+                <p className="mt-1 text-[11px] text-[var(--cadu-muted)]">{t.paymentZipHint}</p>
                 <p className="cadu-checkout-field-error" role="alert">
-                  {fieldErrors['card-cvv']}
+                  {fieldErrors['card-postal-code']}
                 </p>
               </div>
             </div>
-
-            <div>
-              <label htmlFor="card-postal-code" className="cadu-checkout-field-label">
-                {t.paymentCardZip}
-              </label>
-              <div id="card-postal-code" className="cadu-clover-field" />
-              <p className="mt-1 text-[11px] text-[var(--cadu-muted)]">{t.paymentZipHint}</p>
-              <p className="cadu-checkout-field-error" role="alert">
-                {fieldErrors['card-postal-code']}
-              </p>
-            </div>
-          </div>
+          ) : null}
 
           {error && (
             <p className="cadu-checkout-error" role="alert">

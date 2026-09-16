@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { CustomerPayload } from '@/lib/checkout-customer'
 import type { CalculatedOrder } from '@/lib/checkout/calculate-order'
 import { centsToDollars } from '@/lib/checkout/validation'
+import { computePayableTotals } from '@/lib/checkout/order-totals'
 
 export type LocalOrderRow = {
   id: string
@@ -33,9 +34,13 @@ export async function createPendingOrder(input: {
   const idempotencyKey = crypto.randomUUID()
   const numeroPedido = generateOrderNumber()
   const deliveryFeeCents = Math.max(0, input.deliveryFeeCents ?? 0)
-  const totalCents = input.calculated.subtotalCents + deliveryFeeCents
-  const totalDollars = centsToDollars(totalCents)
-  const deliveryFeeDollars = centsToDollars(deliveryFeeCents)
+  const payable = computePayableTotals({
+    subtotalCents: input.calculated.subtotalCents,
+    deliveryFeeCents,
+  })
+  const totalCents = payable.totalCents
+  const totalDollars = payable.total
+  const deliveryFeeDollars = payable.deliveryFee
   const cartFingerprint = input.orderFingerprint ?? input.calculated.fingerprint
 
   const { data: order, error } = await supabase
@@ -63,6 +68,14 @@ export async function createPendingOrder(input: {
       cliente_aceita_sms_atualizacoes: input.customer.aceitaSmsAtualizacoes,
       cliente_aceita_email_atualizacoes: input.customer.aceitaEmailAtualizacoes,
       cliente_consentiu_salvar_cartao: false,
+      payload_pagamento: {
+        method: 'clover',
+        subtotal: payable.subtotal,
+        deliveryFee: payable.deliveryFee,
+        taxAmount: payable.taxAmount,
+        total: payable.total,
+        currency: 'USD',
+      },
     })
     .select('id, numero_pedido, total_cents')
     .single()

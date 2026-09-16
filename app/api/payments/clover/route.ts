@@ -9,6 +9,7 @@ import {
   markOrderReadyForPrint,
   rotateOrderIdempotencyKey,
 } from '@/lib/orders/repository'
+import { printPedidoKitchen } from '@/lib/order-kitchen-print'
 
 function chargeLooksPaid(charge: {
   paid?: boolean
@@ -226,6 +227,14 @@ export async function POST(request: Request) {
       })
 
       await markOrderReadyForPrint(order.id)
+      try {
+        await printPedidoKitchen(order.id)
+      } catch (printError) {
+        console.error('[PrintNode] Falha ao imprimir pedido (Clover)', {
+          orderId: order.id,
+          error: printError instanceof Error ? printError.message : String(printError),
+        })
+      }
 
       console.info('clover_payment_success', {
         orderId: order.id,

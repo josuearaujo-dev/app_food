@@ -69,7 +69,16 @@ function paymentLineForPedido(
   ) {
     return 'Dinheiro na entrega'
   }
-  return 'Pago via PayPal'
+  if (order.origem_pagamento === 'clover') {
+    return 'Pago no cartão (Clover)'
+  }
+  if (order.origem_pagamento === 'paypal') {
+    return 'Pago via PayPal'
+  }
+  if (order.status_pagamento === 'paid') {
+    return 'Pago'
+  }
+  return 'Pagamento pendente'
 }
 
 export function buildKitchenReceiptFromPedido(
@@ -81,8 +90,16 @@ export function buildKitchenReceiptFromPedido(
   const subtotal = items.reduce((acc, it) => acc + Number(it.subtotal ?? 0), 0)
   const deliveryFee = Number(order.taxa_entrega ?? 0)
   const total = Number(order.valor_pago ?? order.valor_total ?? 0)
-  const taxAmount = calculateOrderTax(Math.max(0, subtotal + deliveryFee))
-  const discount = Math.max(0, Number((subtotal + deliveryFee + taxAmount - total).toFixed(2)))
+  const preTax = Number((subtotal + deliveryFee).toFixed(2))
+  const taxAmount = calculateOrderTax(preTax)
+  const expectedWithTax = Number((preTax + taxAmount).toFixed(2))
+
+  // Pedidos antigos de cartão cobravam sem imposto: não inventar Imposto+Desconto fantasma.
+  const chargedWithoutTax = Math.abs(total - preTax) < 0.02
+  const taxToShow = chargedWithoutTax ? 0 : taxAmount
+  const discount = chargedWithoutTax
+    ? 0
+    : Math.max(0, Number((expectedWithTax - total).toFixed(2)))
 
   const receipt = buildKitchenReceiptText({
     orderNumber,
@@ -103,7 +120,7 @@ export function buildKitchenReceiptFromPedido(
     subtotal,
     discount,
     deliveryFee,
-    taxAmount,
+    taxAmount: taxToShow,
     total,
     currency: '$',
     paymentLine: paymentLineForPedido(order),
@@ -170,6 +187,69 @@ export async function reprintPedidoKitchen(orderId: string) {
     content: receipt,
     source: 'Cadu Cakes & Lanches Admin',
     idempotencyKey: `pedido-${orderId}-reprint-${Date.now()}`,
+  })
+
+  return { printJobId, orderNumber }
+}
+
+/** Impressão inicial (sem marca de reimpressão). */
+export async function printPedidoKitchen(orderId: string) {
+  const printCfg = await getPrintNodeConfig()
+  if (!printCfg.apiKey) {
+    throw new Error('API key do PrintNode nao configurada.')
+  }
+  if (!printCfg.printerId) {
+    throw new Error('Impressora do PrintNode nao configurada.')
+  }
+
+  const supabase = createAdminClient()
+  const { data: order, error } = await supabase
+    .from('pedidos')
+    .select(
+      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
+    )
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  if (!order) {
+    throw new Error('Pedido nao encontrado.')
+  }
+
+  const typedOrder = order as PedidoRow
+  const itemIds = [
+    ...new Set((typedOrder.pedido_itens ?? []).map((item) => item.item_id).filter(Boolean)),
+  ] as string[]
+  const categoryNameByItemId = new Map<string, string>()
+
+  if (itemIds.length > 0) {
+    const { data: menuItems } = await supabase
+      .from('itens_cardapio')
+      .select('id, categorias(nome)')
+      .in('id', itemIds)
+
+    for (const item of (menuItems ?? []) as Array<{
+      id: string
+      categorias?: { nome?: string | null } | null
+    }>) {
+      categoryNameByItemId.set(item.id, item.categorias?.nome?.trim() || 'SEM CATEGORIA')
+    }
+  }
+
+  const { orderNumber, receipt } = buildKitchenReceiptFromPedido(typedOrder, {
+    reprint: false,
+    categoryNameByItemId,
+  })
+
+  const printJobId = await createPrintNodeRawJob({
+    apiKey: printCfg.apiKey,
+    printerId: printCfg.printerId,
+    title: `Pedido #${orderNumber}`,
+    content: receipt,
+    source: 'Cadu Cakes & Lanches Checkout',
+    idempotencyKey: `pedido-${orderId}`,
   })
 
   return { printJobId, orderNumber }
