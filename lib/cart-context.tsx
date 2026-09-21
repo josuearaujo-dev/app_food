@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 
 export interface ItemCardapio {
   id: string
@@ -160,6 +161,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         },
       ]
     })
+
+    trackCartFunnel(
+      'AddToCart',
+      [
+        {
+          cartItemId: 'track',
+          item,
+          quantity,
+          observation: normalizedObservation,
+          selectedOptions,
+          unitPrice,
+          optionSignature,
+          totalPrice: unitPrice * quantity,
+        },
+      ],
+      unitPrice * quantity
+    )
   }, [])
 
   const removeItem = useCallback((cartItemId: string) => {

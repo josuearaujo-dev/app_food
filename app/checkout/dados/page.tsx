@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -18,13 +18,16 @@ import { CheckoutSteps } from '@/components/checkout/checkout-steps'
 import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
+import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
+import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
 export default function CheckoutDadosPage() {
   const router = useRouter()
   const supabase = createClient()
-  const { totalItems, totalPrice } = useCart()
+  const { items, totalItems, totalPrice } = useCart()
   const { t } = useLang()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
+  const trackedCheckout = useRef(false)
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -94,6 +97,16 @@ export default function CheckoutDadosPage() {
   useEffect(() => {
     loadSession()
   }, [loadSession])
+
+  useEffect(() => {
+    if (items.length === 0 || trackedCheckout.current) return
+    trackedCheckout.current = true
+    trackCartFunnel('InitiateCheckout', items, totalPrice)
+  }, [items, totalPrice])
+
+  useEffect(() => {
+    setTrackingUser({ email: email.trim() || undefined, phone: telefone.trim() || undefined })
+  }, [email, telefone])
 
   async function handleSair() {
     await supabase.auth.signOut()

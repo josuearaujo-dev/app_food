@@ -25,6 +25,8 @@ import {
   placeCashOrder,
   type CustomerPaymentMethod,
 } from '@/lib/checkout/place-cash-order'
+import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
+import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
 type SuccessOrder = {
   orderId: string
@@ -149,6 +151,8 @@ function CloverCheckoutPage() {
   const cloverRef = useRef<CloverSdk | null>(null)
   const mountedRef = useRef(false)
   const payingLockRef = useRef(false)
+  const trackedPayment = useRef(false)
+  const trackedPurchase = useRef<string | null>(null)
 
   const publicToken = process.env.NEXT_PUBLIC_CLOVER_PUBLIC_TOKEN ?? ''
   const merchantId = process.env.NEXT_PUBLIC_CLOVER_MERCHANT_ID ?? ''
@@ -215,6 +219,20 @@ function CloverCheckoutPage() {
     setCheckoutCustomer(c)
     setCustomerChecked(true)
   }, [router, locations.length])
+
+  useEffect(() => {
+    if (!checkoutCustomer) return
+    setTrackingUser({
+      email: checkoutCustomer.email,
+      phone: checkoutCustomer.telefone,
+    })
+  }, [checkoutCustomer])
+
+  useEffect(() => {
+    if (!customerChecked || items.length === 0 || trackedPayment.current) return
+    trackedPayment.current = true
+    trackCartFunnel('AddPaymentInfo', items, checkoutTotal)
+  }, [customerChecked, checkoutTotal, items])
 
   useEffect(() => {
     setPreparedOrder((prev) => (prev && prev.fingerprint !== orderFingerprint ? null : prev))
@@ -335,6 +353,10 @@ function CloverCheckoutPage() {
       try {
         const order = await placeCashOrder({ customer: checkoutCustomer, items })
         const email = checkoutCustomer.email.trim()
+        if (trackedPurchase.current !== order.orderId) {
+          trackedPurchase.current = order.orderId
+          trackCartFunnel('Purchase', items, checkoutTotal, order.orderId)
+        }
         saveRecentOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
         setSuccessOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
         clearCheckoutCustomer()
@@ -385,6 +407,10 @@ function CloverCheckoutPage() {
       const orderNumber = String(payData.orderNumber || prepared.orderNumber)
       const orderId = String(payData.orderId || prepared.orderId)
       const email = checkoutCustomer.email.trim()
+      if (trackedPurchase.current !== orderId) {
+        trackedPurchase.current = orderId
+        trackCartFunnel('Purchase', items, checkoutTotal, orderId)
+      }
       saveRecentOrder({ orderId, orderNumber, email })
       setSuccessOrder({ orderId, orderNumber, email })
       clearCheckoutCustomer()
@@ -636,6 +662,8 @@ function PayPalCheckoutPage() {
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
   const [cashPaying, setCashPaying] = useState(false)
   const isRenderingRef = useRef(false)
+  const trackedPayment = useRef(false)
+  const trackedPurchase = useRef<string | null>(null)
   const cardFieldsRef = useRef<ReturnType<NonNullable<typeof window.paypal>['CardFields']> | null>(
     null
   )
@@ -668,6 +696,20 @@ function PayPalCheckoutPage() {
     setCheckoutCustomer(c)
     setCustomerChecked(true)
   }, [router])
+
+  useEffect(() => {
+    if (!checkoutCustomer) return
+    setTrackingUser({
+      email: checkoutCustomer.email,
+      phone: checkoutCustomer.telefone,
+    })
+  }, [checkoutCustomer])
+
+  useEffect(() => {
+    if (!customerChecked || items.length === 0 || trackedPayment.current) return
+    trackedPayment.current = true
+    trackCartFunnel('AddPaymentInfo', items, totalPrice)
+  }, [customerChecked, items, totalPrice])
 
   function customerPayload() {
     const c = checkoutCustomer
@@ -732,6 +774,10 @@ function PayPalCheckoutPage() {
       'N/A'
     const orderId = String(captureData?.local_order_id ?? '')
     const email = checkoutCustomer!.email.trim()
+    if (orderId && trackedPurchase.current !== orderId) {
+      trackedPurchase.current = orderId
+      trackCartFunnel('Purchase', items, totalPrice, orderId)
+    }
     if (orderId) {
       saveRecentOrder({ orderId, orderNumber, email })
       setSuccessOrder({ orderId, orderNumber, email })
@@ -931,6 +977,10 @@ function PayPalCheckoutPage() {
               try {
                 const order = await placeCashOrder({ customer: checkoutCustomer, items })
                 const email = checkoutCustomer.email.trim()
+                if (trackedPurchase.current !== order.orderId) {
+                  trackedPurchase.current = order.orderId
+                  trackCartFunnel('Purchase', items, totalPrice, order.orderId)
+                }
                 saveRecentOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
                 setSuccessOrder({ orderId: order.orderId, orderNumber: order.orderNumber, email })
                 clearCheckoutCustomer()

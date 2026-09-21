@@ -98,10 +98,16 @@ export default function AdminOperationsPage() {
           <h1 className="admin-page-title">{t.adminNavOperations}</h1>
           <p className="admin-intro">{t.adminOpsIntro}</p>
         </div>
-        <Link href="/admin/ordens" className="admin-primary-link">
-          {t.adminOpsViewQueue}
-          <ArrowRight size={17} />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/marketing" className="admin-primary-link">
+            Marketing
+            <ArrowRight size={17} />
+          </Link>
+          <Link href="/admin/ordens" className="admin-primary-link">
+            {t.adminOpsViewQueue}
+            <ArrowRight size={17} />
+          </Link>
+        </div>
       </div>
 
       <section className="operations-hero" aria-label={t.adminOpsPriority}>

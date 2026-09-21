@@ -5,6 +5,8 @@ import { LangProvider } from '@/lib/lang-context'
 import { ProfileModalProvider } from '@/lib/profile-modal-context'
 import { BottomNav } from '@/components/bottom-nav'
 import { FloatingCartBar } from '@/components/floating-cart-bar'
+import { StorefrontTrackingGate } from '@/components/marketing/storefront-tracking-gate'
+import { getPublicMarketingConfig } from '@/lib/marketing/marketing.repository'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -29,17 +31,20 @@ export const viewport: Viewport = {
   themeColor: '#E1D3C7',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const marketing = await getPublicMarketingConfig()
+
   return (
     <html lang="pt-BR" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
         <LangProvider>
           <CartProvider>
             <ProfileModalProvider>
+              <StorefrontTrackingGate config={marketing} />
               {children}
               <FloatingCartBar />
               <BottomNav />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Script from 'next/script'
 import { Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
@@ -27,6 +27,8 @@ import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
+import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
+import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
 type SuccessOrder = {
   orderId: string
@@ -59,6 +61,9 @@ export function DesktopCartCheckout() {
   const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<CustomerPaymentMethod>('card')
   const [cashPaying, setCashPaying] = useState(false)
+  const trackedCheckout = useRef(false)
+  const trackedPayment = useRef(false)
+  const trackedPurchase = useRef<string | null>(null)
 
   const deliveryFeeAmount = resolveClientDeliveryFee(
     fulfillmentType,
@@ -156,11 +161,37 @@ export function DesktopCartCheckout() {
     if (isDesktop) loadSession()
   }, [isDesktop, loadSession])
 
-  const handleSuccess = useCallback((order: SuccessOrder) => {
-    saveRecentOrder(order)
-    clearCheckoutCustomer()
-    setSuccessOrder(order)
-  }, [])
+  useEffect(() => {
+    if (!isDesktop || items.length === 0 || trackedCheckout.current) return
+    trackedCheckout.current = true
+    trackCartFunnel('InitiateCheckout', items, totalPrice)
+  }, [isDesktop, items, totalPrice])
+
+  useEffect(() => {
+    setTrackingUser({
+      email: email.trim() || undefined,
+      phone: telefone.trim() || undefined,
+    })
+  }, [email, telefone])
+
+  useEffect(() => {
+    if (!isDesktop || !customerReady || items.length === 0 || trackedPayment.current) return
+    trackedPayment.current = true
+    trackCartFunnel('AddPaymentInfo', items, checkoutTotal)
+  }, [checkoutTotal, customerReady, isDesktop, items])
+
+  const handleSuccess = useCallback(
+    (order: SuccessOrder) => {
+      if (trackedPurchase.current !== order.orderId) {
+        trackedPurchase.current = order.orderId
+        trackCartFunnel('Purchase', items, checkoutTotal, order.orderId)
+      }
+      saveRecentOrder(order)
+      clearCheckoutCustomer()
+      setSuccessOrder(order)
+    },
+    [checkoutTotal, items]
+  )
 
   const cloverEnabled =
     isDesktop && items.length > 0 && customerReady && paymentMethod === 'card'

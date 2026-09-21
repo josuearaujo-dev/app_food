@@ -10,6 +10,7 @@ import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-foot
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontLoadingState } from '@/components/layout/storefront-loading-state'
 import { StorefrontShell } from '@/components/layout/storefront-shell'
+import { trackViewContentProduct } from '@/lib/marketing/cart-bridge'
 
 type OptionItem = {
   id: string
@@ -103,6 +104,11 @@ export default function ComboDetailPage() {
 
       const comboTyped = comboData as ComboData
       setCombo(comboTyped)
+      trackViewContentProduct({
+        id: comboTyped.id,
+        name: comboTyped.nome,
+        priceDollars: Number(comboTyped.preco),
+      })
 
       const itemIds = (comboTyped.combo_itens ?? []).map((ci) => ci.item_id)
       if (itemIds.length === 0) {

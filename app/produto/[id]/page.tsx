@@ -10,6 +10,7 @@ import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-foot
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontLoadingState } from '@/components/layout/storefront-loading-state'
 import { StorefrontShell } from '@/components/layout/storefront-shell'
+import { trackViewContentProduct } from '@/lib/marketing/cart-bridge'
 
 type ItemDetalhe = ItemCardapio & {
   disponivel: boolean
@@ -120,6 +121,13 @@ export default function ProdutoDetalhePage() {
         .maybeSingle()
       if (!active) return
       setItem((data as ItemDetalhe | null) ?? null)
+      if (data) {
+        trackViewContentProduct({
+          id: (data as ItemDetalhe).id,
+          name: (data as ItemDetalhe).nome,
+          priceDollars: (data as ItemDetalhe).preco,
+        })
+      }
 
       if (!id) {
         setLoading(false)

@@ -8,9 +8,9 @@ import {
   ImageIcon,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   PlusCircle,
   Printer,
-  Sparkles,
   Store,
   Tag,
   Truck,
@@ -26,6 +26,7 @@ type NavItem = {
   href: string
   labelKey:
     | 'adminNavOperations'
+    | 'adminNavMarketing'
     | 'adminNavNewOrder'
     | 'adminNavOrders'
     | 'adminNavHistory'
@@ -41,6 +42,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/admin', labelKey: 'adminNavOperations', icon: LayoutDashboard, exact: true },
+  { href: '/admin/marketing', labelKey: 'adminNavMarketing', icon: Megaphone },
   { href: '/admin/pedido-manual', labelKey: 'adminNavNewOrder', icon: PlusCircle },
   { href: '/admin/ordens', labelKey: 'adminNavOrders', icon: ClipboardList },
   { href: '/admin/historico', labelKey: 'adminNavHistory', icon: History },
@@ -107,7 +109,8 @@ export function AdminAppShell({ children }: { children: ReactNode }) {
                     'inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
                     active
                       ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-foreground hover:bg-secondary'
+                      : 'text-foreground hover:bg-secondary',
+                    !active && item.href === '/admin/marketing' && 'admin-nav-marketing'
                   )}
                 >
                   <Icon size={15} aria-hidden />

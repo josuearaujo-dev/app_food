@@ -15,6 +15,7 @@ import {
   validateExtraSelections,
   type ProductOptionsState,
 } from '@/lib/product-options'
+import { trackViewContentProduct } from '@/lib/marketing/cart-bridge'
 
 type Props = {
   itemId: string | null
@@ -53,6 +54,13 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
       if (!active) return
       setState(loaded)
       setLoading(false)
+      if (loaded?.item) {
+        trackViewContentProduct({
+          id: loaded.item.id,
+          name: loaded.item.nome,
+          priceDollars: loaded.item.preco,
+        })
+      }
     })
     return () => {
       active = false
