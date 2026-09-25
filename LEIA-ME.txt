@@ -1,46 +1,31 @@
-Loja fechada / fim da manutenção v1.7.0
-=========================================
+Banner de ofertas com preço v1.9.0
+===================================
 
-A página de manutenção saiu. O cardápio volta, e a loja fica fechada
-para novos pedidos até alguém reabrir no admin.
+O popup de ofertas mostra o preço do produto ou do combo.
+Produto pode ter um preço riscado informado no cadastro do banner.
+Combo mostra o preço riscado calculado pela soma dos itens.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-2) APAGAR estes arquivos, se ainda existirem no projeto:
-     components/storefront/store-maintenance.tsx
-     lib/store-maintenance.ts
-3) O SQL scripts/040_loja_aceitando_pedidos.sql JÁ foi executado
-   no projeto novo Cadu Cakes (conta josuearaujo-9422).
-   Se for outro banco, rode esse SQL antes do deploy.
-4) Commit + push no GitHub / deploy (Vercel).
-
-No admin
---------
-Operações → botão "Loja fechada" / "Aceitando pedidos".
-Com a loja fechada, o cliente vê o cardápio e não consegue finalizar pedido.
-Pedido manual do painel continua funcionando.
+2) Rodar scripts/041_banners_preco_riscado.sql no Supabase (uma vez).
+   Neste banco (kujvnoscdmdarwmoivtq) a coluna já foi criada.
+3) Commit + push no GitHub / deploy (Vercel).
+4) Este pacote vem DEPOIS do v1.8.0 (imagem reserva). Aplique os dois.
 
 Arquivos NOVOS
 --------------
-- app/api/store-status/route.ts
-- components/admin/store-orders-switch.tsx
-- lib/store-status-client.ts
-- scripts/040_loja_aceitando_pedidos.sql
+- scripts/041_banners_preco_riscado.sql
 
 Arquivos ALTERADOS
 ------------------
-- app/page.tsx
-- app/admin/page.tsx
-- app/carrinho/page.tsx
-- app/checkout/dados/page.tsx
-- app/pagamento/page.tsx
-- app/api/checkout/prepare/route.ts
-- app/api/orders/route.ts
-- app/api/orders/cash/route.ts
-- components/checkout/desktop-cart-checkout.tsx
-- components/storefront/storefront-home.tsx
-- lib/lang-context.tsx
-- lib/layout/page-chrome.ts
-- lib/store-settings.ts
-- styles/storefront.css
+- app/admin/banners/page.tsx
+- app/api/banners/route.ts
+- components/home-promo-carousel.tsx
+- components/home-promo-carousel.module.css
+
+Obs.
+----
+No admin, em Banners, destino Produto, o campo "Preço riscado" é opcional.
+O preço verde continua sendo o do cardápio.
+O .env.local NÃO entra neste pacote.

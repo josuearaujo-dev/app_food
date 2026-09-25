@@ -1,7 +1,9 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
+import { GripVertical, ArrowUp, ArrowDown, ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
@@ -20,9 +22,18 @@ type Banner = {
   destino_produto_id: string | null
   destino_combo_id: string | null
   destino_url: string | null
+  preco_riscado: number | null
 }
 
-type MenuItem = { id: string; nome: string }
+type MenuItem = { id: string; nome: string; preco: number }
+
+function parseMoney(value: string): number | null {
+  const raw = value.trim().replace(',', '.')
+  if (!raw) return null
+  const amount = Number(raw)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  return Number(amount.toFixed(2))
+}
 type Combo = { id: string; nome: string }
 
 function pathFromPublicStorageUrl(url: string): string | null {
@@ -48,6 +59,11 @@ export default function AdminBannersPage() {
   const [uploadingEn, setUploadingEn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [banners, setBanners] = useState<Banner[]>([])
+  const [reordering, setReordering] = useState(false)
+  const reorderLock = useRef(false)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dropId, setDropId] = useState<string | null>(null)
+  const [orderMessage, setOrderMessage] = useState('')
   const [items, setItems] = useState<MenuItem[]>([])
   const [combos, setCombos] = useState<Combo[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -56,12 +72,12 @@ export default function AdminBannersPage() {
     titulo: '',
     imagem_url: '',
     imagem_url_en: '',
-    ordem: '0',
     ativo: true,
     destino_tipo: '' as '' | 'produto' | 'combo' | 'url',
     destino_produto_id: '',
     destino_combo_id: '',
     destino_url: '',
+    preco_riscado: '',
   })
 
   const destinoPreview = useMemo(() => {
@@ -70,6 +86,7 @@ export default function AdminBannersPage() {
     if (form.destino_tipo === 'url' && form.destino_url.trim()) return form.destino_url.trim()
     return 'Sem link'
   }, [form])
+  const selectedProduct = items.find((item) => item.id === form.destino_produto_id)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -77,7 +94,7 @@ export default function AdminBannersPage() {
     const [{ data: rows, error: e1 }, { data: menuRows, error: e2 }, { data: comboRows, error: e3 }] =
       await Promise.all([
         supabase.from('banners_home').select('*').order('ordem').order('criado_em', { ascending: false }),
-        supabase.from('itens_cardapio').select('id, nome').eq('disponivel', true).order('nome'),
+        supabase.from('itens_cardapio').select('id, nome, preco').eq('disponivel', true).order('nome'),
         supabase.from('combos').select('id, nome').eq('ativo', true).order('nome'),
       ])
     if (e1 || e2 || e3) setError(e1?.message || e2?.message || e3?.message || 'Erro ao carregar banners.')
@@ -91,18 +108,52 @@ export default function AdminBannersPage() {
     void load()
   }, [load])
 
+  async function reorderBanner(sourceId: string, targetId: string) {
+    if (reorderLock.current || sourceId === targetId) return
+    const from = banners.findIndex((banner) => banner.id === sourceId)
+    const to = banners.findIndex((banner) => banner.id === targetId)
+    if (from < 0 || to < 0) return
+    const reordered = [...banners]
+    reordered.splice(to, 0, reordered.splice(from, 1)[0])
+    reorderLock.current = true
+    setReordering(true)
+    setError(null)
+    setOrderMessage('Salvando ordem…')
+    setBanners(reordered)
+    try {
+      for (const [index, banner] of reordered.entries()) {
+        const { data, error: updateError } = await supabase.from('banners_home')
+          .update({ ordem: index + 1 }).eq('id', banner.id).select('id').single()
+        if (updateError || !data) throw new Error(updateError?.message || 'Não foi possível salvar a ordem.')
+      }
+      const { data, error: readError } = await supabase.from('banners_home').select('*').order('ordem').order('criado_em', { ascending: false })
+      if (readError) throw readError
+      setBanners((data as Banner[]) ?? [])
+      setOrderMessage('Ordem salva.')
+    } catch (err) {
+      await load()
+      setError(err instanceof Error ? err.message : 'Falha ao salvar a ordem. Confira a lista e tente novamente.')
+      setOrderMessage('Não foi possível concluir a reorganização.')
+    } finally {
+      reorderLock.current = false
+      setReordering(false)
+      setDraggedId(null)
+      setDropId(null)
+    }
+  }
+
   function openNew() {
     setEditing(null)
     setForm({
       titulo: '',
       imagem_url: '',
       imagem_url_en: '',
-      ordem: '0',
-      ativo: true,
+        ativo: true,
       destino_tipo: '',
       destino_produto_id: '',
       destino_combo_id: '',
       destino_url: '',
+      preco_riscado: '',
     })
     setError(null)
     setModalOpen(true)
@@ -114,12 +165,12 @@ export default function AdminBannersPage() {
       titulo: b.titulo,
       imagem_url: b.imagem_url,
       imagem_url_en: b.imagem_url_en ?? '',
-      ordem: String(b.ordem ?? 0),
       ativo: b.ativo,
       destino_tipo: b.destino_tipo ?? '',
       destino_produto_id: b.destino_produto_id ?? '',
       destino_combo_id: b.destino_combo_id ?? '',
       destino_url: b.destino_url ?? '',
+      preco_riscado: b.preco_riscado != null ? Number(b.preco_riscado).toFixed(2) : '',
     })
     setError(null)
     setModalOpen(true)
@@ -129,6 +180,14 @@ export default function AdminBannersPage() {
     if (!form.titulo.trim()) return 'Informe o título do banner.'
     if (!form.imagem_url.trim()) return 'Envie a imagem do banner.'
     if (form.destino_tipo === 'produto' && !form.destino_produto_id) return 'Selecione um produto.'
+    if (form.destino_tipo === 'produto' && form.preco_riscado.trim()) {
+      const struck = parseMoney(form.preco_riscado)
+      const product = items.find((item) => item.id === form.destino_produto_id)
+      if (struck === null) return 'Informe um preço riscado maior que zero. Ex.: 3.50'
+      if (product && struck <= Number(product.preco)) {
+        return `O preço riscado precisa ser maior que o preço do produto ($${Number(product.preco).toFixed(2)}).`
+      }
+    }
     if (form.destino_tipo === 'combo' && !form.destino_combo_id) return 'Selecione um combo.'
     if (form.destino_tipo === 'url' && !form.destino_url.trim()) return 'Informe a URL de destino.'
     return null
@@ -146,12 +205,13 @@ export default function AdminBannersPage() {
       titulo: form.titulo.trim(),
       imagem_url: form.imagem_url.trim(),
       imagem_url_en: form.imagem_url_en.trim() || null,
-      ordem: Math.max(0, Math.floor(Number(form.ordem)) || 0),
+      ...(editing ? {} : { ordem: Math.max(0, ...banners.map((banner) => banner.ordem ?? 0)) + 1 }),
       ativo: form.ativo,
       destino_tipo: form.destino_tipo || null,
       destino_produto_id: form.destino_tipo === 'produto' ? form.destino_produto_id : null,
       destino_combo_id: form.destino_tipo === 'combo' ? form.destino_combo_id : null,
       destino_url: form.destino_tipo === 'url' ? form.destino_url.trim() : null,
+      preco_riscado: form.destino_tipo === 'produto' ? parseMoney(form.preco_riscado) : null,
     }
     const { error: saveError } = editing
       ? await supabase.from('banners_home').update(payload).eq('id', editing.id)
@@ -189,14 +249,28 @@ export default function AdminBannersPage() {
   async function onPickFile(kind: 'pt' | 'en', e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('Selecione um arquivo de imagem válido.')
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setError('Use uma imagem JPG, PNG, WebP ou GIF.')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError('A imagem deve ter no máximo 8 MB.')
       return
     }
     if (kind === 'pt') setUploading(true)
     else setUploadingEn(true)
     setError(null)
     try {
+      const previewUrl = URL.createObjectURL(file)
+      try {
+        const preview = new window.Image()
+        preview.src = previewUrl
+        await preview.decode()
+      } catch {
+        throw new Error('Não foi possível abrir esta imagem. Exporte o arquivo novamente em JPG ou PNG.')
+      } finally {
+        URL.revokeObjectURL(previewUrl)
+      }
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadErr } = await supabase.storage.from(CARDAPIO_BUCKET).upload(fileName, file, {
@@ -232,7 +306,7 @@ export default function AdminBannersPage() {
       <div className="mb-4 flex justify-end">
         <button
           type="button"
-          onClick={openNew}
+          disabled={reordering} onClick={openNew}
           className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
         >
           <Plus size={15} className="mr-1 inline" />
@@ -245,26 +319,43 @@ export default function AdminBannersPage() {
             Nenhum banner cadastrado.
           </div>
         ) : (
-          <ul className="space-y-3">
-            {banners.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 rounded-xl border border-border bg-white p-3">
+          <div>
+          <p className="mb-3 text-sm text-muted-foreground">Arraste pela alça para reorganizar os banners ou use as setas. A ordem é salva automaticamente.</p>
+          <p className="sr-only" role="status">{orderMessage}</p>
+          <ul className="space-y-3" aria-busy={reordering}>
+            {banners.map((b, index) => (
+              <li key={b.id}
+                onDragOver={(event) => { if (draggedId && !reordering) { event.preventDefault(); setDropId(b.id) } }}
+                onDrop={(event) => { event.preventDefault(); if (draggedId) void reorderBanner(draggedId, b.id); setDraggedId(null); setDropId(null) }}
+                className={`flex items-center gap-3 rounded-xl border bg-white p-3 ${dropId === b.id ? 'border-primary ring-2 ring-primary/20' : 'border-border'} ${draggedId === b.id ? 'opacity-50' : ''}`}>
+                <button type="button" draggable={!reordering && banners.length > 1} disabled={reordering || banners.length < 2}
+                  aria-label={`Arrastar ${b.titulo}`} title="Arraste para reorganizar"
+                  onDragStart={(event) => { event.dataTransfer.setData('text/plain', b.id); event.dataTransfer.effectAllowed = 'move'; setDraggedId(b.id) }}
+                  onDragEnd={() => { setDraggedId(null); setDropId(null) }}
+                  className="cursor-grab rounded-lg p-2 text-muted-foreground active:cursor-grabbing disabled:opacity-40"><GripVertical size={20} /></button>
+                <div className="flex flex-col">
+                  <button type="button" aria-label={`Mover ${b.titulo} para cima`} disabled={reordering || index === 0} onClick={() => void reorderBanner(b.id, banners[index - 1].id)} className="p-1 disabled:opacity-25"><ArrowUp size={16} /></button>
+                  <button type="button" aria-label={`Mover ${b.titulo} para baixo`} disabled={reordering || index === banners.length - 1} onClick={() => void reorderBanner(b.id, banners[index + 1].id)} className="p-1 disabled:opacity-25"><ArrowDown size={16} /></button>
+                </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={b.imagem_url} alt="" className="h-14 w-24 rounded-lg object-cover" />
+                <StoreImage src={b.imagem_url} alt="" className="h-14 w-24 rounded-lg object-contain" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{b.titulo}</p>
                   <p className="text-xs text-muted-foreground">
-                    Ordem {b.ordem} · {b.ativo ? 'Ativo' : 'Inativo'} · Destino: {b.destino_tipo ?? 'nenhum'}
+                    {b.ativo ? 'Ativo' : 'Inativo'} · Destino: {b.destino_tipo ?? 'nenhum'}
+                    {b.destino_tipo === 'produto' && b.preco_riscado != null ? ` · Riscado: $${Number(b.preco_riscado).toFixed(2)}` : ''}
                   </p>
                 </div>
-                <button type="button" onClick={() => openEdit(b)} className="rounded-lg border border-border px-2 py-1 text-xs">
+                <button type="button" disabled={reordering} onClick={() => openEdit(b)} className="rounded-lg border border-border px-2 py-1 text-xs">
                   <Pencil size={14} />
                 </button>
-                <button type="button" onClick={() => void removeBanner(b)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">
+                <button type="button" disabled={reordering} onClick={() => void removeBanner(b)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">
                   <Trash2 size={14} />
                 </button>
               </li>
             ))}
           </ul>
+          </div>
         )}
 
       {modalOpen && (
@@ -284,10 +375,11 @@ export default function AdminBannersPage() {
 
               <div>
                 <label className="mb-1 block text-xs font-semibold">Imagem do banner</label>
+                <p className="mb-3 text-xs text-muted-foreground">Recomendado: 1500 × 500 px. JPG, PNG, WebP ou GIF, até 8 MB. A imagem será exibida inteira.</p>
                 {form.imagem_url ? (
                   <div className="relative h-36 overflow-hidden rounded-xl bg-secondary">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={form.imagem_url} alt="" className="h-full w-full object-cover" />
+                    <StoreImage src={form.imagem_url} alt="" className="h-full w-full object-contain" />
                     <div className="absolute right-2 top-2 flex gap-2">
                       <button type="button" onClick={() => inputRef.current?.click()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90">
                         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -303,7 +395,7 @@ export default function AdminBannersPage() {
                     <span className="text-sm">Enviar imagem</span>
                   </button>
                 )}
-                <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickFile('pt', e)} />
+                <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => void onPickFile('pt', e)} />
               </div>
 
               <div>
@@ -311,7 +403,7 @@ export default function AdminBannersPage() {
                 {form.imagem_url_en ? (
                   <div className="relative h-36 overflow-hidden rounded-xl bg-secondary">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={form.imagem_url_en} alt="" className="h-full w-full object-cover" />
+                    <StoreImage src={form.imagem_url_en} alt="" className="h-full w-full object-contain" />
                     <div className="absolute right-2 top-2 flex gap-2">
                       <button type="button" onClick={() => inputRefEn.current?.click()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90">
                         {uploadingEn ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -330,19 +422,13 @@ export default function AdminBannersPage() {
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Se não enviar, o sistema usa a imagem principal também no inglês.
                 </p>
-                <input ref={inputRefEn} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickFile('en', e)} />
+                <input ref={inputRefEn} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => void onPickFile('en', e)} />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold">Ordem</label>
-                  <input type="number" min={0} value={form.ordem} onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-                </div>
-                <label className="mt-6 flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
-                  Banner ativo
-                </label>
-              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.ativo} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
+                Banner ativo
+              </label>
 
               <div>
                 <label className="mb-1 block text-xs font-semibold">Tipo de destino</label>
@@ -355,6 +441,7 @@ export default function AdminBannersPage() {
                       destino_produto_id: '',
                       destino_combo_id: '',
                       destino_url: '',
+                      preco_riscado: '',
                     }))
                   }
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
@@ -375,6 +462,23 @@ export default function AdminBannersPage() {
                       <option key={it.id} value={it.id}>{it.nome}</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {form.destino_tipo === 'produto' && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold">Preço riscado</label>
+                  <input
+                    value={form.preco_riscado}
+                    onChange={(e) => setForm((f) => ({ ...f, preco_riscado: e.target.value }))}
+                    inputMode="decimal"
+                    placeholder="3.50"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Opcional. Aparece riscado no banner. O preço em verde continua sendo o do produto no cardápio
+                    {selectedProduct ? ` ($${Number(selectedProduct.preco).toFixed(2)})` : ''}.
+                  </p>
                 </div>
               )}
 
