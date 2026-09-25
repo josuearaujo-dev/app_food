@@ -1,32 +1,38 @@
-Descrição no banner de ofertas v2.1.0
-=====================================
+Ofertas em lista, preços e ordem das categorias v2.2.0
+======================================================
 
-O cartão da oferta mostra a descrição do banner.
-Se o banner não tiver texto, usa a descrição do produto ou do combo.
+O popup mostra todas as ofertas juntas, sem carrossel.
+O cardápio mostra o preço riscado e o percentual em verde.
+A ordem das categorias se escolhe arrastando, como nos banners.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.1.0 dentro do repositório.
-2) Rodar scripts/042_banners_descricao.sql no Supabase (uma vez).
+   Não deixe a pasta deploy-altered-v2.2.0 dentro do repositório.
+2) Rodar scripts/043_preco_banner_e_produto.sql no Supabase (uma vez).
    Neste banco (kujvnoscdmdarwmoivtq) as colunas já foram criadas.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.0.0. Aplique os dois.
+4) Este pacote vem DEPOIS do v2.1.0. Aplique os dois.
 
 Arquivos NOVOS
 --------------
-- scripts/042_banners_descricao.sql
+- scripts/043_preco_banner_e_produto.sql
 
 Arquivos ALTERADOS
 ------------------
 - app/admin/banners/page.tsx
 - app/admin/cardapio/page.tsx
 - app/api/banners/route.ts
+- app/busca/page.tsx
+- app/produto/[id]/page.tsx
 - components/admin-combos-panel.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
+- components/storefront/storefront-home.tsx
 - components/storefront/store-image.tsx
+- lib/cart-context.tsx
 - public/images/product-placeholder.svg
+- styles/storefront.css
 
 Obs.
 ----

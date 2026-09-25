@@ -8,6 +8,7 @@ export interface ItemCardapio {
   nome: string
   descricao: string | null
   preco: number
+  preco_riscado?: number | null
   imagem_url: string | null
   categoria_id: string | null
   quantidade_info?: string | null

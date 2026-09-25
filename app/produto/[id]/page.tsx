@@ -333,9 +333,17 @@ export default function ProdutoDetalhePage() {
           {item.descricao && (
             <p className="text-sm text-muted-foreground mt-1">{item.descricao}</p>
           )}
-          <p className="mt-1.5 text-xl font-bold text-accent">
-            {t.currency}
-            {unitPrice.toFixed(2)}
+          <p className="cadu-product-price mt-1.5 text-xl font-bold text-accent">
+            <b>
+              {t.currency}
+              {unitPrice.toFixed(2)}
+            </b>
+            {selectedDelta === 0 && item.preco_riscado != null && item.preco_riscado > item.preco ? (
+              <>
+                <s>{t.currency}{Number(item.preco_riscado).toFixed(2)}</s>
+                <span>-{Math.round(((item.preco_riscado - item.preco) / item.preco_riscado) * 100)}%</span>
+              </>
+            ) : null}
           </p>
         </div>
 

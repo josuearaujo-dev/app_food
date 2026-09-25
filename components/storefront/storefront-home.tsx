@@ -356,9 +356,17 @@ function ProductCard({
         {item.categorias && <span>{item.categorias.nome}</span>}
         <h3>{item.nome}</h3>
         {item.descricao && <p>{item.descricao}</p>}
-        <strong>
-          {t.currency}
-          {item.preco.toFixed(2)}
+        <strong className="cadu-product-price">
+          <b>
+            {t.currency}
+            {item.preco.toFixed(2)}
+          </b>
+          {item.preco_riscado != null && item.preco_riscado > item.preco ? (
+            <>
+              <s>{t.currency}{Number(item.preco_riscado).toFixed(2)}</s>
+              <span>-{Math.round(((item.preco_riscado - item.preco) / item.preco_riscado) * 100)}%</span>
+            </>
+          ) : null}
         </strong>
       </Link>
       <button type="button" className="cadu-product-add" onClick={onAdd}>

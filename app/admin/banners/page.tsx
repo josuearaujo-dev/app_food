@@ -24,6 +24,7 @@ type Banner = {
   destino_produto_id: string | null
   destino_combo_id: string | null
   destino_url: string | null
+  preco: number | null
   preco_riscado: number | null
 }
 
@@ -81,6 +82,7 @@ export default function AdminBannersPage() {
     destino_produto_id: '',
     destino_combo_id: '',
     destino_url: '',
+    preco: '',
     preco_riscado: '',
   })
 
@@ -90,7 +92,6 @@ export default function AdminBannersPage() {
     if (form.destino_tipo === 'url' && form.destino_url.trim()) return form.destino_url.trim()
     return 'Sem link'
   }, [form])
-  const selectedProduct = items.find((item) => item.id === form.destino_produto_id)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,6 +160,7 @@ export default function AdminBannersPage() {
       destino_produto_id: '',
       destino_combo_id: '',
       destino_url: '',
+      preco: '',
       preco_riscado: '',
     })
     setError(null)
@@ -178,6 +180,7 @@ export default function AdminBannersPage() {
       destino_produto_id: b.destino_produto_id ?? '',
       destino_combo_id: b.destino_combo_id ?? '',
       destino_url: b.destino_url ?? '',
+      preco: b.preco != null ? Number(b.preco).toFixed(2) : '',
       preco_riscado: b.preco_riscado != null ? Number(b.preco_riscado).toFixed(2) : '',
     })
     setError(null)
@@ -188,13 +191,13 @@ export default function AdminBannersPage() {
     if (!form.titulo.trim()) return 'Informe o título do banner.'
     if (!form.imagem_url.trim()) return 'Envie a imagem do banner.'
     if (form.destino_tipo === 'produto' && !form.destino_produto_id) return 'Selecione um produto.'
-    if (form.destino_tipo === 'produto' && form.preco_riscado.trim()) {
-      const struck = parseMoney(form.preco_riscado)
-      const product = items.find((item) => item.id === form.destino_produto_id)
-      if (struck === null) return 'Informe um preço riscado maior que zero. Ex.: 3.50'
-      if (product && struck <= Number(product.preco)) {
-        return `O preço riscado precisa ser maior que o preço do produto ($${Number(product.preco).toFixed(2)}).`
-      }
+    const sale = parseMoney(form.preco)
+    const struck = parseMoney(form.preco_riscado)
+    if (form.preco.trim() && sale === null) return 'Informe um preço válido. Ex.: 2.50'
+    if (form.preco_riscado.trim() && struck === null) return 'Informe um preço riscado maior que zero. Ex.: 3.50'
+    const current = sale ?? (form.destino_tipo === 'produto' ? Number(items.find((item) => item.id === form.destino_produto_id)?.preco) : null)
+    if (struck !== null && current != null && Number.isFinite(current) && struck <= current) {
+      return `O preço riscado precisa ser maior que o preço exibido ($${current.toFixed(2)}).`
     }
     if (form.destino_tipo === 'combo' && !form.destino_combo_id) return 'Selecione um combo.'
     if (form.destino_tipo === 'url' && !form.destino_url.trim()) return 'Informe a URL de destino.'
@@ -221,7 +224,8 @@ export default function AdminBannersPage() {
       destino_produto_id: form.destino_tipo === 'produto' ? form.destino_produto_id : null,
       destino_combo_id: form.destino_tipo === 'combo' ? form.destino_combo_id : null,
       destino_url: form.destino_tipo === 'url' ? form.destino_url.trim() : null,
-      preco_riscado: form.destino_tipo === 'produto' ? parseMoney(form.preco_riscado) : null,
+      preco: parseMoney(form.preco),
+      preco_riscado: parseMoney(form.preco_riscado),
     }
     const { error: saveError } = editing
       ? await supabase.from('banners_home').update(payload).eq('id', editing.id)
@@ -353,7 +357,8 @@ export default function AdminBannersPage() {
                   <p className="truncate text-sm font-semibold">{b.titulo}</p>
                   <p className="text-xs text-muted-foreground">
                     {b.ativo ? 'Ativo' : 'Inativo'} · Destino: {b.destino_tipo ?? 'nenhum'}
-                    {b.destino_tipo === 'produto' && b.preco_riscado != null ? ` · Riscado: $${Number(b.preco_riscado).toFixed(2)}` : ''}
+                    {b.preco != null ? ` · $${Number(b.preco).toFixed(2)}` : ''}
+                    {b.preco_riscado != null ? ` · Riscado: $${Number(b.preco_riscado).toFixed(2)}` : ''}
                   </p>
                 </div>
                 <button type="button" disabled={reordering} onClick={() => openEdit(b)} className="rounded-lg border border-border px-2 py-1 text-xs">
@@ -408,6 +413,34 @@ export default function AdminBannersPage() {
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Opcional. Sem este texto, o site em inglês usa a descrição acima.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold">Preço</label>
+                <input
+                  value={form.preco}
+                  onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))}
+                  inputMode="decimal"
+                  placeholder="2.50"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Opcional. É o valor em verde no cartão. Se ficar vazio, o banner usa o preço do produto ou do combo.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold">Preço riscado</label>
+                <input
+                  value={form.preco_riscado}
+                  onChange={(e) => setForm((f) => ({ ...f, preco_riscado: e.target.value }))}
+                  inputMode="decimal"
+                  placeholder="3.50"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Opcional. Aparece riscado ao lado do preço. Se ficar vazio e o destino for um produto, usa o preço riscado do cadastro do produto.
                 </p>
               </div>
 
@@ -479,7 +512,6 @@ export default function AdminBannersPage() {
                       destino_produto_id: '',
                       destino_combo_id: '',
                       destino_url: '',
-                      preco_riscado: '',
                     }))
                   }
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
@@ -500,23 +532,6 @@ export default function AdminBannersPage() {
                       <option key={it.id} value={it.id}>{it.nome}</option>
                     ))}
                   </select>
-                </div>
-              )}
-
-              {form.destino_tipo === 'produto' && (
-                <div>
-                  <label className="mb-1 block text-xs font-semibold">Preço riscado</label>
-                  <input
-                    value={form.preco_riscado}
-                    onChange={(e) => setForm((f) => ({ ...f, preco_riscado: e.target.value }))}
-                    inputMode="decimal"
-                    placeholder="3.50"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Opcional. Aparece riscado no banner. O preço em verde continua sendo o do produto no cardápio
-                    {selectedProduct ? ` ($${Number(selectedProduct.preco).toFixed(2)})` : ''}.
-                  </p>
                 </div>
               )}
 

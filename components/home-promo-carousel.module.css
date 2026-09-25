@@ -16,7 +16,7 @@ a.card:hover { border-color:#b78b6c; box-shadow:0 6px 20px #531b040b; }
 .prices { display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
 .prices strong { color:#16a34a; font-size:22px; font-weight:800; letter-spacing:-.02em; }
 .prices s { color:#9ca3af; font-size:15px; font-weight:600; text-decoration:line-through; }
-.prices span { padding:3px 8px; border-radius:8px; background:#fee2e2; color:#ef4444; font-size:13px; font-weight:800; }
+.prices span { padding:3px 8px; border-radius:8px; background:#dcfce7; color:#15803d; font-size:13px; font-weight:800; }
 .link { display:inline-flex; align-items:center; justify-content:center; gap:16px; min-height:44px; margin-top:16px; padding:11px 18px; background:#531b04; color:white; border-radius:10px; font-size:13px; font-weight:650; }
 .image { display:block; flex-shrink:0; width:160px; height:160px; border-radius:12px; object-fit:contain; background:#faf5ef; }
 .art { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; flex-shrink:0; width:140px; height:150px; border:1px solid #ead7c1; border-radius:16px; color:#9d6635; background:radial-gradient(circle at 80% 20%,#ffe0a6 0,transparent 60%),#fff4df; }
@@ -31,16 +31,3 @@ a.card:hover { border-color:#b78b6c; box-shadow:0 6px 20px #531b040b; }
  .link { gap:8px; padding:10px 12px; }
  .launcher { width:calc(100% - 28px); margin:0 auto 20px; }
 }
-.viewport { overflow:hidden; min-width:0; }
-.track { display:flex; touch-action:pan-y pinch-zoom; margin-left:-16px; }
-.slide { flex:0 0 100%; min-width:0; padding-left:16px; }
-.slide .card { height:100%; box-sizing:border-box; }
-.controls { display:flex; justify-content:center; align-items:center; gap:8px; }
-.controls button { display:grid; place-items:center; flex-shrink:0; width:40px; height:40px; border:1px solid #e9dfd5; border-radius:50%; background:white; color:#531b04; cursor:pointer; }
-.controls button:hover { background:#f2e7da; }
-.controls button:focus-visible { outline:2px solid #b83854; outline-offset:2px; }
-.dots { display:flex; flex-wrap:wrap; justify-content:center; }
-.dots button { width:32px; border:0; background:transparent; }
-.dots span { width:7px; height:7px; border-radius:20px; background:#d9c7b7; }
-.dots [aria-current] span { width:20px; background:#531b04; }
-.position { font-size:12px; color:#817167; white-space:nowrap; }

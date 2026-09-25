@@ -15,6 +15,7 @@ type BannerRow = {
   destino_produto_id: string | null
   destino_combo_id: string | null
   destino_url: string | null
+  preco: number | null
   preco_riscado: number | null
 }
 
@@ -48,6 +49,7 @@ type OrderedSlide = BannerSlide & {
 }
 
 function money(value: number | null | undefined): number | null {
+  if (value == null) return null
   const amount = Number(value)
   return Number.isFinite(amount) && amount >= 0 ? Number(amount.toFixed(2)) : null
 }
@@ -86,7 +88,7 @@ export async function GET() {
       supabase
         .from('banners_home')
         .select(
-          'id, titulo, descricao, descricao_en, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco_riscado'
+          'id, titulo, descricao, descricao_en, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco, preco_riscado'
         )
         .eq('ativo', true)
         .order('ordem')
@@ -108,14 +110,14 @@ export async function GET() {
     const priceIds = [...new Set([...productIds, ...comboLines.map((line) => line.item_id)])]
     const [productsRes, combosRes] = await Promise.all([
       priceIds.length
-        ? supabase.from('itens_cardapio').select('id, descricao, descricao_en, preco').in('id', priceIds)
+        ? supabase.from('itens_cardapio').select('id, descricao, descricao_en, preco, preco_riscado').in('id', priceIds)
         : Promise.resolve({ data: [] }),
       comboIds.length
         ? supabase.from('combos').select('id, descricao, preco').in('id', comboIds)
         : Promise.resolve({ data: [] }),
     ])
     const products = new Map(
-      ((productsRes.data as Array<{ id: string; descricao: string | null; descricao_en: string | null; preco: number }> | null) ?? []).map((item) => [item.id, item])
+      ((productsRes.data as Array<{ id: string; descricao: string | null; descricao_en: string | null; preco: number; preco_riscado: number | null }> | null) ?? []).map((item) => [item.id, item])
     )
     const combos = new Map(
       ((combosRes.data as Array<{ id: string; descricao: string | null; preco: number }> | null) ?? []).map((item) => [item.id, item])
@@ -131,12 +133,11 @@ export async function GET() {
     const customSlides: OrderedSlide[] = banners.map((b) => {
       const product = b.destino_tipo === 'produto' && b.destino_produto_id ? products.get(b.destino_produto_id) : undefined
       const combo = b.destino_tipo === 'combo' && b.destino_combo_id ? combos.get(b.destino_combo_id) : undefined
-      const price = money(product?.preco ?? combo?.preco)
-      const regular = product
-        ? money(b.preco_riscado)
-        : combo && b.destino_combo_id
-          ? money(comboCompareAt.get(b.destino_combo_id))
-          : null
+      const price = money(b.preco) ?? money(product?.preco ?? combo?.preco)
+      const listed = money(b.preco_riscado)
+      const fromProduct = product ? money(product.preco_riscado) : null
+      const fromCombo = combo && b.destino_combo_id ? money(comboCompareAt.get(b.destino_combo_id)) : null
+      const regular = listed ?? fromProduct ?? fromCombo
       return {
         id: `custom-${b.id}`,
         title: b.titulo?.trim() || 'Banner',

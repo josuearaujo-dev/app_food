@@ -2699,3 +2699,7 @@ img[data-fallback] { object-fit: contain !important; background: #f6efea; }
   .cadu-offer-image { width: 104px; height: 104px; }
   .cadu-offers-launcher { width: calc(100% - 28px); margin: 0 auto 20px; }
 }
+.cadu-product-price { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.cadu-product-price b { font-weight: inherit; }
+.cadu-product-price s { color: #9ca3af; font-size: 0.85em; font-weight: 600; text-decoration: line-through; }
+.cadu-product-price span { padding: 2px 6px; border-radius: 6px; background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 800; }

@@ -149,9 +149,17 @@ export default function BuscaPage() {
                           )}
                         </Link>
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <p className="text-[15px] font-bold tabular-nums text-accent">
-                            {t.currency}
-                            {item.preco.toFixed(2)}
+                          <p className="cadu-product-price text-[15px] font-bold tabular-nums text-accent">
+                            <b>
+                              {t.currency}
+                              {item.preco.toFixed(2)}
+                            </b>
+                            {item.preco_riscado != null && item.preco_riscado > item.preco ? (
+                              <>
+                                <s>{t.currency}{Number(item.preco_riscado).toFixed(2)}</s>
+                                <span>-{Math.round(((item.preco_riscado - item.preco) / item.preco_riscado) * 100)}%</span>
+                              </>
+                            ) : null}
                           </p>
                           <div className="flex shrink-0 items-center">
                             {qtd === 0 ? (

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Pencil, Trash2, X, Check,
   Eye, EyeOff, Star, Package, ImageIcon, Upload, Loader2,
+  GripVertical, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
@@ -25,6 +26,7 @@ interface Item {
   nome: string
   descricao: string | null
   preco: number
+  preco_riscado: number | null
   imagem_url: string | null
   quantidade_info: string | null
   tamanhos_disponiveis: string | null
@@ -79,10 +81,12 @@ async function persistOrdensCategoriasNaLista(supabase: SupabaseClient, orderedI
   if (orderedIds.length === 0) return
   const step = 1000
   for (let i = 0; i < orderedIds.length; i++) {
-    await supabase.from('categorias').update({ ordem: (i + 1) * step }).eq('id', orderedIds[i])
+    const { error } = await supabase.from('categorias').update({ ordem: (i + 1) * step }).eq('id', orderedIds[i])
+    if (error) throw new Error(error.message)
   }
   for (let i = 0; i < orderedIds.length; i++) {
-    await supabase.from('categorias').update({ ordem: i + 1 }).eq('id', orderedIds[i])
+    const { error } = await supabase.from('categorias').update({ ordem: i + 1 }).eq('id', orderedIds[i])
+    if (error) throw new Error(error.message)
   }
 }
 
@@ -102,7 +106,7 @@ export default function AdminCardapioPage() {
   const [modalItem, setModalItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<Item | null>(null)
   const [formItem, setFormItem] = useState({
-    nome: '', descricao: '', preco: '', imagem_url: '',
+    nome: '', descricao: '', preco: '', preco_riscado: '', imagem_url: '',
     quantidade_info: '', tamanhos_disponiveis: '', ingredientes_info: '', alergenicos_alerta: '',
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
@@ -110,6 +114,12 @@ export default function AdminCardapioPage() {
     categoria_id: '', disponivel: true, destaque: false, ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
+  const [itemErro, setItemErro] = useState<string | null>(null)
+  const [reorderingCats, setReorderingCats] = useState(false)
+  const [draggedCatId, setDraggedCatId] = useState<string | null>(null)
+  const [dropCatId, setDropCatId] = useState<string | null>(null)
+  const [catOrderMessage, setCatOrderMessage] = useState('')
+  const catReorderLock = useRef(false)
 
   // Modal categoria
   const [modalCat, setModalCat] = useState(false)
@@ -129,6 +139,32 @@ export default function AdminCardapioPage() {
   }, [supabase])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  async function reorderCategoria(sourceId: string, targetId: string) {
+    if (catReorderLock.current || sourceId === targetId) return
+    const from = categorias.findIndex((cat) => cat.id === sourceId)
+    const to = categorias.findIndex((cat) => cat.id === targetId)
+    if (from < 0 || to < 0) return
+    const reordered = [...categorias]
+    reordered.splice(to, 0, reordered.splice(from, 1)[0])
+    catReorderLock.current = true
+    setReorderingCats(true)
+    setItemErro(null)
+    setCatOrderMessage('Salvando ordem…')
+    setCategorias(reordered.map((cat, index) => ({ ...cat, ordem: index + 1 })))
+    try {
+      await persistOrdensCategoriasNaLista(supabase, reordered.map((cat) => cat.id))
+      setCatOrderMessage('Ordem salva.')
+    } catch (err) {
+      await fetchData()
+      setCatOrderMessage(err instanceof Error ? err.message : 'Não foi possível salvar a ordem.')
+    } finally {
+      catReorderLock.current = false
+      setReorderingCats(false)
+      setDraggedCatId(null)
+      setDropCatId(null)
+    }
+  }
 
   // Reset tab label when lang changes
   useEffect(() => { setTab(t.tabItems) }, [lang, t.tabItems])
@@ -496,6 +532,7 @@ export default function AdminCardapioPage() {
       nome: '',
       descricao: '',
       preco: '',
+      preco_riscado: '',
       imagem_url: '',
       quantidade_info: '',
       tamanhos_disponiveis: '',
@@ -509,6 +546,7 @@ export default function AdminCardapioPage() {
       destaque: false,
       ordem: outros.length + 1,
     })
+    setItemErro(null)
     setModalItem(true)
   }
 
@@ -523,6 +561,7 @@ export default function AdminCardapioPage() {
       nome: item.nome,
       descricao: item.descricao ?? '',
       preco: item.preco.toString(),
+      preco_riscado: item.preco_riscado != null ? Number(item.preco_riscado).toFixed(2) : '',
       imagem_url: item.imagem_url ?? '',
       quantidade_info: item.quantidade_info ?? '',
       tamanhos_disponiveis: item.tamanhos_disponiveis ?? '',
@@ -536,11 +575,24 @@ export default function AdminCardapioPage() {
       destaque: item.destaque,
       ordem: posicao,
     })
+    setItemErro(null)
     setModalItem(true)
   }
 
   async function salvarItem() {
     if (!formItem.nome || !formItem.preco) return
+    const preco = parseFloat(formItem.preco.replace(',', '.'))
+    const riscadoRaw = formItem.preco_riscado.trim()
+    const riscado = riscadoRaw ? parseFloat(riscadoRaw.replace(',', '.')) : null
+    if (!Number.isFinite(preco) || preco < 0) {
+      setItemErro('Informe um preço válido.')
+      return
+    }
+    if (riscadoRaw && (!Number.isFinite(riscado) || (riscado ?? 0) <= preco)) {
+      setItemErro('O preço riscado precisa ser maior que o preço do produto.')
+      return
+    }
+    setItemErro(null)
     setSalvandoItem(true)
     const catIdNorm = formItem.categoria_id.trim() || null
 
@@ -558,7 +610,8 @@ export default function AdminCardapioPage() {
     const payloadBase = {
       nome: formItem.nome.trim(),
       descricao: formItem.descricao.trim() || null,
-      preco: parseFloat(formItem.preco.replace(',', '.')),
+      preco: Number(preco.toFixed(2)),
+      preco_riscado: riscado != null ? Number(riscado.toFixed(2)) : null,
       imagem_url: formItem.imagem_url.trim() || null,
       quantidade_info: formItem.quantidade_info.trim() || null,
       tamanhos_disponiveis: formItem.tamanhos_disponiveis.trim() || null,
@@ -794,6 +847,7 @@ export default function AdminCardapioPage() {
                       )}
                       <p className="text-accent font-bold text-sm mt-0.5">
                         ${item.preco.toFixed(2)}
+                        {item.preco_riscado != null ? <s className="ml-2 text-xs font-semibold text-muted-foreground">${Number(item.preco_riscado).toFixed(2)}</s> : null}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         <button
@@ -851,30 +905,58 @@ export default function AdminCardapioPage() {
                 onAcao={abrirNovaCat}
               />
             ) : (
-              <div className="space-y-3">
-                {categorias.map((cat) => (
-                  <div key={cat.id} className="flex items-center gap-3 bg-card rounded-2xl p-4 border border-border">
-                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xl">{cat.icone ?? '📋'}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-foreground">{cat.nome}</p>
-                      <p className="text-xs text-muted-foreground">{t.order} {cat.ordem}</p>
-                    </div>
-                    <span className={cn(
-                      'text-[10px] font-semibold px-2 py-1 rounded-lg',
-                      cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
-                    )}>
-                      {cat.ativo ? t.active : t.inactive}
-                    </span>
-                    <button onClick={() => abrirEditarCat(cat)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center" aria-label="Edit">
-                      <Pencil size={14} />
-                    </button>
-                    <button onClick={() => excluirCat(cat.id)} className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center" aria-label="Delete">
-                      <Trash2 size={14} className="text-red-500" />
-                    </button>
-                  </div>
-                ))}
+              <div>
+                <p className="mb-3 text-sm text-muted-foreground">Arraste pela alça para escolher a ordem no site ou use as setas. A ordem é salva automaticamente.</p>
+                <p className="sr-only" role="status">{catOrderMessage}</p>
+                <ul className="space-y-3" aria-busy={reorderingCats}>
+                  {categorias.map((cat, index) => (
+                    <li
+                      key={cat.id}
+                      onDragOver={(event) => { if (draggedCatId && !reorderingCats) { event.preventDefault(); setDropCatId(cat.id) } }}
+                      onDrop={(event) => { event.preventDefault(); if (draggedCatId) void reorderCategoria(draggedCatId, cat.id); setDraggedCatId(null); setDropCatId(null) }}
+                      className={cn(
+                        'flex items-center gap-3 bg-card rounded-2xl p-4 border',
+                        dropCatId === cat.id ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+                        draggedCatId === cat.id && 'opacity-50',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        draggable={!reorderingCats && categorias.length > 1}
+                        disabled={reorderingCats || categorias.length < 2}
+                        aria-label={`Arrastar ${cat.nome}`}
+                        title="Arraste para reorganizar"
+                        onDragStart={(event) => { event.dataTransfer.setData('text/plain', cat.id); event.dataTransfer.effectAllowed = 'move'; setDraggedCatId(cat.id) }}
+                        onDragEnd={() => { setDraggedCatId(null); setDropCatId(null) }}
+                        className="cursor-grab rounded-lg p-2 text-muted-foreground active:cursor-grabbing disabled:opacity-40"
+                      >
+                        <GripVertical size={20} />
+                      </button>
+                      <div className="flex flex-col">
+                        <button type="button" aria-label={`Mover ${cat.nome} para cima`} disabled={reorderingCats || index === 0} onClick={() => void reorderCategoria(cat.id, categorias[index - 1].id)} className="p-1 disabled:opacity-25"><ArrowUp size={16} /></button>
+                        <button type="button" aria-label={`Mover ${cat.nome} para baixo`} disabled={reorderingCats || index === categorias.length - 1} onClick={() => void reorderCategoria(cat.id, categorias[index + 1].id)} className="p-1 disabled:opacity-25"><ArrowDown size={16} /></button>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xl">{cat.icone ?? '📋'}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-foreground">{cat.nome}</p>
+                      </div>
+                      <span className={cn(
+                        'text-[10px] font-semibold px-2 py-1 rounded-lg',
+                        cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                      )}>
+                        {cat.ativo ? t.active : t.inactive}
+                      </span>
+                      <button type="button" disabled={reorderingCats} onClick={() => abrirEditarCat(cat)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center disabled:opacity-40" aria-label="Edit">
+                        <Pencil size={14} />
+                      </button>
+                      <button type="button" disabled={reorderingCats} onClick={() => excluirCat(cat.id)} className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center disabled:opacity-40" aria-label="Delete">
+                        <Trash2 size={14} className="text-red-500" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </>
@@ -891,6 +973,7 @@ export default function AdminCardapioPage() {
           onSalvar={salvarItem}
           salvando={salvandoItem}
         >
+          {itemErro ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{itemErro}</p> : null}
           <CampoTexto
             label={t.fieldName}
             value={formItem.nome}
@@ -912,6 +995,15 @@ export default function AdminCardapioPage() {
             placeholder={t.placeholderPrice}
             inputMode="decimal"
             prefix="$"
+          />
+          <CampoTexto
+            label="Preço riscado"
+            value={formItem.preco_riscado}
+            onChange={(v) => setFormItem({ ...formItem, preco_riscado: v })}
+            placeholder="3.50"
+            inputMode="decimal"
+            prefix="$"
+            hint="Opcional. Aparece riscado no banner quando este produto for o destino e o banner não tiver preço riscado próprio."
           />
 
           <CampoTexto
