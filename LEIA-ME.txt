@@ -1,48 +1,28 @@
-Marketing pixels / funil de compra v1.5.0
-=========================================
+Página de manutenção v1.6.0
+===========================
 
-O que esta versão adiciona
---------------------------
-- Tela Admin → Marketing (depois de Operações)
-- Instalação real de GTM, Meta Pixel, GA4, Google Ads e TikTok no cardápio
-- Funil: PageView → ViewContent → AddToCart → InitiateCheckout → AddPaymentInfo → Purchase
-- Meta CAPI + TikTok Events API no servidor (tokens NÃO vão ao navegador)
-- Consentimento opcional no cardápio (desligado por padrão = pixel entra na hora)
+A página inicial (/) passa a mostrar um aviso em inglês enquanto a loja
+está em ajuste. Admin, cardápio interno e demais rotas continuam no projeto.
 
-Como aplicar no projeto
------------------------
-1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho no projeto.
-2) Rodar no Supabase o SQL:
-     scripts/039_store_marketing_settings.sql
-3) Commit + push no GitHub / deploy (Vercel etc.).
-4) No admin: Marketing → colar o Meta Pixel ID → Salvar.
-5) Abrir o cardápio com Meta Pixel Helper — deve aparecer fbq + PageView.
+Como aplicar
+------------
+1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
+2) Commit + push no GitHub / deploy (Vercel etc.).
 
 Arquivos NOVOS
 --------------
-- app/admin/marketing/page.tsx
-- app/api/marketing/events/route.ts
-- components/marketing/storefront-tracking-gate.tsx
-- lib/marketing/* (módulo inteiro)
-- scripts/039_store_marketing_settings.sql
+- components/storefront/store-maintenance.tsx
+- lib/store-maintenance.ts
 
 Arquivos ALTERADOS
 ------------------
-- app/admin/page.tsx
-- app/checkout/dados/page.tsx
-- app/combo/[id]/page.tsx
-- app/globals.css
-- app/layout.tsx
-- app/pagamento/page.tsx
-- app/produto/[id]/page.tsx
-- components/checkout/desktop-cart-checkout.tsx
-- components/layout/admin-app-shell.tsx
-- components/storefront/product-customize-modal.tsx
-- lib/cart-context.tsx
-- lib/lang-context.tsx
+- app/page.tsx
+- lib/layout/page-chrome.ts
+- styles/storefront.css
 
-Obs.
-----
-- Se o GTM já dispara o mesmo Meta Pixel, deixe o campo Meta Pixel ID vazio.
-- Precisa de SUPABASE_SERVICE_ROLE_KEY no servidor para o cardápio ler os IDs públicos.
-- A pasta marketing-point-do-acai/ NÃO precisa ir para produção (foi só o pacote-fonte).
+Reabrir a loja
+--------------
+Em lib/store-maintenance.ts, mude:
+  export const STOREFRONT_MAINTENANCE = true
+para:
+  export const STOREFRONT_MAINTENANCE = false
