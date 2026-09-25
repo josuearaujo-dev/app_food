@@ -16,6 +16,12 @@ Como aplicar
 Arquivos NOVOS
 --------------
 - scripts/041_banners_preco_riscado.sql
+- components/storefront/store-image.tsx
+- public/images/product-placeholder.svg
+
+O build falha com "module-not-found" em app/admin/banners/page.tsx
+se store-image.tsx não estiver no repositório. Copie esses dois
+arquivos mesmo que o restante do pacote já tenha sido enviado.
 
 Arquivos ALTERADOS
 ------------------
