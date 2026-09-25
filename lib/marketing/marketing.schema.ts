@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 const optionalText = z.string().trim().max(80).optional();
-const optionalToken = z.string().trim().max(512).optional();
+/** Meta/TikTok access tokens costumam passar de 512 caracteres. */
+const optionalToken = z.string().trim().max(4096).optional();
 
 export const marketingSettingsInputSchema = z.object({
   gtmWebContainerId: optionalText,

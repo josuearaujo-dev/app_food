@@ -1,5 +1,7 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Minus, Plus } from 'lucide-react'
@@ -359,7 +361,7 @@ export default function ComboDetailPage() {
     >
       <section className="space-y-4 px-4 pt-4">
         {combo.imagem_url ? (
-          <img
+          <StoreImage
             src={combo.imagem_url}
             alt={combo.nome}
             className="h-48 w-full rounded-2xl object-cover shadow-(--shadow-card)"
@@ -374,7 +376,7 @@ export default function ComboDetailPage() {
             <article key={line.item_id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
               <div className="mb-2 flex items-center gap-3">
                 {line.itens_cardapio?.imagem_url ? (
-                  <img
+                  <StoreImage
                     src={line.itens_cardapio.imagem_url}
                     alt={itemName}
                     className="h-14 w-14 shrink-0 rounded-xl object-cover"

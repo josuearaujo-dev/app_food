@@ -2521,3 +2521,181 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   font-weight: 700;
   line-height: 1.4;
 }
+
+/* Refined storefront surfaces shared by catalog and purchase pages. */
+.cadu-shop {
+  --cadu-page: #faf7f2;
+  --cadu-line: #e8ddd3;
+  --cadu-pink: #b83854;
+}
+.cadu-shop-hero {
+  width: min(1280px, calc(100% - 40px));
+  margin: 24px auto 0;
+  border-radius: 28px;
+  background: radial-gradient(ellipse at 95% 10%, #a85448 0, transparent 55%), #531b04;
+}
+.cadu-hero-content { width: auto; padding: 48px; }
+.cadu-hero-content h1 { max-width: 720px; line-height: 1.06; }
+.cadu-store-heading { padding: 28px 0; }
+.cadu-store-logo { width: 88px; height: 88px; border-radius: 24px; }
+.cadu-store-heading { grid-template-columns: 88px minmax(0, 1fr); }
+.cadu-category-strip button { border-radius: 999px; min-height: 44px; }
+.cadu-catalog-search { border-radius: 16px; height: 50px; }
+.cadu-catalog-search:focus-within { outline: 2px solid var(--cadu-pink); outline-offset: 3px; }
+.cadu-product-card { border-color: var(--cadu-line); border-radius: 20px; padding: 14px; transition: box-shadow .2s, border-color .2s; }
+.cadu-product-card:hover { border-color: #c9a28c; box-shadow: 0 8px 28px #531b040c; }
+.cadu-product-add { min-height: 44px; border-radius: 12px; }
+.cadu-product-copy h3 { line-height: 1.4; }
+.cadu-product-copy strong { font-size: 16px; color: var(--cadu-brown); }
+.cadu-desktop-cart { border: 1px solid var(--cadu-line); border-radius: 22px; box-shadow: 0 8px 32px #531b0408; }
+.cadu-shop-layout, .cadu-catalog-section { scroll-margin-top: 150px; }
+.cadu-shop :is(button, a):focus-visible { outline: 3px solid #b83854; outline-offset: 4px; }
+img[data-fallback] { object-fit: contain !important; background: #f6efea; }
+.cadu-promos { width: min(1280px, calc(100% - 40px)); margin: 24px auto; overflow: hidden; border: 1px solid #e8ddd3; border-radius: 24px; background: #f6efea; }
+.cadu-promos-viewport { overflow: hidden; }
+.cadu-promo-slide { position: relative; min-width: 0; flex: 0 0 100%; }
+.cadu-promo-slide > a { display: block; }
+.cadu-promo-image { display: block; width: 100%; aspect-ratio: 3 / 1; object-fit: contain; }
+.cadu-promo-caption { margin: 0; padding: 12px 20px; font-size: 13px; font-weight: 600; background: #fff; color: #531b04; }
+.cadu-promo-controls { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 6px 12px; background: #fff; border-top: 1px solid #f1e9e2; }
+.cadu-promo-controls button { display: grid; place-items: center; min-width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: #531b04; cursor: pointer; }
+.cadu-promo-controls button:hover { background: #f6efea; }
+.cadu-promo-dots { display: flex; flex-wrap: wrap; justify-content: center; }
+.cadu-promo-dots span { width: 7px; height: 7px; border-radius: 20px; background: #d5c0b3; }
+.cadu-promo-dots [aria-current] span { width: 22px; background: #531b04; }
+.storefront-page { background: #faf7f2; }
+@media (min-width: 981px) {
+  .cadu-catalog-toolbar--desktop { display: flex; flex-direction: column; gap: 16px; }
+  .cadu-catalog-toolbar--desktop .cadu-catalog-search { flex: auto; width: 100%; }
+  .storefront-page { margin-top: 32px; margin-bottom: 32px; border: 1px solid #e8ddd3; border-radius: 24px; box-shadow: 0 12px 48px #531b0408; }
+  .storefront-page > header { border-radius: 24px 24px 0 0; }
+}
+@media (max-width: 980px) {
+  .cadu-mobile-header, .cadu-catalog-sticky { background: #faf7f2f5; }
+  .cadu-shop-hero { width: calc(100% - 28px); margin-top: 14px; border-radius: 22px; }
+  .cadu-hero-content { padding: 26px 22px; }
+  .cadu-hero-content h1 { font-size: clamp(28px, 5vw, 40px); max-width: 20ch; }
+  .cadu-hero-proof { display: none; }
+  .cadu-promos { width: calc(100% - 28px); margin: 16px auto; border-radius: 18px; }
+  .cadu-promo-image { aspect-ratio: 2 / 1; }
+  .cadu-product-card { border-radius: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cadu-shop *, .cadu-shop *::before { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Menu-first hierarchy: one store heading and a single aligned content area. */
+.cadu-store-heading { width: min(1440px, calc(100% - 64px)); padding: 32px 0 24px; }
+.cadu-store-title h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.2; }
+.cadu-store-closed-banner { box-sizing: border-box; width: min(1440px, calc(100% - 64px)); margin: 0 auto 24px; padding: 14px 18px; border-radius: 12px; background: #fff4e7; border: 1px solid #ead9c4; color: #714724; font-size: 14px; line-height: 1.5; }
+.cadu-shop-layout { width: min(1440px, calc(100% - 64px)); grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; }
+.cadu-catalog-column > .cadu-promos { width: 100%; margin: 0 0 24px; border-radius: 16px; }
+.cadu-promo-image { aspect-ratio: 4 / 1; max-height: 220px; }
+.cadu-category-strip { flex-wrap: nowrap; overflow-x: auto; padding: 3px 2px 10px; }
+.cadu-category-strip button { flex-shrink: 0; }
+.cadu-catalog-toolbar--desktop { margin-bottom: 28px; }
+.cadu-section-heading > span { display: none; }
+.cadu-section-heading h2 { font-size: 26px; margin: 0; }
+.cadu-product-card { grid-template-columns: 112px minmax(0, 1fr); min-height: 158px; }
+.cadu-product-copy p { -webkit-line-clamp: 2; line-height: 1.5; }
+.cadu-product-copy h3 { font-size: 16px; }
+.cadu-desktop-cart > header { background: #fff; color: #531b04; border-bottom: 1px solid #e8ddd3; }
+@media (max-width: 1100px) and (min-width: 981px) {
+  .cadu-shop-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
+  .cadu-product-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 980px) {
+  .cadu-shop-layout { width: 100%; grid-template-columns: 1fr; gap: 0; }
+  .cadu-store-closed-banner { width: calc(100% - 28px); margin: 14px auto; font-size: 13px; }
+  .cadu-catalog-column > .cadu-promos { width: calc(100% - 28px); margin: 14px auto; }
+  .cadu-promo-image { aspect-ratio: 3 / 1; }
+  .cadu-section-heading h2 { font-size: 22px; }
+  .cadu-product-card { grid-template-columns: 92px minmax(0, 1fr); min-height: 140px; }
+}
+
+/* Cardápio Web reference: cover, overlapping identity, catalog and sticky bag. */
+.cadu-shop { --cadu-page: #f4f5f7; --cadu-ink: #292d34; --cadu-muted: #686c73; --cadu-line: #dedfe3; background: var(--cadu-page); }
+.cadu-shop h1, .cadu-shop h2, .cadu-shop .cadu-section-heading h2 { font-family: inherit; letter-spacing: -.025em; font-weight: 750; }
+.cadu-top-nav { justify-content: space-evenly; padding-inline: max(24px, calc((100% - 1280px) / 2)); min-height: 76px; box-shadow: none; }
+.cadu-top-nav a, .cadu-top-nav button { font-size: 15px; padding: 12px 22px; }
+.cadu-top-nav .cadu-nav-active { background: #fff; color: #531b04; box-shadow: none; }
+.cadu-store-cover { position: relative; display: flex; align-items: center; justify-content: space-around; gap: 32px; width: min(1280px, calc(100% - 40px)); height: 300px; margin: 20px auto 0; padding: 32px 64px; border: 5px solid white; border-radius: 16px; overflow: hidden; background: #ecdfd2; }
+.cadu-store-cover::after { content: ''; position: absolute; width: 380px; height: 380px; right: -180px; top: -200px; border: 48px solid #531b0409; border-radius: 50%; pointer-events: none; }
+.cadu-cover-brand { width: 380px; max-width: 45%; }
+.cadu-cover-brand img { display: block; width: 100%; height: auto; }
+.cadu-cover-message { max-width: 380px; color: #531b04; }
+.cadu-cover-message span { font-size: 13px; }
+.cadu-cover-message p { margin-top: 10px; font-size: 36px; line-height: 1.15; font-weight: 750; letter-spacing: -.035em; }
+.cadu-store-heading { width: min(1280px, calc(100% - 40px)); grid-template-columns: 148px minmax(0, 1fr); gap: 24px; padding: 0 24px 28px; min-height: 136px; }
+.cadu-store-logo { width: 148px; height: 148px; border-radius: 16px; background: #fff; border: 1px solid #dedfe3; transform: translateY(-36px); box-shadow: 0 2px 4px #00000008; }
+.cadu-store-logo img { padding: 8px; }
+.cadu-store-title h1 { font-size: clamp(24px, 3vw, 36px); }
+.cadu-store-meta { font-size: 13px; line-height: 1.7; }
+.cadu-store-closed-banner { width: min(1280px, calc(100% - 40px)); margin-bottom: 24px; }
+.cadu-shop-layout { width: min(1280px, calc(100% - 40px)); grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; }
+.cadu-catalog-toolbar--desktop { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+.cadu-category-select select { max-width: 240px; height: 46px; padding: 0 36px 0 16px; background: white; color: #4a4e56; border: 1px solid #dedfe3; border-radius: 6px; font-size: 14px; cursor: pointer; }
+.cadu-catalog-toolbar--desktop .cadu-catalog-search { flex: 0 1 340px; width: auto; height: 46px; border-radius: 6px; }
+.cadu-section-heading h2 { font-size: 25px; margin-bottom: 22px; }
+.cadu-catalog-section + .cadu-catalog-section { margin-top: 40px; }
+.cadu-product-grid { gap: 16px; }
+.cadu-product-card { position: relative; grid-template-columns: minmax(0, 1fr) 120px; grid-template-rows: 1fr auto; gap: 12px; padding: 16px; min-height: 205px; border-radius: 8px; border-color: #dedfe3; box-shadow: none; }
+.cadu-product-thumb { grid-column: 2; grid-row: 1; width: 120px; height: 120px; min-height: 0; border-radius: 8px; }
+.cadu-product-copy { grid-column: 1; grid-row: 1 / 3; display: flex; flex-direction: column; align-items: flex-start; }
+.cadu-product-copy > span { font-size: 10px; letter-spacing: .03em; color: #876958; }
+.cadu-product-copy h3 { font-size: 16px; line-height: 1.4; margin-top: 5px; }
+.cadu-product-copy p { font-size: 13px; line-height: 1.5; -webkit-line-clamp: 3; margin-bottom: 18px; }
+.cadu-product-copy strong { margin-top: auto; padding-top: 12px; font-size: 16px; font-weight: 600; }
+.cadu-product-add { grid-column: 2; grid-row: 2; font-size: 11px; padding: 8px; min-height: 36px; border-radius: 6px; }
+.cadu-product-grid--featured { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cadu-product-grid--featured .cadu-product-card { display: flex; flex-direction: column; padding: 5px; gap: 0; }
+.cadu-product-grid--featured .cadu-product-thumb { width: 100%; height: auto; aspect-ratio: 1.3; border-radius: 5px; }
+.cadu-product-grid--featured .cadu-product-copy { flex: 1; padding: 14px 12px; }
+.cadu-product-grid--featured .cadu-product-add { align-self: stretch; margin: 0 12px 12px; justify-content: center; }
+.cadu-desktop-cart { border-radius: 8px; box-shadow: 0 2px 4px #00000005; top: 96px; }
+.cadu-desktop-cart > header { font-size: 14px; padding: 18px; }
+@media (min-width: 981px) and (max-width: 1150px) {
+  .cadu-shop-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; }
+  .cadu-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cadu-product-card { grid-template-columns: minmax(0, 1fr) 96px; }
+  .cadu-product-thumb { width: 96px; height: 96px; }
+  .cadu-product-grid--featured { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 980px) {
+  .cadu-store-cover { height: 180px; margin-top: 12px; width: calc(100% - 24px); padding: 20px; gap: 16px; border-width: 3px; }
+  .cadu-cover-brand { width: 220px; max-width: 50%; }
+  .cadu-cover-message p { font-size: clamp(18px, 4vw, 28px); }
+  .cadu-cover-message span { display: none; }
+  .cadu-store-heading { width: calc(100% - 28px); grid-template-columns: 76px minmax(0, 1fr); gap: 14px; padding: 0 0 14px; min-height: 108px; }
+  .cadu-store-logo { width: 76px; height: 76px; transform: translateY(-20px); border-radius: 12px; }
+  .cadu-store-title h1 { font-size: 22px; }
+  .cadu-store-badge { display: none; }
+  .cadu-store-meta { font-size: 11px; gap: 4px; }
+  .cadu-store-closed-banner { width: calc(100% - 28px); margin-top: 0; }
+  .cadu-shop-layout { width: 100%; grid-template-columns: 1fr; gap: 0; }
+  .cadu-product-grid { grid-template-columns: 1fr; }
+  .cadu-product-card { grid-template-columns: minmax(0, 1fr) 104px; min-height: 180px; }
+  .cadu-product-thumb { width: 104px; height: 104px; }
+  .cadu-product-grid--featured { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; }
+  .cadu-product-grid--featured .cadu-product-card { flex: 0 0 220px; scroll-snap-align: start; }
+  .cadu-catalog-sticky { background: #f4f5f7f5; }
+}
+
+.cadu-offers-launcher { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; margin-bottom: 24px; border: 1px solid #e2d4c8; border-radius: 8px; background: #fff8f0; color: #531b04; font-weight: 650; cursor: pointer; }
+.cadu-offers-launcher > svg:last-child { margin-left: auto; }
+.cadu-offers-count { padding: 2px 8px; border-radius: 20px; background: #eedfce; font-size: 12px; }
+.cadu-offers-dialog { width: calc(100% - 32px); max-width: 980px !important; padding: 0; gap: 0; overflow: hidden; background: #f4f5f7; border-radius: 14px; }
+.cadu-offers-heading { padding: 26px 52px 26px 24px; background: white; border-bottom: 1px solid #dedfe3; color: #292d34; }
+.cadu-offers-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 24px; max-height: 70dvh; overflow-y: auto; }
+.cadu-offer-card { display: flex; align-items: flex-start; gap: 20px; padding: 16px; border: 1px solid #dedfe3; border-radius: 9px; background: white; color: #292d34; text-decoration: none; }
+.cadu-offer-card:focus-visible { outline: 3px solid #b83854; outline-offset: 2px; }
+.cadu-offer-copy { flex: 1; min-width: 0; }
+.cadu-offer-badge { display: inline-block; padding: 4px 8px; background: #e7f7eb; border-radius: 4px; color: #27864b; font-size: 11px; font-weight: 750; }
+.cadu-offer-copy h3 { margin: 12px 0 24px; font-size: 17px; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.cadu-offer-link { display: flex; align-items: center; gap: 8px; color: #531b04; font-size: 14px; font-weight: 650; }
+.cadu-offer-image { width: 128px; height: 128px; flex-shrink: 0; object-fit: contain; border-radius: 8px; background: #f6efea; }
+@media (max-width: 640px) {
+  .cadu-offers-grid { grid-template-columns: 1fr; padding: 16px; }
+  .cadu-offer-image { width: 104px; height: 104px; }
+  .cadu-offers-launcher { width: calc(100% - 28px); margin: 0 auto 20px; }
+}

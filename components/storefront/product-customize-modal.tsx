@@ -1,5 +1,7 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Minus, Plus, X } from 'lucide-react'
@@ -169,7 +171,7 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
             </div>
 
             {state.item.imagem_url ? (
-              <img
+              <StoreImage
                 src={state.item.imagem_url}
                 alt=""
                 className="cadu-modal-image"

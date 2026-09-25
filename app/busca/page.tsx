@@ -1,5 +1,7 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
@@ -119,7 +121,7 @@ export default function BuscaPage() {
                       >
                         {item.imagem_url ? (
                           <div className="h-[88px] w-[88px] overflow-hidden rounded-xl bg-secondary">
-                            <img src={item.imagem_url} alt="" className="h-full w-full object-cover" />
+                            <StoreImage src={item.imagem_url} alt="" className="h-full w-full object-cover" />
                           </div>
                         ) : (
                           <div className="flex h-[88px] w-[88px] items-center justify-center rounded-xl bg-accent/10">

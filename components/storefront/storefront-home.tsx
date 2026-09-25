@@ -1,10 +1,12 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { HomePromoCarousel } from '@/components/home-promo-carousel'
 import {
-  ArrowRight,
   BadgePercent,
   House,
   MapPin,
@@ -12,8 +14,6 @@ import {
   Plus,
   Search,
   ShoppingBag,
-  Sparkles,
-  Star,
   Store,
   UserRound,
 } from 'lucide-react'
@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
+import logoCover from '@/logo/logo-principal-transparent.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { DesktopCartCheckout } from '@/components/checkout/desktop-cart-checkout'
 import { useProfileModal } from '@/lib/profile-modal-context'
@@ -44,6 +45,7 @@ export function StorefrontHome() {
   const [itens, setItens] = useState<ItemComCategoria[]>([])
   const [categoriaSelecionada, setCategoriaSelecionada] = useState('todas')
   const [query, setQuery] = useState('')
+  const [promotionsOpen, setPromotionsOpen] = useState(true)
   const [loading, setLoading] = useState(true)
   const [isSplash, setIsSplash] = useState(true)
   const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
@@ -112,7 +114,7 @@ export function StorefrontHome() {
   }
 
   function scrollToFeatured() {
-    document.getElementById('destaques')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    (document.getElementById('destaques') ?? document.getElementById('catalogo'))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function productsInSection(section: string) {
@@ -145,7 +147,7 @@ export function StorefrontHome() {
           <House size={17} />
           {t.navHome}
         </button>
-        <button type="button" onClick={scrollToFeatured}>
+        <button type="button" onClick={() => setPromotionsOpen(true)}>
           <BadgePercent size={17} />
           {t.navFeatured}
         </button>
@@ -163,40 +165,19 @@ export function StorefrontHome() {
         </button>
       </nav>
 
-      <section className="cadu-shop-hero">
-        <div className="cadu-hero-content">
-          <span className="cadu-hero-kicker">
-            <Sparkles size={15} />
-            {t.heroKicker}
-          </span>
-          <h1>{t.heroHeadline}</h1>
-          <p className="cadu-hero-subtitle">{t.heroSubtitle}</p>
-          <div className="cadu-hero-actions">
-            <button type="button" className="cadu-hero-primary" onClick={scrollToCatalog}>
-              {t.heroCta}
-              <ArrowRight size={18} />
-            </button>
-            <button type="button" className="cadu-hero-secondary" onClick={scrollToFeatured}>
-              {t.heroSpecials}
-              <Star size={16} />
-            </button>
-          </div>
+      <section className="cadu-store-cover" aria-label={t.storeName}>
+        <div className="cadu-cover-brand">
+          <Image src={logoCover} alt={t.storeName} priority sizes="(max-width: 980px) 240px, 400px" />
         </div>
-        <div className="cadu-hero-proof" aria-hidden>
-          <span>★</span>
-          <p>
-            <strong>{t.storeDelivery}</strong>
-          </p>
-        </div>
+        <div className="cadu-cover-message"><span>{t.heroKicker}</span><p>{t.heroHeadline}</p></div>
       </section>
-
-      <section className="cadu-store-heading cadu-store-heading--desktop">
+      <section className="cadu-store-heading">
         <div className="cadu-store-logo">
           <Image src={logoPerfil} alt="" width={120} height={120} priority />
         </div>
         <div>
           <div className="cadu-store-title">
-            <h2>{t.storeName}</h2>
+            <h1>{t.storeName}</h1>
             <span className="cadu-store-badge">
               <Store size={13} />
               {t.storeDelivery}
@@ -249,26 +230,13 @@ export function StorefrontHome() {
           </div>
 
           <div className="cadu-catalog-toolbar cadu-catalog-toolbar--desktop">
-            <div className="cadu-category-strip" role="tablist" aria-label="Categorias">
-              <button
-                type="button"
-                className={categoriaSelecionada === 'todas' ? 'cadu-selected' : ''}
-                onClick={() => setCategoriaSelecionada('todas')}
-              >
-                {t.all}
-              </button>
-              {categorias.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={categoriaSelecionada === cat.id ? 'cadu-selected' : ''}
-                  onClick={() => setCategoriaSelecionada(cat.id)}
-                >
-                  {cat.icone ? `${cat.icone} ` : ''}
-                  {cat.nome}
-                </button>
-              ))}
-            </div>
+            <label className="cadu-category-select">
+              <span className="sr-only">{lang === 'en' ? 'Categories' : 'Categorias'}</span>
+              <select value={categoriaSelecionada} onChange={(event) => setCategoriaSelecionada(event.target.value)}>
+                <option value="todas">{lang === 'en' ? 'All categories' : 'Lista de categorias'}</option>
+                {categorias.map((category) => <option key={category.id} value={category.id}>{category.nome}</option>)}
+              </select>
+            </label>
             <label className="cadu-catalog-search">
               <Search size={18} />
               <input
@@ -280,6 +248,7 @@ export function StorefrontHome() {
             </label>
           </div>
 
+          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} />
           <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
@@ -314,7 +283,7 @@ export function StorefrontHome() {
                     <span>{section === t.featured ? t.featured.toUpperCase() : t.catalogLabel}</span>
                     <h2>{section}</h2>
                   </div>
-                  <div className="cadu-product-grid">
+                  <div className={`cadu-product-grid ${section === t.featured ? 'cadu-product-grid--featured' : ''}`}>
                     {sectionItems.map((item) => (
                       <ProductCard
                         key={item.id}
@@ -378,7 +347,7 @@ function ProductCard({
     <article className="cadu-product-card">
       <Link href={`/produto/${item.id}`} className="cadu-product-thumb block">
         {item.imagem_url ? (
-          <img src={item.imagem_url} alt="" />
+          <StoreImage src={item.imagem_url} alt={item.nome} />
         ) : (
           <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
         )}

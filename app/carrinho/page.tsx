@@ -1,5 +1,7 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
 import { useStoreStatus } from '@/lib/store-status-client'
@@ -62,7 +64,7 @@ export default function CarrinhoPage() {
           <div key={cartItemId} className="flex gap-3 rounded-2xl border border-border bg-card p-3">
             {item.imagem_url ? (
               <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                <img src={item.imagem_url} alt={item.nome} className="h-full w-full object-cover" />
+                <StoreImage src={item.imagem_url} alt={item.nome} className="h-full w-full object-cover" />
               </div>
             ) : (
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-accent/10">

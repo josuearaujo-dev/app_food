@@ -28,7 +28,7 @@ export function StorefrontShell({
   return (
     <main
       className={cn(
-        'mx-auto max-w-lg bg-background',
+        'storefront-page mx-auto max-w-lg bg-background',
         fullHeight ? 'flex min-h-screen flex-col' : 'min-h-screen',
         storefrontBottomClass(bottomPadding),
         className

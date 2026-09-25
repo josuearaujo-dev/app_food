@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { isAdminAppUser } from '@/lib/admin-access'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
   marketingSettingsInputSchema,
@@ -15,6 +16,24 @@ function blankToNull(value: string | undefined) {
   return trimmed ? trimmed : null
 }
 
+function saveErrorMessage(error: { code?: string; message?: string } | null) {
+  const code = error?.code ?? ''
+  const msg = (error?.message ?? '').toLowerCase()
+  if (code === '42P01' || msg.includes('does not exist') || msg.includes('não existe')) {
+    return 'Tabela de marketing não encontrada. Rode o SQL scripts/039_store_marketing_settings.sql no Supabase.'
+  }
+  if (code === '42501' || msg.includes('permission denied') || msg.includes('row-level security')) {
+    return 'Sem permissão no banco para salvar marketing. Confira as policies RLS do SQL 039.'
+  }
+  if (msg.includes('jwt') || msg.includes('auth')) {
+    return 'Sessão expirada. Entre de novo no admin e tente salvar.'
+  }
+  if (error?.message?.trim()) {
+    return `Não foi possível salvar: ${error.message}`
+  }
+  return 'Não foi possível salvar o marketing. Tente de novo.'
+}
+
 export async function saveMarketingSettings(input: unknown): Promise<SaveMarketingResult> {
   const supabase = await createClient()
   const {
@@ -26,6 +45,13 @@ export async function saveMarketingSettings(input: unknown): Promise<SaveMarketi
 
   const parsed = marketingSettingsInputSchema.safeParse(input)
   if (!parsed.success) {
+    const tokenIssue = parsed.error.issues.some(
+      (issue) =>
+        issue.path.includes('metaCapiToken') || issue.path.includes('tiktokEventsToken')
+    )
+    if (tokenIssue) {
+      return { ok: false, message: 'Token inválido ou longo demais. Cole o access token completo.' }
+    }
     return { ok: false, message: 'Revise os IDs. Use o formato oficial de cada plataforma.' }
   }
 
@@ -46,11 +72,25 @@ export async function saveMarketingSettings(input: unknown): Promise<SaveMarketi
     return { ok: false, message: 'TikTok Pixel ID inválido.' }
   }
 
-  const { data: existing } = await supabase
+  let admin
+  try {
+    admin = createAdminClient()
+  } catch {
+    return {
+      ok: false,
+      message: 'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Sem ela o marketing não salva.',
+    }
+  }
+
+  const { data: existing, error: readError } = await admin
     .from('store_marketing_settings')
     .select('id, meta_capi_token, tiktok_events_token')
     .limit(1)
     .maybeSingle()
+
+  if (readError) {
+    return { ok: false, message: saveErrorMessage(readError) }
+  }
 
   let metaCapiToken = existing?.meta_capi_token ?? null
   if (parsed.data.clearMetaCapiToken) metaCapiToken = null
@@ -81,11 +121,11 @@ export async function saveMarketingSettings(input: unknown): Promise<SaveMarketi
   }
 
   const { error } = existing?.id
-    ? await supabase.from('store_marketing_settings').update(row).eq('id', existing.id)
-    : await supabase.from('store_marketing_settings').insert(row)
+    ? await admin.from('store_marketing_settings').update(row).eq('id', existing.id)
+    : await admin.from('store_marketing_settings').insert(row)
 
   if (error) {
-    return { ok: false, message: 'Não foi possível salvar o marketing. Tente de novo.' }
+    return { ok: false, message: saveErrorMessage(error) }
   }
 
   revalidatePath('/admin/marketing')

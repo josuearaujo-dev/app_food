@@ -1,5 +1,7 @@
 'use client'
 
+import { StoreImage } from '@/components/storefront/store-image'
+
 import { useEffect, useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -322,7 +324,7 @@ export default function ProdutoDetalhePage() {
     >
       <section className="space-y-4 px-4 pt-4">
         {item.imagem_url ? (
-          <img src={item.imagem_url} alt={item.nome} className="w-full h-52 object-cover rounded-2xl" />
+          <StoreImage src={item.imagem_url} alt={item.nome} className="w-full h-52 object-cover rounded-2xl" />
         ) : (
           <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-accent/10 text-6xl">🍽️</div>
         )}
