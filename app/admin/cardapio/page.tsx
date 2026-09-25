@@ -903,6 +903,7 @@ export default function AdminCardapioPage() {
             onChange={(v) => setFormItem({ ...formItem, descricao: v })}
             placeholder={t.placeholderDesc}
             multiline
+            hint="Aparece no banner de ofertas quando este produto for o destino e o banner não tiver descrição própria."
           />
           <CampoTexto
             label={t.fieldPrice}
@@ -1310,8 +1311,8 @@ function Modal({ titulo, children, onFechar, onSalvar, salvando, labelSave, labe
   )
 }
 
-function CampoTexto({ label, value, onChange, placeholder, multiline, inputMode, prefix }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; prefix?: string
+function CampoTexto({ label, value, onChange, placeholder, multiline, inputMode, prefix, hint }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; prefix?: string; hint?: string
 }) {
   return (
     <div>
@@ -1340,6 +1341,7 @@ function CampoTexto({ label, value, onChange, placeholder, multiline, inputMode,
           />
         </div>
       )}
+      {hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }

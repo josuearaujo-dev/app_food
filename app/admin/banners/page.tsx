@@ -14,6 +14,8 @@ const CARDAPIO_BUCKET = 'cardapio-imagens'
 type Banner = {
   id: string
   titulo: string
+  descricao: string | null
+  descricao_en: string | null
   imagem_url: string
   imagem_url_en: string | null
   ordem: number
@@ -70,6 +72,8 @@ export default function AdminBannersPage() {
   const [editing, setEditing] = useState<Banner | null>(null)
   const [form, setForm] = useState({
     titulo: '',
+    descricao: '',
+    descricao_en: '',
     imagem_url: '',
     imagem_url_en: '',
     ativo: true,
@@ -146,6 +150,8 @@ export default function AdminBannersPage() {
     setEditing(null)
     setForm({
       titulo: '',
+      descricao: '',
+      descricao_en: '',
       imagem_url: '',
       imagem_url_en: '',
         ativo: true,
@@ -163,6 +169,8 @@ export default function AdminBannersPage() {
     setEditing(b)
     setForm({
       titulo: b.titulo,
+      descricao: b.descricao ?? '',
+      descricao_en: b.descricao_en ?? '',
       imagem_url: b.imagem_url,
       imagem_url_en: b.imagem_url_en ?? '',
       ativo: b.ativo,
@@ -203,6 +211,8 @@ export default function AdminBannersPage() {
     setError(null)
     const payload = {
       titulo: form.titulo.trim(),
+      descricao: form.descricao.trim() || null,
+      descricao_en: form.descricao_en.trim() || null,
       imagem_url: form.imagem_url.trim(),
       imagem_url_en: form.imagem_url_en.trim() || null,
       ...(editing ? {} : { ordem: Math.max(0, ...banners.map((banner) => banner.ordem ?? 0)) + 1 }),
@@ -371,6 +381,34 @@ export default function AdminBannersPage() {
               <div>
                 <label className="mb-1 block text-xs font-semibold">Título</label>
                 <input value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold">Descrição</label>
+                <textarea
+                  value={form.descricao}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                  rows={3}
+                  placeholder="Texto que aparece no cartão da oferta"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Se ficar vazio e o destino for um produto ou combo, o banner usa a descrição desse cadastro.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold">Descrição em inglês</label>
+                <textarea
+                  value={form.descricao_en}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao_en: e.target.value }))}
+                  rows={3}
+                  placeholder="Optional English text"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Opcional. Sem este texto, o site em inglês usa a descrição acima.
+                </p>
               </div>
 
               <div>

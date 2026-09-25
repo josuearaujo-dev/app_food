@@ -1,44 +1,35 @@
-Deploy geral v2.0.0
-===================
+Descrição no banner de ofertas v2.1.0
+=====================================
 
-Substitui os pacotes v1.5.0 até v1.9.0. Copia a loja completa que está
-nesta máquina: cardápio, popup de ofertas com preço, loja fechada,
-marketing, perfil e imagens de reserva.
-
-Por que a página principal não mudou
-------------------------------------
-O v1.9.0 só levava o banner. Se o GitHub ainda tiver a página de
-manutenção (v1.6.0), a home continua a página em inglês e o popup
-não abre. Este pacote inclui app/page.tsx e a home do cardápio.
+O cartão da oferta mostra a descrição do banner.
+Se o banner não tiver texto, usa a descrição do produto ou do combo.
 
 Como aplicar
 ------------
-1) No projeto do GitHub, copiar o CONTEÚDO desta pasta para a raiz,
-   mantendo os caminhos. Não deixe a pasta deploy-altered-v2.0.0
-   dentro do repositório.
-2) APAGAR estes arquivos, se ainda existirem:
-     components/storefront/store-maintenance.tsx
-     lib/store-maintenance.ts
-3) Commit + push. O build da Vercel precisa destes arquivos juntos:
-     app/page.tsx
-     components/storefront/storefront-home.tsx
-     components/home-promo-carousel.tsx
-     components/home-promo-carousel.module.css
-     components/storefront/store-image.tsx
-     public/images/product-placeholder.svg
-     app/api/banners/route.ts
-     app/admin/banners/page.tsx
-4) SQL, só se a tabela ou a coluna ainda não existir neste banco:
-     scripts/039_store_marketing_settings.sql
-     scripts/040_loja_aceitando_pedidos.sql
-     scripts/041_banners_preco_riscado.sql
-   No projeto kujvnoscdmdarwmoivtq, 040 e 041 já foram aplicados.
+1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
+   Não deixe a pasta deploy-altered-v2.1.0 dentro do repositório.
+2) Rodar scripts/042_banners_descricao.sql no Supabase (uma vez).
+   Neste banco (kujvnoscdmdarwmoivtq) as colunas já foram criadas.
+3) Commit + push no GitHub / deploy (Vercel).
+4) Este pacote vem DEPOIS do v2.0.0. Aplique os dois.
 
-O que o cliente vê
+Arquivos NOVOS
+--------------
+- scripts/042_banners_descricao.sql
+
+Arquivos ALTERADOS
 ------------------
-A home volta a ser o cardápio. As ofertas abrem no popup
-"Special offers", com preço do produto ou do combo.
-O preço riscado de produto fica no admin, em Banners.
+- app/admin/banners/page.tsx
+- app/admin/cardapio/page.tsx
+- app/api/banners/route.ts
+- components/admin-combos-panel.tsx
+- components/home-promo-carousel.tsx
+- components/home-promo-carousel.module.css
+- components/storefront/store-image.tsx
+- public/images/product-placeholder.svg
 
+Obs.
+----
+store-image.tsx e o placeholder entram para o build não falhar
+com "module-not-found" na página de banners.
 O .env.local NÃO entra neste pacote.
-Não copie backup-data.sql, backup-schema.sql nem a pasta backup-supabase.

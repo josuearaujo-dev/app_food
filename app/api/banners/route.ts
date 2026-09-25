@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 type BannerRow = {
   id: string
   titulo: string
+  descricao: string | null
+  descricao_en: string | null
   imagem_url: string
   imagem_url_en: string | null
   ordem: number
@@ -84,7 +86,7 @@ export async function GET() {
       supabase
         .from('banners_home')
         .select(
-          'id, titulo, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco_riscado'
+          'id, titulo, descricao, descricao_en, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco_riscado'
         )
         .eq('ativo', true)
         .order('ordem')
@@ -138,8 +140,8 @@ export async function GET() {
       return {
         id: `custom-${b.id}`,
         title: b.titulo?.trim() || 'Banner',
-        description: (product?.descricao ?? combo?.descricao)?.trim() || null,
-        descriptionEn: product?.descricao_en?.trim() || null,
+        description: b.descricao?.trim() || product?.descricao?.trim() || combo?.descricao?.trim() || null,
+        descriptionEn: b.descricao_en?.trim() || product?.descricao_en?.trim() || null,
         imageUrl: b.imagem_url.trim(),
         imageUrlEn: b.imagem_url_en?.trim() || undefined,
         href: toHref(b),

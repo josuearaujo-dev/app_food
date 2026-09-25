@@ -276,7 +276,11 @@ export function AdminCombosPanel() {
             <div className="space-y-3 px-4 py-4">
               {erro ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p> : null}
               <input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} placeholder="Nome do combo" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-              <textarea value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Descrição (opcional)" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">Descrição</label>
+                <textarea value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Texto que aparece no banner de ofertas" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+                <p className="mt-1 text-[11px] text-muted-foreground">Aparece no banner quando este combo for o destino e o banner não tiver descrição própria.</p>
+              </div>
               <input type="number" min={0} step={0.01} value={form.preco} onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))} placeholder="Preço do combo (USD)" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-foreground">Imagem do combo</label>
