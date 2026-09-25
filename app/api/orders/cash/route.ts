@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
 import { computePromotionForOrderCart } from '@/lib/order-promotions'
-import { getDeliveryFeeAmount, listDeliveryLocations } from '@/lib/store-settings'
+import { getDeliveryFeeAmount, isStoreAcceptingOrders, listDeliveryLocations } from '@/lib/store-settings'
 import { calculateOrderTax } from '@/lib/order-tax'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchCategoryNameMap } from '@/lib/receipt-category-map'
@@ -37,6 +37,12 @@ type CashOrderBody = {
 
 export async function POST(request: Request) {
   try {
+    if (!(await isStoreAcceptingOrders())) {
+      return NextResponse.json(
+        { error: 'The store is closed and is not taking orders.' },
+        { status: 409 }
+      )
+    }
     const body = (await request.json()) as CashOrderBody
     const parsedCustomer = parseCustomerPayload(body.customer, {
       requireDeliveryLocation: (await listDeliveryLocations()).length > 0,

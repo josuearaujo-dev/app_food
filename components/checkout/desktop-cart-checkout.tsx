@@ -29,6 +29,7 @@ import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
+import { useStoreStatus } from '@/lib/store-status-client'
 
 type SuccessOrder = {
   orderId: string
@@ -44,6 +45,7 @@ export function DesktopCartCheckout() {
   const { t } = useLang()
   const supabase = createClient()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
 
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
@@ -252,6 +254,10 @@ export function DesktopCartCheckout() {
   }
 
   async function onPayClick() {
+    if (!storeStatusLoading && !acceptingOrders) {
+      setFormError(t.storeClosedCheckout)
+      return
+    }
     const saved = await persistCustomer()
     if (!saved) return
 
@@ -517,14 +523,16 @@ export function DesktopCartCheckout() {
             <button
               type="button"
               className="cadu-sidebar-pay"
-              disabled={!canSubmit || isPaying}
+              disabled={!canSubmit || isPaying || storeStatusLoading || !acceptingOrders}
               onClick={onPayClick}
             >
-              {isPaying
-                ? t.paymentProcessing
-                : paymentMethod === 'cash'
-                  ? `${t.paymentCashConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`
-                  : `${t.paymentPayConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`}
+              {!storeStatusLoading && !acceptingOrders
+                ? t.storeClosed
+                : isPaying
+                  ? t.paymentProcessing
+                  : paymentMethod === 'cash'
+                    ? `${t.paymentCashConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`
+                    : `${t.paymentPayConfirm} · ${t.currency}${checkoutTotal.toFixed(2)}`}
             </button>
           </div>
         </div>

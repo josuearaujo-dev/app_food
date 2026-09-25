@@ -12,6 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
+import { StoreOrdersSwitch } from '@/components/admin/store-orders-switch'
 
 type KitchenStatus = 'new' | 'preparing' | 'delivered'
 
@@ -92,6 +93,7 @@ export default function AdminOperationsPage() {
 
   return (
     <AdminPageContent width="board" className="pb-10">
+      <StoreOrdersSwitch />
       <div className="admin-operations-heading">
         <div>
           <p className="admin-eyebrow">{t.adminOpsOverview}</p>

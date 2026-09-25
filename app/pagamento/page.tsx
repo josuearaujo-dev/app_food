@@ -26,7 +26,7 @@ import {
   type CustomerPaymentMethod,
 } from '@/lib/checkout/place-cash-order'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
-import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
+import { useStoreStatus } from '@/lib/store-status-client'
 
 type SuccessOrder = {
   orderId: string
@@ -131,6 +131,7 @@ function CloverCheckoutPage() {
   const router = useRouter()
   const { items, totalPrice, totalItems, clearCart } = useCart()
   const { t, lang } = useLang()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const { deliveryFee, locations } = useCheckoutConfig()
   const [checkoutCustomer, setCheckoutCustomer] = useState<CheckoutCustomer | null>(null)
   const [customerChecked, setCustomerChecked] = useState(false)
@@ -424,6 +425,17 @@ function CloverCheckoutPage() {
     }
   }
 
+  if (!storeStatusLoading && !acceptingOrders) {
+    return (
+      <main className="cadu-checkout mx-auto max-w-lg px-4 py-10">
+        <p className="text-sm font-semibold text-[var(--cadu-ink)]">{t.storeClosedCheckout}</p>
+        <Link href="/" className="mt-4 inline-block text-sm font-bold text-[var(--cadu-pink)]">
+          {t.backToMenu}
+        </Link>
+      </main>
+    )
+  }
+
   if (!customerChecked || !checkoutCustomer) {
     return (
       <main className="cadu-checkout mx-auto max-w-lg">
@@ -651,6 +663,7 @@ function PayPalCheckoutPage() {
   const router = useRouter()
   const { items, totalPrice, totalItems, clearCart } = useCart()
   const { t } = useLang()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const [checkoutCustomer, setCheckoutCustomer] = useState<CheckoutCustomer | null>(null)
   const [customerChecked, setCustomerChecked] = useState(false)
   const [sdkLoaded, setSdkLoaded] = useState(false)
@@ -853,6 +866,17 @@ function PayPalCheckoutPage() {
         isRenderingRef.current = false
       })
   }, [sdkLoaded, items, hasValidPayPalClientId, customerChecked, checkoutCustomer])
+
+  if (!storeStatusLoading && !acceptingOrders) {
+    return (
+      <main className="mx-auto min-h-screen max-w-lg bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <p className="text-sm font-semibold text-foreground">{t.storeClosedCheckout}</p>
+        <Link href="/" className="mt-4 inline-block text-sm font-bold text-accent">
+          {t.backToMenu}
+        </Link>
+      </main>
+    )
+  }
 
   if (!customerChecked || !checkoutCustomer) {
     return (

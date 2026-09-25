@@ -1,9 +1,6 @@
-import { STOREFRONT_MAINTENANCE } from '@/lib/store-maintenance'
-
 /** Regras centralizadas de chrome (bottom nav, floating cart) por rota. */
 
 export function shouldHideBottomNav(pathname: string): boolean {
-  if (STOREFRONT_MAINTENANCE && pathname === '/') return true
   return (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/produto/') ||
@@ -15,7 +12,6 @@ export function shouldHideBottomNav(pathname: string): boolean {
 }
 
 export function shouldHideFloatingCart(pathname: string): boolean {
-  if (STOREFRONT_MAINTENANCE && pathname === '/') return true
   return (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/pagamento') ||

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
+import { isStoreAcceptingOrders } from '@/lib/store-settings'
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === 'live'
@@ -57,6 +58,12 @@ type OrderRequestBody = {
 
 export async function POST(request: Request) {
   try {
+    if (!(await isStoreAcceptingOrders())) {
+      return NextResponse.json(
+        { error: 'The store is closed and is not taking orders.' },
+        { status: 409 }
+      )
+    }
     const body = (await request.json()) as OrderRequestBody
     const parsedCustomer = parseCustomerPayload(body.customer)
     if (!parsedCustomer.ok) {

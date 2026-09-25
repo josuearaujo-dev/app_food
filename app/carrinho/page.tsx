@@ -2,6 +2,7 @@
 
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { useStoreStatus } from '@/lib/store-status-client'
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
 import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-footer'
@@ -11,6 +12,8 @@ import { StorefrontShell } from '@/components/layout/storefront-shell'
 export default function CarrinhoPage() {
   const { items, updateQuantity, removeItem, totalPrice, totalItems, clearCart } = useCart()
   const { t } = useLang()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
+  const storeIsClosed = !storeStatusLoading && !acceptingOrders
 
   if (items.length === 0) {
     return (
@@ -139,12 +142,25 @@ export default function CarrinhoPage() {
             </span>
           </div>
         </div>
-        <Link
-          href="/checkout/dados"
-          className="block w-full rounded-2xl bg-primary py-4 text-center text-sm font-bold text-primary-foreground transition-opacity active:opacity-90"
-        >
-          {t.placeOrder}
-        </Link>
+        {storeIsClosed ? (
+          <button
+            type="button"
+            disabled
+            className="block w-full rounded-2xl bg-primary py-4 text-center text-sm font-bold text-primary-foreground opacity-50"
+          >
+            {t.storeClosed}
+          </button>
+        ) : (
+          <Link
+            href="/checkout/dados"
+            className="block w-full rounded-2xl bg-primary py-4 text-center text-sm font-bold text-primary-foreground transition-opacity active:opacity-90"
+          >
+            {t.placeOrder}
+          </Link>
+        )}
+        {storeIsClosed ? (
+          <p className="mt-3 text-center text-xs font-semibold text-muted-foreground">{t.storeClosedNotice}</p>
+        ) : null}
       </StorefrontFixedFooter>
     </StorefrontShell>
   )

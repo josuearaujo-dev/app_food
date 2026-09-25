@@ -1,28 +1,46 @@
-Página de manutenção v1.6.0
-===========================
+Loja fechada / fim da manutenção v1.7.0
+=========================================
 
-A página inicial (/) passa a mostrar um aviso em inglês enquanto a loja
-está em ajuste. Admin, cardápio interno e demais rotas continuam no projeto.
+A página de manutenção saiu. O cardápio volta, e a loja fica fechada
+para novos pedidos até alguém reabrir no admin.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-2) Commit + push no GitHub / deploy (Vercel etc.).
+2) APAGAR estes arquivos, se ainda existirem no projeto:
+     components/storefront/store-maintenance.tsx
+     lib/store-maintenance.ts
+3) O SQL scripts/040_loja_aceitando_pedidos.sql JÁ foi executado
+   no projeto novo Cadu Cakes (conta josuearaujo-9422).
+   Se for outro banco, rode esse SQL antes do deploy.
+4) Commit + push no GitHub / deploy (Vercel).
+
+No admin
+--------
+Operações → botão "Loja fechada" / "Aceitando pedidos".
+Com a loja fechada, o cliente vê o cardápio e não consegue finalizar pedido.
+Pedido manual do painel continua funcionando.
 
 Arquivos NOVOS
 --------------
-- components/storefront/store-maintenance.tsx
-- lib/store-maintenance.ts
+- app/api/store-status/route.ts
+- components/admin/store-orders-switch.tsx
+- lib/store-status-client.ts
+- scripts/040_loja_aceitando_pedidos.sql
 
 Arquivos ALTERADOS
 ------------------
 - app/page.tsx
+- app/admin/page.tsx
+- app/carrinho/page.tsx
+- app/checkout/dados/page.tsx
+- app/pagamento/page.tsx
+- app/api/checkout/prepare/route.ts
+- app/api/orders/route.ts
+- app/api/orders/cash/route.ts
+- components/checkout/desktop-cart-checkout.tsx
+- components/storefront/storefront-home.tsx
+- lib/lang-context.tsx
 - lib/layout/page-chrome.ts
+- lib/store-settings.ts
 - styles/storefront.css
-
-Reabrir a loja
---------------
-Em lib/store-maintenance.ts, mude:
-  export const STOREFRONT_MAINTENANCE = true
-para:
-  export const STOREFRONT_MAINTENANCE = false

@@ -24,6 +24,7 @@ import logoPerfil from '@/logo/logo-perfil-1024.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { DesktopCartCheckout } from '@/components/checkout/desktop-cart-checkout'
 import { useProfileModal } from '@/lib/profile-modal-context'
+import { useStoreStatus } from '@/lib/store-status-client'
 
 interface Categoria {
   id: string
@@ -50,6 +51,8 @@ export function StorefrontHome() {
   const { items, totalItems } = useCart()
   const { t, lang, toggleLang } = useLang()
   const { openProfile } = useProfileModal()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
+  const storeIsClosed = !storeStatusLoading && !acceptingOrders
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -128,7 +131,7 @@ export function StorefrontHome() {
         <div className="cadu-mobile-header-text">
           <strong>{t.storeName}</strong>
           <span>
-            <b>{t.storeOpen}</b> · {t.storeHours}
+            <b>{storeIsClosed ? t.storeClosed : t.storeOpen}</b> · {t.storeHours}
           </span>
         </div>
         <Link href="/carrinho" className="cadu-mobile-header-cart" aria-label={t.cart}>
@@ -200,10 +203,16 @@ export function StorefrontHome() {
             </span>
           </div>
           <p className="cadu-store-meta">
-            <b>{t.storeOpen}</b> · {t.storeHours} · <MapPin size={14} /> {t.storeTagline}
+            <b>{storeIsClosed ? t.storeClosed : t.storeOpen}</b> · {t.storeHours} · <MapPin size={14} /> {t.storeTagline}
           </p>
         </div>
       </section>
+
+      {storeIsClosed ? (
+        <p className="cadu-store-closed-banner" role="status">
+          {t.storeClosedNotice}
+        </p>
+      ) : null}
 
       <div className="cadu-shop-layout" id="catalogo">
         <section className="cadu-catalog-column">

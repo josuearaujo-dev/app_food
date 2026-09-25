@@ -30,6 +30,22 @@ export async function listDeliveryLocations(): Promise<Array<{ id: string; nome:
     .filter((row) => Number.isFinite(row.taxaEntrega) && row.taxaEntrega >= 0)
 }
 
+/** False when the shop should show the menu but refuse new orders. */
+export async function isStoreAcceptingOrders(): Promise<boolean> {
+  try {
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('configuracoes_loja')
+      .select('aceitando_pedidos')
+      .limit(1)
+      .maybeSingle<{ aceitando_pedidos: boolean | null }>()
+    if (error || !data) return false
+    return data.aceitando_pedidos === true
+  } catch {
+    return false
+  }
+}
+
 export async function getDeliveryFeeAmount(localidadeId?: string | null): Promise<number> {
   const supabase = createAdminClient()
   if (localidadeId && localidadeId.trim()) {

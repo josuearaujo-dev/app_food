@@ -18,6 +18,7 @@ import { CheckoutSteps } from '@/components/checkout/checkout-steps'
 import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
+import { useStoreStatus } from '@/lib/store-status-client'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
@@ -27,6 +28,7 @@ export default function CheckoutDadosPage() {
   const { items, totalItems, totalPrice } = useCart()
   const { t } = useLang()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
+  const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const trackedCheckout = useRef(false)
 
   const [nome, setNome] = useState('')
@@ -121,6 +123,10 @@ export default function CheckoutDadosPage() {
   async function handleContinuar(e: React.FormEvent) {
     e.preventDefault()
     setErro(null)
+    if (!storeStatusLoading && !acceptingOrders) {
+      setErro(t.storeClosedCheckout)
+      return
+    }
 
     const c: CheckoutCustomer = {
       nome: nome.trim(),

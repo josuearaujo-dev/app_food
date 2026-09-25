@@ -2437,6 +2437,18 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   color: #b91c1c;
 }
 
+.cadu-store-closed-banner {
+  margin: 16px 16px 0;
+  border: 1px solid var(--cadu-line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--cadu-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .cadu-maintenance {
   min-height: 100dvh;
   display: flex;
@@ -2496,4 +2508,16 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   margin-top: 16px !important;
   color: var(--cadu-ink, #531b04) !important;
   font-weight: 700;
+}
+
+.cadu-store-closed-banner {
+  margin: 16px 16px 0;
+  border: 1px solid var(--cadu-line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--cadu-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
 }

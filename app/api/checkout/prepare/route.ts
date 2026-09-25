@@ -7,10 +7,16 @@ import { validatePrepareCheckoutPayload } from '@/lib/checkout/validation'
 import { computePayableTotals } from '@/lib/checkout/order-totals'
 import { createPendingOrder, findReusablePendingOrder } from '@/lib/orders/repository'
 import { getPaymentProvider } from '@/lib/clover/config'
-import { getDeliveryFeeAmount, listDeliveryLocations } from '@/lib/store-settings'
+import { getDeliveryFeeAmount, isStoreAcceptingOrders, listDeliveryLocations } from '@/lib/store-settings'
 
 export async function POST(request: Request) {
   try {
+    if (!(await isStoreAcceptingOrders())) {
+      return NextResponse.json(
+        { error: 'The store is closed and is not taking orders.' },
+        { status: 409 }
+      )
+    }
     if (getPaymentProvider() !== 'clover') {
       return NextResponse.json(
         { error: 'Provedor de pagamento atual não é Clover.' },
