@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
+import { buildMenuOrder, isMenuSection, type MenuOrderRow, type MenuSectionKey } from '@/lib/menu-layout'
 
 const BUCKET = 'cardapio-imagens'
 
@@ -34,7 +35,6 @@ interface Item {
   alergenicos_alerta: string | null
   disponivel: boolean
   destaque: boolean
-  mais_pedido: boolean
   categoria_id: string | null
   ordem: number
   categorias: Categoria | null
@@ -78,6 +78,20 @@ async function persistOrdensItensNaLista(supabase: SupabaseClient, orderedIds: s
   }
 }
 
+async function persistMenuLayout(supabase: SupabaseClient, slots: Array<{ key: string; kind: 'category' | 'section' }>) {
+  const rows = slots.map((slot, index) => ({ chave: slot.key, ordem: index + 1 }))
+  const { error } = await supabase.from('cardapio_ordem').upsert(rows, { onConflict: 'chave' })
+  if (error) throw new Error(error.message)
+  const { data: existing } = await supabase.from('cardapio_ordem').select('chave')
+  const keep = new Set(rows.map((row) => row.chave))
+  const stale = ((existing ?? []) as Array<{ chave: string }>).map((row) => row.chave).filter((chave) => !keep.has(chave))
+  if (stale.length) {
+    const { error: deleteError } = await supabase.from('cardapio_ordem').delete().in('chave', stale)
+    if (deleteError) throw new Error(deleteError.message)
+  }
+  await persistOrdensCategoriasNaLista(supabase, slots.filter((slot) => slot.kind === 'category').map((slot) => slot.key))
+}
+
 async function persistOrdensCategoriasNaLista(supabase: SupabaseClient, orderedIds: string[]) {
   if (orderedIds.length === 0) return
   const step = 1000
@@ -100,6 +114,7 @@ export default function AdminCardapioPage() {
 
   const [tab, setTab] = useState<Tab>(t.tabItems)
   const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [menuOrder, setMenuOrder] = useState<MenuOrderRow[]>([])
   const [itens, setItens] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -112,7 +127,7 @@ export default function AdminCardapioPage() {
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
     extra_groups: [] as ExtraGroupForm[],
-    categoria_id: '', disponivel: true, destaque: false, mais_pedido: false, recomendados: [] as string[], ordem: 0,
+    categoria_id: '', disponivel: true, destaque: false, recomendados: [] as string[], ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
   const [itemErro, setItemErro] = useState<string | null>(null)
@@ -131,31 +146,45 @@ export default function AdminCardapioPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [{ data: cats }, { data: its }] = await Promise.all([
+    const [{ data: cats }, { data: its }, orderRes] = await Promise.all([
       supabase.from('categorias').select('*').order('ordem'),
       supabase.from('itens_cardapio').select('*, categorias(id, nome, icone, ordem, ativo)').order('ordem'),
+      supabase.from('cardapio_ordem').select('chave, ordem').order('ordem'),
     ])
     setCategorias(cats ?? [])
+    setMenuOrder(orderRes.error ? [] : ((orderRes.data ?? []) as MenuOrderRow[]))
     setItens(its ?? [])
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  function sectionTitle(key: MenuSectionKey) {
+    if (key === 'most-ordered') return t.mostOrdered
+    if (key === 'combos') return t.combos
+    if (key === 'offers') return t.specialOffers
+    return t.featured
+  }
+
+  const menuSlots = useMemo(() => {
+    const ids = [...categorias].sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id)).map((cat) => cat.id)
+    return buildMenuOrder(ids, menuOrder)
+  }, [categorias, menuOrder])
+
   async function reorderCategoria(sourceId: string, targetId: string) {
     if (catReorderLock.current || sourceId === targetId) return
-    const from = categorias.findIndex((cat) => cat.id === sourceId)
-    const to = categorias.findIndex((cat) => cat.id === targetId)
+    const from = menuSlots.findIndex((slot) => slot.key === sourceId)
+    const to = menuSlots.findIndex((slot) => slot.key === targetId)
     if (from < 0 || to < 0) return
-    const reordered = [...categorias]
+    const reordered = [...menuSlots]
     reordered.splice(to, 0, reordered.splice(from, 1)[0])
     catReorderLock.current = true
     setReorderingCats(true)
     setItemErro(null)
     setCatOrderMessage('Salvando ordem…')
-    setCategorias(reordered.map((cat, index) => ({ ...cat, ordem: index + 1 })))
+    setMenuOrder(reordered.map((slot, index) => ({ chave: slot.key, ordem: index + 1 })))
     try {
-      await persistOrdensCategoriasNaLista(supabase, reordered.map((cat) => cat.id))
+      await persistMenuLayout(supabase, reordered)
       setCatOrderMessage('Ordem salva.')
     } catch (err) {
       await fetchData()
@@ -184,9 +213,9 @@ export default function AdminCardapioPage() {
 
   const maxPosicaoCategoria = useMemo(() => {
     if (!modalCat) return 1
-    const n = categorias.filter((c) => !catEditando || c.id !== catEditando.id).length
+    const n = menuSlots.filter((slot) => !catEditando || slot.key !== catEditando.id).length
     return Math.max(1, n + 1)
-  }, [modalCat, catEditando, categorias])
+  }, [modalCat, catEditando, menuSlots])
 
   useEffect(() => {
     if (!modalItem) return
@@ -546,7 +575,6 @@ export default function AdminCardapioPage() {
       categoria_id: '',
       disponivel: true,
       destaque: false,
-      mais_pedido: false,
       recomendados: [],
       ordem: outros.length + 1,
     })
@@ -583,7 +611,6 @@ export default function AdminCardapioPage() {
       categoria_id: item.categoria_id ?? '',
       disponivel: item.disponivel,
       destaque: item.destaque,
-      mais_pedido: !!item.mais_pedido,
       recomendados: (links ?? []).map((link) => link.recomendado_id as string),
       ordem: posicao,
     })
@@ -633,7 +660,6 @@ export default function AdminCardapioPage() {
       categoria_id: catIdNorm,
       disponivel: formItem.disponivel,
       destaque: formItem.destaque,
-      mais_pedido: formItem.mais_pedido,
     }
 
     const montarIdsOrdenados = (itemId: string) => [
@@ -735,7 +761,7 @@ export default function AdminCardapioPage() {
     setFormCat({
       nome: '',
       icone: '',
-      ordem: Math.max(1, categorias.length + 1),
+      ordem: Math.max(1, menuSlots.length + 1),
       ativo: true,
     })
     setModalCat(true)
@@ -743,10 +769,7 @@ export default function AdminCardapioPage() {
 
   function abrirEditarCat(cat: Categoria) {
     setCatEditando(cat)
-    const sorted = [...categorias].sort(
-      (a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id)
-    )
-    const pos = Math.max(1, sorted.findIndex((c) => c.id === cat.id) + 1)
+    const pos = Math.max(1, menuSlots.findIndex((slot) => slot.key === cat.id) + 1)
     setFormCat({ nome: cat.nome, icone: cat.icone ?? '', ordem: pos, ativo: cat.ativo })
     setModalCat(true)
   }
@@ -754,10 +777,8 @@ export default function AdminCardapioPage() {
   async function salvarCat() {
     if (!formCat.nome) return
     setSalvandoCat(true)
-    const outros = categorias
-      .filter((c) => !catEditando || c.id !== catEditando.id)
-      .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
-    const maxPos = outros.length + 1
+    const without = menuSlots.filter((slot) => !catEditando || slot.key !== catEditando.id)
+    const maxPos = without.length + 1
     const pos = Math.min(Math.max(1, formCat.ordem || 1), maxPos)
     const payloadBase = {
       nome: formCat.nome.trim(),
@@ -765,30 +786,21 @@ export default function AdminCardapioPage() {
       ativo: formCat.ativo,
     }
     try {
+      let categoryId = catEditando?.id ?? null
       if (catEditando) {
         await supabase.from('categorias').update(payloadBase).eq('id', catEditando.id)
-        const ordered = [
-          ...outros.slice(0, pos - 1).map((c) => c.id),
-          catEditando.id,
-          ...outros.slice(pos - 1).map((c) => c.id),
-        ]
-        await persistOrdensCategoriasNaLista(supabase, ordered)
       } else {
-        const nextOrdem = outros.length > 0 ? Math.max(...outros.map((c) => c.ordem)) + 1 : 1
         const { data: ins } = await supabase
           .from('categorias')
-          .insert({ ...payloadBase, ordem: nextOrdem })
+          .insert({ ...payloadBase, ordem: maxPos })
           .select('id')
           .single()
-        const newId = ins?.id
-        if (newId) {
-          const ordered = [
-            ...outros.slice(0, pos - 1).map((c) => c.id),
-            newId,
-            ...outros.slice(pos - 1).map((c) => c.id),
-          ]
-          await persistOrdensCategoriasNaLista(supabase, ordered)
-        }
+        categoryId = ins?.id ?? null
+      }
+      if (categoryId) {
+        const next = [...without]
+        next.splice(pos - 1, 0, { key: categoryId, kind: 'category' as const })
+        await persistMenuLayout(supabase, next)
       }
     } finally {
       setSalvandoCat(false)
@@ -800,10 +812,7 @@ export default function AdminCardapioPage() {
   async function excluirCat(id: string) {
     if (!confirm(t.deleteCatConfirm)) return
     await supabase.from('categorias').delete().eq('id', id)
-    const rest = categorias
-      .filter((c) => c.id !== id)
-      .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
-    await persistOrdensCategoriasNaLista(supabase, rest.map((c) => c.id))
+    await persistMenuLayout(supabase, menuSlots.filter((slot) => slot.key !== id))
     fetchData()
   }
 
@@ -870,7 +879,6 @@ export default function AdminCardapioPage() {
                       <div className="flex items-start gap-1">
                         <p className="font-semibold text-sm text-foreground line-clamp-1 flex-1">{item.nome}</p>
                         {item.destaque && <Star size={12} className="text-accent fill-accent flex-shrink-0 mt-0.5" />}
-                        {item.mais_pedido && <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">{t.mostOrdered}</span>}
                       </div>
                       {item.categorias && (
                         <span className="text-[10px] text-accent font-semibold">{item.categorias.nome}</span>
@@ -915,7 +923,7 @@ export default function AdminCardapioPage() {
           <>
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {categorias.length} {t.tabCategories.toLowerCase()}
+                {menuSlots.length} {t.tabCategories.toLowerCase()}
               </p>
               <button
                 onClick={abrirNovaCat}
@@ -926,69 +934,68 @@ export default function AdminCardapioPage() {
               </button>
             </div>
 
-            {categorias.length === 0 ? (
-              <EmptyState
-                icon={<Package size={28} className="text-muted-foreground" />}
-                titulo={t.noCategories}
-                descricao={t.noCategoriesHint}
-                acao={t.addCategory}
-                onAcao={abrirNovaCat}
-              />
-            ) : (
-              <div>
-                <p className="mb-3 text-sm text-muted-foreground">Arraste pela alça para escolher a ordem no site ou use as setas. A ordem é salva automaticamente.</p>
+            <div>
+                <p className="mb-3 text-sm text-muted-foreground">{t.menuOrderHint}</p>
                 <p className="sr-only" role="status">{catOrderMessage}</p>
                 <ul className="space-y-3" aria-busy={reorderingCats}>
-                  {categorias.map((cat, index) => (
+                  {menuSlots.map((slot, index) => {
+                    const category = slot.kind === 'category' ? categorias.find((cat) => cat.id === slot.key) : undefined
+                    const name = category?.nome ?? (isMenuSection(slot.key) ? sectionTitle(slot.key) : slot.key)
+                    const icon = category?.icone ?? (slot.key === 'offers' ? '🏷️' : slot.key === 'combos' ? '🍱' : slot.key === 'most-ordered' ? '🔥' : slot.key === 'featured' ? '⭐' : '📋')
+                    return (
                     <li
-                      key={cat.id}
-                      onDragOver={(event) => { if (draggedCatId && !reorderingCats) { event.preventDefault(); setDropCatId(cat.id) } }}
-                      onDrop={(event) => { event.preventDefault(); if (draggedCatId) void reorderCategoria(draggedCatId, cat.id); setDraggedCatId(null); setDropCatId(null) }}
+                      key={slot.key}
+                      onDragOver={(event) => { if (draggedCatId && !reorderingCats) { event.preventDefault(); setDropCatId(slot.key) } }}
+                      onDrop={(event) => { event.preventDefault(); if (draggedCatId) void reorderCategoria(draggedCatId, slot.key); setDraggedCatId(null); setDropCatId(null) }}
                       className={cn(
                         'flex items-center gap-3 bg-card rounded-2xl p-4 border',
-                        dropCatId === cat.id ? 'border-primary ring-2 ring-primary/20' : 'border-border',
-                        draggedCatId === cat.id && 'opacity-50',
+                        dropCatId === slot.key ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+                        draggedCatId === slot.key && 'opacity-50',
                       )}
                     >
                       <button
                         type="button"
-                        draggable={!reorderingCats && categorias.length > 1}
-                        disabled={reorderingCats || categorias.length < 2}
-                        aria-label={`Arrastar ${cat.nome}`}
+                        draggable={!reorderingCats && menuSlots.length > 1}
+                        disabled={reorderingCats || menuSlots.length < 2}
+                        aria-label={`Arrastar ${name}`}
                         title="Arraste para reorganizar"
-                        onDragStart={(event) => { event.dataTransfer.setData('text/plain', cat.id); event.dataTransfer.effectAllowed = 'move'; setDraggedCatId(cat.id) }}
+                        onDragStart={(event) => { event.dataTransfer.setData('text/plain', slot.key); event.dataTransfer.effectAllowed = 'move'; setDraggedCatId(slot.key) }}
                         onDragEnd={() => { setDraggedCatId(null); setDropCatId(null) }}
                         className="cursor-grab rounded-lg p-2 text-muted-foreground active:cursor-grabbing disabled:opacity-40"
                       >
                         <GripVertical size={20} />
                       </button>
                       <div className="flex flex-col">
-                        <button type="button" aria-label={`Mover ${cat.nome} para cima`} disabled={reorderingCats || index === 0} onClick={() => void reorderCategoria(cat.id, categorias[index - 1].id)} className="p-1 disabled:opacity-25"><ArrowUp size={16} /></button>
-                        <button type="button" aria-label={`Mover ${cat.nome} para baixo`} disabled={reorderingCats || index === categorias.length - 1} onClick={() => void reorderCategoria(cat.id, categorias[index + 1].id)} className="p-1 disabled:opacity-25"><ArrowDown size={16} /></button>
+                        <button type="button" aria-label={`Mover ${name} para cima`} disabled={reorderingCats || index === 0} onClick={() => void reorderCategoria(slot.key, menuSlots[index - 1].key)} className="p-1 disabled:opacity-25"><ArrowUp size={16} /></button>
+                        <button type="button" aria-label={`Mover ${name} para baixo`} disabled={reorderingCats || index === menuSlots.length - 1} onClick={() => void reorderCategoria(slot.key, menuSlots[index + 1].key)} className="p-1 disabled:opacity-25"><ArrowDown size={16} /></button>
                       </div>
                       <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xl">{cat.icone ?? '📋'}</span>
+                        <span className="text-xl">{icon}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-foreground">{cat.nome}</p>
+                        <p className="font-semibold text-sm text-foreground">{name}</p>
                       </div>
                       <span className={cn(
                         'text-[10px] font-semibold px-2 py-1 rounded-lg',
-                        cat.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                        slot.kind === 'section' ? 'bg-amber-100 text-amber-800' : category?.ativo ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
                       )}>
-                        {cat.ativo ? t.active : t.inactive}
+                        {slot.kind === 'section' ? t.menuSection : category?.ativo ? t.active : t.inactive}
                       </span>
-                      <button type="button" disabled={reorderingCats} onClick={() => abrirEditarCat(cat)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center disabled:opacity-40" aria-label="Edit">
-                        <Pencil size={14} />
-                      </button>
-                      <button type="button" disabled={reorderingCats} onClick={() => excluirCat(cat.id)} className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center disabled:opacity-40" aria-label="Delete">
-                        <Trash2 size={14} className="text-red-500" />
-                      </button>
+                      {category ? (
+                        <>
+                          <button type="button" disabled={reorderingCats} onClick={() => abrirEditarCat(category)} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center disabled:opacity-40" aria-label="Edit">
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" disabled={reorderingCats} onClick={() => excluirCat(category.id)} className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center disabled:opacity-40" aria-label="Delete">
+                            <Trash2 size={14} className="text-red-500" />
+                          </button>
+                        </>
+                      ) : null}
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               </div>
-            )}
           </>
         )}
       </AdminPageContent>
@@ -1204,7 +1211,6 @@ export default function AdminCardapioPage() {
           <div className="flex flex-wrap gap-4">
             <Toggle label={t.fieldAvailable} value={formItem.disponivel} onChange={(v) => setFormItem({ ...formItem, disponivel: v })} />
             <Toggle label={t.fieldFeatured} value={formItem.destaque} onChange={(v) => setFormItem({ ...formItem, destaque: v })} />
-            <Toggle label={t.fieldMostOrdered} value={formItem.mais_pedido} onChange={(v) => setFormItem({ ...formItem, mais_pedido: v })} />
           </div>
 
           <div className="space-y-2 border-t border-border pt-3">
@@ -1269,7 +1275,7 @@ export default function AdminCardapioPage() {
             value={Math.min(Math.max(1, formCat.ordem), maxPosicaoCategoria)}
             max={maxPosicaoCategoria}
             onChange={(n) => setFormCat({ ...formCat, ordem: n })}
-            hint="1º = primeira categoria no cardápio. A ordem no banco é definida automaticamente."
+            hint="1 = primeira posição no cardápio, incluindo as seções."
           />
           <Toggle label={t.fieldActive} value={formCat.ativo} onChange={(v) => setFormCat({ ...formCat, ativo: v })} />
         </Modal>

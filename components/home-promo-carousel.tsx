@@ -7,7 +7,7 @@ import { useLang } from '@/lib/lang-context'
 import styles from './home-promo-carousel.module.css'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
-type Slide = {
+export type OfferSlide = {
   id: string
   title: string
   description?: string | null
@@ -23,7 +23,7 @@ type Props = { open: boolean; onOpenChange: (open: boolean) => void }
 
 /** Active promotions open on entry; a failed photo must not hide an offer. */
 export function HomePromoCarousel({ open, onOpenChange }: Props) {
-  const [slides, setSlides] = useState<Slide[]>([])
+  const [slides, setSlides] = useState<OfferSlide[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const { lang, t } = useLang()
@@ -36,7 +36,7 @@ export function HomePromoCarousel({ open, onOpenChange }: Props) {
         if (!response.ok) throw new Error('Banners unavailable')
         return response.json()
       })
-      .then((data: { slides?: Slide[] }) => {
+      .then((data: { slides?: OfferSlide[] }) => {
         if (!controller.signal.aborted && Array.isArray(data.slides)) setSlides(data.slides)
       })
       .catch(() => { if (!controller.signal.aborted) setFailed(true) })
@@ -99,6 +99,46 @@ export function HomePromoCarousel({ open, onOpenChange }: Props) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+export function SpecialOfferGrid({ slides }: { slides: OfferSlide[] }) {
+  const { lang, t } = useLang()
+  return (
+    <div className={styles.section}>
+      {slides.map((slide) => {
+        const src = lang === 'en' && slide.imageUrlEn ? slide.imageUrlEn : slide.imageUrl
+        const href = slide.href && /^(\/[^/]|https?:\/\/)/i.test(slide.href) ? slide.href : null
+        const description = (lang === 'en' ? slide.descriptionEn || slide.description : slide.description)?.trim()
+        const price = typeof slide.price === 'number' ? slide.price : null
+        const compareAt = typeof slide.compareAtPrice === 'number' && price !== null && slide.compareAtPrice > price
+          ? slide.compareAtPrice
+          : null
+        const discount = compareAt && price !== null
+          ? Math.round(((compareAt - price) / compareAt) * 100)
+          : null
+        const content = <>
+          <div className={styles.copy}>
+            <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
+            <h3>{slide.title}</h3>
+            {description ? <p className={styles.summary}>{description}</p> : null}
+            {price !== null ? (
+              <div className={styles.prices}>
+                <strong>{t.currency}{price.toFixed(2)}</strong>
+                {compareAt ? <s>{t.currency}{compareAt.toFixed(2)}</s> : null}
+                {discount ? <span>-{discount}%</span> : null}
+              </div>
+            ) : href ? (
+              <span className={styles.link}>{lang === 'en' ? 'View offer' : 'Ver oferta'} <ArrowRight size={16} /></span>
+            ) : null}
+          </div>
+          <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
+        </>
+        return href
+          ? <Link key={slide.id} href={href} className={styles.card}>{content}</Link>
+          : <article key={slide.id} className={styles.card}>{content}</article>
+      })}
+    </div>
   )
 }
 

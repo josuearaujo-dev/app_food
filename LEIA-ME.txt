@@ -1,50 +1,38 @@
-Dias da promoção, ofertas lado a lado e mais pedidos v2.3.0
-=============================================================
+Seções na lista de categorias v2.5.0
+=====================================
 
-A promoção e o banner podem ser limitados aos dias da semana.
-O cadastro de promoções volta a mostrar os nomes dos campos.
-No computador, as ofertas do popup ficam uma ao lado da outra.
-O restaurante marca "Mais pedidos" no produto e vincula
-o que o carrinho deve sugerir enquanto esse item estiver no pedido.
+Special offers deixa de ser o botão que abre o popup e vira uma seção
+do cardápio, junto com Mais pedidos, Combos e Destaques.
+Essas seções entram na lista de categorias do admin para escolher a posição.
+A mesma ordem aparece nos filtros do cardápio.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.3.0 dentro do repositório.
-2) Rodar no Supabase, uma vez, nesta ordem:
-   - scripts/044_promocao_dias_semana.sql
-   - scripts/045_mais_pedidos_e_recomendacoes.sql
-   Neste banco (kujvnoscdmdarwmoivtq) as colunas e a tabela já foram criadas.
+   Não deixe a pasta deploy-altered-v2.5.0 dentro do repositório.
+2) Rodar no Supabase, uma vez:
+   - scripts/046_cardapio_ordem.sql
+   Neste banco (kujvnoscdmdarwmoivtq) a tabela já foi criada.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.2.0. Aplique os dois.
+4) Este pacote vem DEPOIS do v2.4.0. Aplique os dois.
 
 Arquivos NOVOS
 --------------
-- components/admin/weekday-picker.tsx
-- components/storefront/cart-recommendations.tsx
-- lib/store-weekdays.ts
-- scripts/044_promocao_dias_semana.sql
-- scripts/045_mais_pedidos_e_recomendacoes.sql
+- lib/menu-layout.ts
+- scripts/046_cardapio_ordem.sql
 
 Arquivos ALTERADOS
 ------------------
-- app/admin/banners/page.tsx
 - app/admin/cardapio/page.tsx
-- app/admin/promocoes/page.tsx
-- app/api/banners/route.ts
-- app/api/promotions/banners/route.ts
-- app/carrinho/page.tsx
-- app/globals.css
-- components/checkout/desktop-cart-checkout.tsx
+- components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
 - components/storefront/storefront-home.tsx
 - lib/lang-context.tsx
-- lib/promotions-compute.ts
-- styles/storefront.css
 
 Obs.
 ----
-Dia em branco = a promoção vale todos os dias.
-O relógio usado é o da loja (Nova York).
-"Mais pedidos" não é calculado pelas vendas: só entra o produto marcado no cadastro.
+Até alguém mover a lista, a ordem é: Mais pedidos, Combos,
+Special offers, Destaques e depois as categorias de comida.
+No admin, as seções só podem ser movidas. Categorias continuam
+podendo ser editadas e excluídas.
 O .env.local NÃO entra neste pacote.

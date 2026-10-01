@@ -5,7 +5,8 @@ import { StoreImage } from '@/components/storefront/store-image'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { HomePromoCarousel } from '@/components/home-promo-carousel'
+import { SpecialOfferGrid, type OfferSlide } from '@/components/home-promo-carousel'
+import { buildMenuOrder, isMenuSection, type MenuOrderRow, type MenuSectionKey } from '@/lib/menu-layout'
 import {
   BadgePercent,
   House,
@@ -37,8 +38,16 @@ interface Categoria {
 interface ItemComCategoria extends ItemCardapio {
   disponivel: boolean
   destaque: boolean
-  mais_pedido: boolean
   categorias: Categoria | null
+}
+
+interface MenuCombo {
+  id: string
+  nome: string
+  descricao: string | null
+  preco: number
+  compareAt: number | null
+  imagem_url: string | null
 }
 
 export function StorefrontHome() {
@@ -46,10 +55,13 @@ export function StorefrontHome() {
   const [itens, setItens] = useState<ItemComCategoria[]>([])
   const [categoriaSelecionada, setCategoriaSelecionada] = useState('todas')
   const [query, setQuery] = useState('')
-  const [promotionsOpen, setPromotionsOpen] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [menuOrder, setMenuOrder] = useState<MenuOrderRow[]>([])
+  const [offers, setOffers] = useState<OfferSlide[]>([])
   const [isSplash, setIsSplash] = useState(true)
   const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
+  const [mostOrderedIds, setMostOrderedIds] = useState<string[]>([])
+  const [combos, setCombos] = useState<MenuCombo[]>([])
   const [splashLeaving, setSplashLeaving] = useState(false)
   const { items, totalItems } = useCart()
   const { t, lang, toggleLang } = useLang()
@@ -60,7 +72,7 @@ export function StorefrontHome() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
-    const [{ data: cats }, { data: its }] = await Promise.all([
+    const [{ data: cats }, { data: its }, orderRes] = await Promise.all([
       supabase.from('categorias').select('*').eq('ativo', true).order('ordem'),
       supabase
         .from('itens_cardapio')
@@ -68,7 +80,9 @@ export function StorefrontHome() {
         .eq('disponivel', true)
         .order('destaque', { ascending: false })
         .order('ordem'),
+      supabase.from('cardapio_ordem').select('chave, ordem').order('ordem'),
     ])
+    setMenuOrder(orderRes.error ? [] : ((orderRes.data ?? []) as MenuOrderRow[]))
     setCategorias(cats ?? [])
     setItens(its ?? [])
     setLoading(false)
@@ -79,6 +93,54 @@ export function StorefrontHome() {
   }, [fetchData])
 
   useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    void Promise.all([
+      supabase.from('combos').select('id, nome, descricao, preco, imagem_url, ordem').eq('ativo', true).order('ordem').order('nome'),
+      fetch('/api/banners', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { slides: [] })).catch(() => ({ slides: [] })),
+    ]).then(([comboRes, bannerData]) => {
+      if (cancelled) return
+      const slides = (bannerData.slides ?? []) as OfferSlide[]
+      setOffers(slides)
+      const rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null }>
+      setCombos(rows.map((combo) => {
+        const offer = slides.find((slide) => slide.href === `/combo/${combo.id}`)
+        const offerPrice = typeof offer?.price === 'number' ? offer.price : null
+        const price = offerPrice !== null && offerPrice > 0 ? offerPrice : Number(combo.preco)
+        const compareAt = typeof offer?.compareAtPrice === 'number' && offer.compareAtPrice > price ? offer.compareAtPrice : null
+        return {
+          id: combo.id,
+          nome: combo.nome,
+          descricao: combo.descricao,
+          preco: price,
+          compareAt,
+          imagem_url: combo.imagem_url || offer?.imageUrl || null,
+        }
+      }))
+    }).catch(() => {
+      if (!cancelled) setCombos([])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch('/api/most-ordered', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : { ids: [] }))
+      .then((data: { ids?: string[] }) => {
+        if (!cancelled && Array.isArray(data.ids)) setMostOrderedIds(data.ids)
+      })
+      .catch(() => {
+        if (!cancelled) setMostOrderedIds([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     const startExit = window.setTimeout(() => setSplashLeaving(true), 650)
     const finish = window.setTimeout(() => setIsSplash(false), 900)
     return () => {
@@ -87,46 +149,56 @@ export function StorefrontHome() {
     }
   }, [])
 
-  const filtered = useMemo(() => {
+  const searchedItems = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return itens.filter((item) => {
-      const catOk = categoriaSelecionada === 'todas' || item.categoria_id === categoriaSelecionada
-      if (!catOk) return false
-      if (!q) return true
-      const hay = `${item.nome} ${item.descricao ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase()
-      return hay.includes(q)
-    })
-  }, [itens, categoriaSelecionada, query])
+    if (!q) return itens
+    return itens.filter((item) => `${item.nome} ${item.descricao ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase().includes(q))
+  }, [itens, query])
 
-  const sectionNames = useMemo(() => {
-    if (categoriaSelecionada !== 'todas') {
-      const cat = categorias.find((c) => c.id === categoriaSelecionada)
-      return cat ? [cat.nome] : []
+  const searchedCombos = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return combos
+    return combos.filter((combo) => `${combo.nome} ${combo.descricao ?? ''}`.toLowerCase().includes(q))
+  }, [combos, query])
+
+  const searchedOffers = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return offers
+    return offers.filter((offer) => `${offer.title} ${offer.description ?? ''} ${offer.descriptionEn ?? ''}`.toLowerCase().includes(q))
+  }, [offers, query])
+
+  const menuBlocks = useMemo(() => {
+    const ids = [...categorias].sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id)).map((cat) => cat.id)
+    return buildMenuOrder(ids, menuOrder)
+  }, [categorias, menuOrder])
+
+  function sectionTitle(key: MenuSectionKey) {
+    if (key === 'most-ordered') return t.mostOrdered
+    if (key === 'combos') return t.combos
+    if (key === 'offers') return t.specialOffers
+    return t.featured
+  }
+
+  function blockHasContent(key: string) {
+    if (key === 'most-ordered') return searchedItems.some((item) => mostOrderedIds.includes(item.id))
+    if (key === 'combos') return searchedCombos.length > 0
+    if (key === 'offers') return searchedOffers.length > 0
+    if (key === 'featured') return searchedItems.some((item) => item.destaque)
+    return searchedItems.some((item) => item.categoria_id === key)
+  }
+
+  const chips = menuBlocks.filter((block) => blockHasContent(block.key))
+  const visibleBlocks = chips.filter((block) => categoriaSelecionada === 'todas' || block.key === categoriaSelecionada)
+
+  function productsFor(key: string) {
+    if (key === 'most-ordered') {
+      const rank = new Map(mostOrderedIds.map((id, index) => [id, index]))
+      return searchedItems
+        .filter((item) => rank.has(item.id))
+        .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
     }
-    const names = categorias
-      .map((c) => c.nome)
-      .filter((name) => filtered.some((item) => item.categorias?.nome === name))
-    const mostOrdered = filtered.filter((i) => i.mais_pedido)
-    const featured = filtered.filter((i) => i.destaque)
-    const head = [
-      ...(mostOrdered.length ? [t.mostOrdered] : []),
-      ...(featured.length ? [t.featured] : []),
-    ]
-    return [...head, ...names]
-  }, [categoriaSelecionada, categorias, filtered, t.featured, t.mostOrdered])
-
-  function scrollToCatalog() {
-    document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  function scrollToFeatured() {
-    (document.getElementById('destaques') ?? document.getElementById('catalogo'))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  function productsInSection(section: string) {
-    if (section === t.mostOrdered) return filtered.filter((i) => i.mais_pedido)
-    if (section === t.featured) return filtered.filter((i) => i.destaque)
-    return filtered.filter((i) => i.categorias?.nome === section)
+    if (key === 'featured') return searchedItems.filter((item) => item.destaque)
+    return searchedItems.filter((item) => item.categoria_id === key)
   }
 
   const cartSidebar = <DesktopCartCheckout />
@@ -154,9 +226,9 @@ export function StorefrontHome() {
           <House size={17} />
           {t.navHome}
         </button>
-        <button type="button" onClick={() => setPromotionsOpen(true)}>
+        <button type="button" onClick={() => { setCategoriaSelecionada('offers'); document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
           <BadgePercent size={17} />
-          {t.navFeatured}
+          {t.specialOffers}
         </button>
         <Link href="/carrinho">
           <ShoppingBag size={17} />
@@ -222,17 +294,21 @@ export function StorefrontHome() {
               >
                 {t.all}
               </button>
-              {categorias.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={categoriaSelecionada === cat.id ? 'cadu-selected' : ''}
-                  onClick={() => setCategoriaSelecionada(cat.id)}
-                >
-                  {cat.icone ? `${cat.icone} ` : ''}
-                  {cat.nome}
-                </button>
-              ))}
+              {chips.map((block) => {
+                const category = categorias.find((cat) => cat.id === block.key)
+                const label = isMenuSection(block.key) ? sectionTitle(block.key) : category?.nome ?? ''
+                return (
+                  <button
+                    key={block.key}
+                    type="button"
+                    className={categoriaSelecionada === block.key ? 'cadu-selected' : ''}
+                    onClick={() => setCategoriaSelecionada(block.key)}
+                  >
+                    {category?.icone ? `${category.icone} ` : ''}
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -241,7 +317,11 @@ export function StorefrontHome() {
               <span className="sr-only">{lang === 'en' ? 'Categories' : 'Categorias'}</span>
               <select value={categoriaSelecionada} onChange={(event) => setCategoriaSelecionada(event.target.value)}>
                 <option value="todas">{lang === 'en' ? 'All categories' : 'Lista de categorias'}</option>
-                {categorias.map((category) => <option key={category.id} value={category.id}>{category.nome}</option>)}
+                {chips.map((block) => {
+                  const category = categorias.find((cat) => cat.id === block.key)
+                  const label = isMenuSection(block.key) ? sectionTitle(block.key) : category?.nome ?? ''
+                  return <option key={block.key} value={block.key}>{label}</option>
+                })}
               </select>
             </label>
             <label className="cadu-catalog-search">
@@ -255,7 +335,6 @@ export function StorefrontHome() {
             </label>
           </div>
 
-          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} />
           <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
@@ -263,7 +342,7 @@ export function StorefrontHome() {
                 <div key={i} className="h-36 animate-pulse rounded-xl bg-[var(--cadu-surface)]" />
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : visibleBlocks.length === 0 ? (
             <div className="cadu-catalog-empty">
               <PackageOpen size={44} />
               <h2>{t.noItemsFound}</h2>
@@ -280,22 +359,50 @@ export function StorefrontHome() {
               </button>
             </div>
           ) : (
-            sectionNames.map((section) => {
-              const sectionItems = productsInSection(section)
+            visibleBlocks.map((block) => {
+              if (block.key === 'offers') {
+                return (
+                  <section key={block.key} className="cadu-catalog-section" id="ofertas">
+                    <div className="cadu-section-heading">
+                      <span>{t.specialOffers.toUpperCase()}</span>
+                      <h2>{t.specialOffers}</h2>
+                    </div>
+                    <SpecialOfferGrid slides={searchedOffers} />
+                  </section>
+                )
+              }
+              if (block.key === 'combos') {
+                return (
+                  <section key={block.key} className="cadu-catalog-section" id="combos">
+                    <div className="cadu-section-heading">
+                      <span>{t.combos.toUpperCase()}</span>
+                      <h2>{t.combos}</h2>
+                    </div>
+                    <div className="cadu-product-grid cadu-product-grid--featured">
+                      {searchedCombos.map((combo) => (
+                        <ComboCard key={combo.id} combo={combo} addLabel={t.addToCart} />
+                      ))}
+                    </div>
+                  </section>
+                )
+              }
+              const sectionItems = productsFor(block.key)
               if (!sectionItems.length) return null
-              const sectionId = section === t.featured ? 'destaques' : section === t.mostOrdered ? 'mais-pedidos' : undefined
-              const eyebrow = section === t.mostOrdered || section === t.featured ? section.toUpperCase() : t.catalogLabel
+              const title = isMenuSection(block.key) ? sectionTitle(block.key) : (categorias.find((cat) => cat.id === block.key)?.nome ?? '')
+              const sectionId = block.key === 'featured' ? 'destaques' : block.key === 'most-ordered' ? 'mais-pedidos' : undefined
+              const featuredLayout = block.key === 'featured' || block.key === 'most-ordered'
               return (
-                <section key={section} className="cadu-catalog-section" id={sectionId}>
+                <section key={block.key} className="cadu-catalog-section" id={sectionId}>
                   <div className="cadu-section-heading">
-                    <span>{eyebrow}</span>
-                    <h2>{section}</h2>
+                    <span>{isMenuSection(block.key) ? title.toUpperCase() : t.catalogLabel}</span>
+                    <h2>{title}</h2>
                   </div>
-                  <div className={`cadu-product-grid ${section === t.featured || section === t.mostOrdered ? 'cadu-product-grid--featured' : ''}`}>
+                  <div className={`cadu-product-grid ${featuredLayout ? 'cadu-product-grid--featured' : ''}`}>
                     {sectionItems.map((item) => (
                       <ProductCard
                         key={item.id}
                         item={item}
+                        popular={mostOrderedIds.includes(item.id)}
                         addLabel={t.addToCart}
                         onAdd={() => setCustomizeItemId(item.id)}
                       />
@@ -343,10 +450,12 @@ export function StorefrontHome() {
 
 function ProductCard({
   item,
+  popular,
   addLabel,
   onAdd,
 }: {
   item: ItemComCategoria
+  popular: boolean
   addLabel: string
   onAdd: () => void
 }) {
@@ -362,7 +471,7 @@ function ProductCard({
       </Link>
       <Link href={`/produto/${item.id}`} className="cadu-product-copy block no-underline text-inherit">
         {item.categorias && <span>{item.categorias.nome}</span>}
-        {item.mais_pedido ? <em className="cadu-most-ordered">{t.mostOrdered}</em> : null}
+        {popular ? <em className="cadu-most-ordered">{t.mostOrdered}</em> : null}
         <h3>{item.nome}</h3>
         {item.descricao && <p>{item.descricao}</p>}
         <strong className="cadu-product-price">
@@ -381,6 +490,41 @@ function ProductCard({
       <button type="button" className="cadu-product-add" onClick={onAdd}>
         {addLabel} <Plus size={16} />
       </button>
+    </article>
+  )
+}
+
+function ComboCard({ combo, addLabel }: { combo: MenuCombo; addLabel: string }) {
+  const { t } = useLang()
+  return (
+    <article className="cadu-product-card">
+      <Link href={`/combo/${combo.id}`} className="cadu-product-thumb block">
+        {combo.imagem_url ? (
+          <StoreImage src={combo.imagem_url} alt={combo.nome} />
+        ) : (
+          <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
+        )}
+      </Link>
+      <Link href={`/combo/${combo.id}`} className="cadu-product-copy block no-underline text-inherit">
+        <span>{t.combos}</span>
+        <h3>{combo.nome}</h3>
+        {combo.descricao ? <p>{combo.descricao}</p> : null}
+        <strong className="cadu-product-price">
+          <b>
+            {t.currency}
+            {combo.preco.toFixed(2)}
+          </b>
+          {combo.compareAt ? (
+            <>
+              <s>{t.currency}{combo.compareAt.toFixed(2)}</s>
+              <span>-{Math.round(((combo.compareAt - combo.preco) / combo.compareAt) * 100)}%</span>
+            </>
+          ) : null}
+        </strong>
+      </Link>
+      <Link href={`/combo/${combo.id}`} className="cadu-product-add">
+        {addLabel} <Plus size={16} />
+      </Link>
     </article>
   )
 }
