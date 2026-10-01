@@ -37,6 +37,7 @@ interface Categoria {
 interface ItemComCategoria extends ItemCardapio {
   disponivel: boolean
   destaque: boolean
+  mais_pedido: boolean
   categorias: Categoria | null
 }
 
@@ -105,9 +106,14 @@ export function StorefrontHome() {
     const names = categorias
       .map((c) => c.nome)
       .filter((name) => filtered.some((item) => item.categorias?.nome === name))
+    const mostOrdered = filtered.filter((i) => i.mais_pedido)
     const featured = filtered.filter((i) => i.destaque)
-    return featured.length ? [t.featured, ...names] : names
-  }, [categoriaSelecionada, categorias, filtered, t.featured])
+    const head = [
+      ...(mostOrdered.length ? [t.mostOrdered] : []),
+      ...(featured.length ? [t.featured] : []),
+    ]
+    return [...head, ...names]
+  }, [categoriaSelecionada, categorias, filtered, t.featured, t.mostOrdered])
 
   function scrollToCatalog() {
     document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -118,6 +124,7 @@ export function StorefrontHome() {
   }
 
   function productsInSection(section: string) {
+    if (section === t.mostOrdered) return filtered.filter((i) => i.mais_pedido)
     if (section === t.featured) return filtered.filter((i) => i.destaque)
     return filtered.filter((i) => i.categorias?.nome === section)
   }
@@ -276,14 +283,15 @@ export function StorefrontHome() {
             sectionNames.map((section) => {
               const sectionItems = productsInSection(section)
               if (!sectionItems.length) return null
-              const sectionId = section === t.featured ? 'destaques' : undefined
+              const sectionId = section === t.featured ? 'destaques' : section === t.mostOrdered ? 'mais-pedidos' : undefined
+              const eyebrow = section === t.mostOrdered || section === t.featured ? section.toUpperCase() : t.catalogLabel
               return (
                 <section key={section} className="cadu-catalog-section" id={sectionId}>
                   <div className="cadu-section-heading">
-                    <span>{section === t.featured ? t.featured.toUpperCase() : t.catalogLabel}</span>
+                    <span>{eyebrow}</span>
                     <h2>{section}</h2>
                   </div>
-                  <div className={`cadu-product-grid ${section === t.featured ? 'cadu-product-grid--featured' : ''}`}>
+                  <div className={`cadu-product-grid ${section === t.featured || section === t.mostOrdered ? 'cadu-product-grid--featured' : ''}`}>
                     {sectionItems.map((item) => (
                       <ProductCard
                         key={item.id}
@@ -354,6 +362,7 @@ function ProductCard({
       </Link>
       <Link href={`/produto/${item.id}`} className="cadu-product-copy block no-underline text-inherit">
         {item.categorias && <span>{item.categorias.nome}</span>}
+        {item.mais_pedido ? <em className="cadu-most-ordered">{t.mostOrdered}</em> : null}
         <h3>{item.nome}</h3>
         {item.descricao && <p>{item.descricao}</p>}
         <strong className="cadu-product-price">

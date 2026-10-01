@@ -1,5 +1,7 @@
 /** Tipos alinhados à tabela `promocoes` (Supabase). */
 
+import { isScheduledWeekday, storeWeekday } from '@/lib/store-weekdays'
+
 export type PromocaoTipo =
   | 'subtotal_minimo_percentual'
   | 'codigo_promocional'
@@ -34,6 +36,8 @@ export type PromocaoRow = {
   ganhe_item_id?: string | null
   /** Tipo compre_x_ganhe_y: quantidade grátis por ciclo. */
   ganhe_qtd?: number | null
+  /** Dias em que a promoção vale. 0=domingo … 6=sábado. Vazio ou null = todos os dias. */
+  dias_semana?: number[] | null
 }
 
 export function promoCustomerLabel(p: Pick<PromocaoRow, 'nome' | 'nome_exibicao'>): string {
@@ -77,7 +81,7 @@ function isPromoActiveNow(p: PromocaoRow, now: Date): boolean {
     const e = new Date(p.validade_fim).getTime()
     if (!Number.isNaN(e) && t > e) return false
   }
-  return true
+  return isScheduledWeekday(p.dias_semana, storeWeekday(now))
 }
 
 function normalizeCode(s: string) {

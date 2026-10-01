@@ -261,6 +261,19 @@
   font-weight: 800;
   color: var(--cadu-ink);
 }
+.promo-form label {
+  display: block;
+  margin-bottom: 4px;
+  color: #531b04;
+  font-size: 12px;
+  font-weight: 700;
+}
+.promo-form input:not([type='checkbox']),
+.promo-form select,
+.promo-form textarea {
+  background: #fff;
+  color: #382217;
+}
 .marketing-consent button.is-primary {
   border-color: var(--cadu-pink);
   color: white;

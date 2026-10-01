@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isScheduledWeekday, storeWeekday } from '@/lib/store-weekdays'
 
 type BannerRow = {
   id: string
@@ -17,6 +18,7 @@ type BannerRow = {
   destino_url: string | null
   preco: number | null
   preco_riscado: number | null
+  dias_semana: number[] | null
 }
 
 type PromoRow = {
@@ -28,6 +30,7 @@ type PromoRow = {
   ativo: boolean
   validade_inicio: string | null
   validade_fim: string | null
+  dias_semana: number[] | null
   criado_em: string
 }
 
@@ -88,19 +91,22 @@ export async function GET() {
       supabase
         .from('banners_home')
         .select(
-          'id, titulo, descricao, descricao_en, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco, preco_riscado'
+          'id, titulo, descricao, descricao_en, imagem_url, imagem_url_en, ordem, ativo, criado_em, destino_tipo, destino_produto_id, destino_combo_id, destino_url, preco, preco_riscado, dias_semana'
         )
         .eq('ativo', true)
         .order('ordem')
         .order('criado_em', { ascending: false }),
       supabase
         .from('promocoes')
-        .select('id, nome, nome_exibicao, imagem_banner_url, banner_ordem, ativo, validade_inicio, validade_fim, criado_em')
+        .select('id, nome, nome_exibicao, imagem_banner_url, banner_ordem, ativo, validade_inicio, validade_fim, dias_semana, criado_em')
         .order('banner_ordem')
         .order('criado_em', { ascending: false }),
     ])
 
-    const banners = ((customRes.data as BannerRow[] | null) ?? []).filter((b) => b.imagem_url?.trim())
+    const weekday = storeWeekday()
+    const banners = ((customRes.data as BannerRow[] | null) ?? []).filter(
+      (b) => isScheduledWeekday(b.dias_semana, weekday) && Boolean(b.imagem_url?.trim())
+    )
     const productIds = [...new Set(banners.map((b) => b.destino_produto_id).filter(Boolean))] as string[]
     const comboIds = [...new Set(banners.map((b) => b.destino_combo_id).filter(Boolean))] as string[]
     const comboItemsRes = comboIds.length
@@ -158,6 +164,7 @@ export async function GET() {
       .filter(
         (p) =>
           isPromoActiveRow(p, now) &&
+          isScheduledWeekday(p.dias_semana, weekday) &&
           typeof p.imagem_banner_url === 'string' &&
           p.imagem_banner_url.trim().length > 0
       )

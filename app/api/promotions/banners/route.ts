@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isScheduledWeekday, storeWeekday } from '@/lib/store-weekdays'
 
 type Row = {
   id: string
@@ -10,6 +11,7 @@ type Row = {
   ativo: boolean
   validade_inicio: string | null
   validade_fim: string | null
+  dias_semana: number[] | null
   criado_em: string
 }
 
@@ -24,7 +26,7 @@ function isPromoActiveRow(p: Row, now: Date): boolean {
     const e = new Date(p.validade_fim).getTime()
     if (!Number.isNaN(e) && t > e) return false
   }
-  return true
+  return isScheduledWeekday(p.dias_semana, storeWeekday(now))
 }
 
 export type PromoBannerSlide = {
@@ -39,7 +41,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('promocoes')
       .select(
-        'id, nome, nome_exibicao, imagem_banner_url, banner_ordem, ativo, validade_inicio, validade_fim, criado_em'
+        'id, nome, nome_exibicao, imagem_banner_url, banner_ordem, ativo, validade_inicio, validade_fim, dias_semana, criado_em'
       )
 
     if (error) {

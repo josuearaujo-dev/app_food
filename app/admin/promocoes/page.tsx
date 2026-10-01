@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/lang-context'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
+import { WeekdayPicker } from '@/components/admin/weekday-picker'
+import { parseWeekdays } from '@/lib/store-weekdays'
 import { cn } from '@/lib/utils'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
@@ -51,6 +53,7 @@ type PromocaoRow = {
   categoria_id: string | null
   validade_inicio: string | null
   validade_fim: string | null
+  dias_semana: number[] | null
   imagem_banner_url: string | null
   banner_ordem: number | null
   cupom_categoria_ids: string[] | null
@@ -284,7 +287,7 @@ function PromoBannerUploader({
 
 export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }) {
   const supabase = createClient()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [loading, setLoading] = useState(true)
   const [promocoes, setPromocoes] = useState<PromocaoRow[]>([])
   const [categorias, setCategorias] = useState<CategoriaRow[]>([])
@@ -314,6 +317,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
     compreXQtd: '',
     ganheItemId: '',
     ganheQtd: '1',
+    diasSemana: [] as number[],
   })
 
   const tipoLabel = useMemo(
@@ -386,6 +390,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
       compreXQtd: '',
       ganheItemId: '',
       ganheQtd: '1',
+      diasSemana: [] as number[],
     })
     setCupomItemSearch('')
     setErro(null)
@@ -413,6 +418,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
       compreXQtd: p.compre_x_qtd != null ? String(p.compre_x_qtd) : '',
       ganheItemId: p.ganhe_item_id ?? '',
       ganheQtd: p.ganhe_qtd != null ? String(p.ganhe_qtd) : '1',
+      diasSemana: parseWeekdays(p.dias_semana),
     })
     setCupomItemSearch('')
     setErro(null)
@@ -488,6 +494,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
       validade_fim: fromDateEnd(form.validTo),
       imagem_banner_url: form.imagemBannerUrl.trim() || null,
       banner_ordem: Math.max(0, Math.floor(Number(form.bannerOrdem)) || 0),
+      dias_semana: form.diasSemana.length ? form.diasSemana : null,
     }
     if (form.tipo === 'subtotal_minimo_percentual') {
       return {
@@ -778,7 +785,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-3 px-4 py-4">
+            <div className="promo-form space-y-3 px-4 py-4">
               {erro && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
                   {erro}
@@ -1038,6 +1045,7 @@ export function AdminPromocoesPanel({ embedded = false }: { embedded?: boolean }
                 />
                 {t.promoFieldActive}
               </label>
+              <WeekdayPicker lang={lang} value={form.diasSemana} onChange={(diasSemana) => setForm((f) => ({ ...f, diasSemana }))} />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold">{t.promoFieldValidFrom}</label>

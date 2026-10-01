@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { StoreImage } from '@/components/storefront/store-image'
 
 import { useCart } from '@/lib/cart-context'
@@ -10,12 +11,15 @@ import Link from 'next/link'
 import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-footer'
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontShell } from '@/components/layout/storefront-shell'
+import { CartRecommendations } from '@/components/storefront/cart-recommendations'
+import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 
 export default function CarrinhoPage() {
   const { items, updateQuantity, removeItem, totalPrice, totalItems, clearCart } = useCart()
   const { t } = useLang()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const storeIsClosed = !storeStatusLoading && !acceptingOrders
+  const [suggestId, setSuggestId] = useState<string | null>(null)
 
   if (items.length === 0) {
     return (
@@ -123,7 +127,10 @@ export default function CarrinhoPage() {
             </div>
           </div>
         ))}
+        <CartRecommendations onAdd={setSuggestId} />
       </div>
+
+      <ProductCustomizeModal itemId={suggestId} onClose={() => setSuggestId(null)} />
 
       <StorefrontFixedFooter>
         <div className="mb-4 space-y-1.5">

@@ -23,6 +23,8 @@ import {
 } from '@/lib/checkout/place-cash-order'
 import { CloverCardFields } from '@/components/checkout/clover-card-fields'
 import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
+import { CartRecommendations } from '@/components/storefront/cart-recommendations'
+import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
@@ -66,6 +68,7 @@ export function DesktopCartCheckout() {
   const trackedCheckout = useRef(false)
   const trackedPayment = useRef(false)
   const trackedPurchase = useRef<string | null>(null)
+  const [suggestId, setSuggestId] = useState<string | null>(null)
 
   const deliveryFeeAmount = resolveClientDeliveryFee(
     fulfillmentType,
@@ -375,6 +378,9 @@ export function DesktopCartCheckout() {
               </div>
             ))}
           </div>
+
+          <CartRecommendations onAdd={setSuggestId} />
+          <ProductCustomizeModal itemId={suggestId} onClose={() => setSuggestId(null)} />
 
           <div className="cadu-desktop-checkout-panel">
             <FulfillmentSelector

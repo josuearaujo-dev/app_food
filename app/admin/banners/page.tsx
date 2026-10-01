@@ -7,7 +7,9 @@ import { GripVertical, ArrowUp, ArrowDown, ImageIcon, Loader2, Pencil, Plus, Tra
 import { createClient } from '@/lib/supabase/client'
 import { AdminLoadingState } from '@/components/layout/admin-loading-state'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
+import { WeekdayPicker } from '@/components/admin/weekday-picker'
 import { useLang } from '@/lib/lang-context'
+import { parseWeekdays } from '@/lib/store-weekdays'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
 
@@ -26,6 +28,7 @@ type Banner = {
   destino_url: string | null
   preco: number | null
   preco_riscado: number | null
+  dias_semana: number[] | null
 }
 
 type MenuItem = { id: string; nome: string; preco: number }
@@ -53,7 +56,7 @@ function pathFromPublicStorageUrl(url: string): string | null {
 
 export default function AdminBannersPage() {
   const supabase = createClient()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const inputRef = useRef<HTMLInputElement>(null)
   const inputRefEn = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
@@ -84,6 +87,7 @@ export default function AdminBannersPage() {
     destino_url: '',
     preco: '',
     preco_riscado: '',
+    dias_semana: [] as number[],
   })
 
   const destinoPreview = useMemo(() => {
@@ -162,6 +166,7 @@ export default function AdminBannersPage() {
       destino_url: '',
       preco: '',
       preco_riscado: '',
+      dias_semana: [],
     })
     setError(null)
     setModalOpen(true)
@@ -182,6 +187,7 @@ export default function AdminBannersPage() {
       destino_url: b.destino_url ?? '',
       preco: b.preco != null ? Number(b.preco).toFixed(2) : '',
       preco_riscado: b.preco_riscado != null ? Number(b.preco_riscado).toFixed(2) : '',
+      dias_semana: parseWeekdays(b.dias_semana),
     })
     setError(null)
     setModalOpen(true)
@@ -226,6 +232,7 @@ export default function AdminBannersPage() {
       destino_url: form.destino_tipo === 'url' ? form.destino_url.trim() : null,
       preco: parseMoney(form.preco),
       preco_riscado: parseMoney(form.preco_riscado),
+      dias_semana: form.dias_semana.length ? form.dias_semana : null,
     }
     const { error: saveError } = editing
       ? await supabase.from('banners_home').update(payload).eq('id', editing.id)
@@ -443,6 +450,8 @@ export default function AdminBannersPage() {
                   Opcional. Aparece riscado ao lado do preço. Se ficar vazio e o destino for um produto, usa o preço riscado do cadastro do produto.
                 </p>
               </div>
+
+              <WeekdayPicker lang={lang} value={form.dias_semana} onChange={(dias_semana) => setForm((f) => ({ ...f, dias_semana }))} />
 
               <div>
                 <label className="mb-1 block text-xs font-semibold">Imagem do banner</label>

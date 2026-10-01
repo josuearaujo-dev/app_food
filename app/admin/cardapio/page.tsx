@@ -34,6 +34,7 @@ interface Item {
   alergenicos_alerta: string | null
   disponivel: boolean
   destaque: boolean
+  mais_pedido: boolean
   categoria_id: string | null
   ordem: number
   categorias: Categoria | null
@@ -111,10 +112,11 @@ export default function AdminCardapioPage() {
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
     extra_groups: [] as ExtraGroupForm[],
-    categoria_id: '', disponivel: true, destaque: false, ordem: 0,
+    categoria_id: '', disponivel: true, destaque: false, mais_pedido: false, recomendados: [] as string[], ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
   const [itemErro, setItemErro] = useState<string | null>(null)
+  const [recomendacaoBusca, setRecomendacaoBusca] = useState('')
   const [reorderingCats, setReorderingCats] = useState(false)
   const [draggedCatId, setDraggedCatId] = useState<string | null>(null)
   const [dropCatId, setDropCatId] = useState<string | null>(null)
@@ -544,15 +546,23 @@ export default function AdminCardapioPage() {
       categoria_id: '',
       disponivel: true,
       destaque: false,
+      mais_pedido: false,
+      recomendados: [],
       ordem: outros.length + 1,
     })
     setItemErro(null)
+    setRecomendacaoBusca('')
     setModalItem(true)
   }
 
   async function abrirEditarItem(item: Item) {
     setItemEditando(item)
     const optionData = await loadOptions(item.id)
+    const { data: links } = await supabase
+      .from('produto_recomendacoes')
+      .select('recomendado_id, ordem')
+      .eq('item_id', item.id)
+      .order('ordem')
     const mesmaCat = itens
       .filter((i) => sameCategoriaKey(i.categoria_id, item.categoria_id))
       .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
@@ -573,9 +583,12 @@ export default function AdminCardapioPage() {
       categoria_id: item.categoria_id ?? '',
       disponivel: item.disponivel,
       destaque: item.destaque,
+      mais_pedido: !!item.mais_pedido,
+      recomendados: (links ?? []).map((link) => link.recomendado_id as string),
       ordem: posicao,
     })
     setItemErro(null)
+    setRecomendacaoBusca('')
     setModalItem(true)
   }
 
@@ -620,6 +633,7 @@ export default function AdminCardapioPage() {
       categoria_id: catIdNorm,
       disponivel: formItem.disponivel,
       destaque: formItem.destaque,
+      mais_pedido: formItem.mais_pedido,
     }
 
     const montarIdsOrdenados = (itemId: string) => [
@@ -627,6 +641,17 @@ export default function AdminCardapioPage() {
       itemId,
       ...outros.slice(pos - 1).map((i) => i.id),
     ]
+
+    async function saveRecommendations(itemId: string) {
+      const unique = [...new Set(formItem.recomendados.filter((id) => id && id !== itemId))]
+      const { error: deleteError } = await supabase.from('produto_recomendacoes').delete().eq('item_id', itemId)
+      if (deleteError) throw new Error(deleteError.message)
+      if (!unique.length) return
+      const { error: insertError } = await supabase.from('produto_recomendacoes').insert(
+        unique.map((recomendado_id, ordem) => ({ item_id: itemId, recomendado_id, ordem }))
+      )
+      if (insertError) throw new Error(insertError.message)
+    }
 
     try {
       if (itemEditando) {
@@ -656,6 +681,7 @@ export default function AdminCardapioPage() {
         await saveOptionGroup(id, 'size', 'Tamanho', normalizeOptionLines(formItem.size_options))
         await saveOptionGroup(id, 'quantity', 'Quantidade', normalizeOptionLines(formItem.quantity_options))
         await saveExtraGroups(id, formItem.extra_groups)
+        await saveRecommendations(id)
       } else {
         const nextOrdem = outros.length > 0 ? Math.max(...outros.map((o) => o.ordem)) + 1 : 1
         const { data: inserted } = await supabase
@@ -669,11 +695,14 @@ export default function AdminCardapioPage() {
           await saveOptionGroup(newId, 'size', 'Tamanho', normalizeOptionLines(formItem.size_options))
           await saveOptionGroup(newId, 'quantity', 'Quantidade', normalizeOptionLines(formItem.quantity_options))
           await saveExtraGroups(newId, formItem.extra_groups)
+          await saveRecommendations(newId)
         }
       }
+      setModalItem(false)
+    } catch (err) {
+      setItemErro(err instanceof Error ? err.message : 'Não foi possível salvar o produto.')
     } finally {
       setSalvandoItem(false)
-      setModalItem(false)
       fetchData()
     }
   }
@@ -841,6 +870,7 @@ export default function AdminCardapioPage() {
                       <div className="flex items-start gap-1">
                         <p className="font-semibold text-sm text-foreground line-clamp-1 flex-1">{item.nome}</p>
                         {item.destaque && <Star size={12} className="text-accent fill-accent flex-shrink-0 mt-0.5" />}
+                        {item.mais_pedido && <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">{t.mostOrdered}</span>}
                       </div>
                       {item.categorias && (
                         <span className="text-[10px] text-accent font-semibold">{item.categorias.nome}</span>
@@ -1171,9 +1201,53 @@ export default function AdminCardapioPage() {
             hint="1º = primeiro nesta categoria. A ordem no banco é definida automaticamente."
           />
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <Toggle label={t.fieldAvailable} value={formItem.disponivel} onChange={(v) => setFormItem({ ...formItem, disponivel: v })} />
             <Toggle label={t.fieldFeatured} value={formItem.destaque} onChange={(v) => setFormItem({ ...formItem, destaque: v })} />
+            <Toggle label={t.fieldMostOrdered} value={formItem.mais_pedido} onChange={(v) => setFormItem({ ...formItem, mais_pedido: v })} />
+          </div>
+
+          <div className="space-y-2 border-t border-border pt-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">{t.fieldRecommendations}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {lang === 'en'
+                  ? 'These products appear in the cart while this item is in the order.'
+                  : 'Estes produtos aparecem no carrinho enquanto este item estiver no pedido.'}
+              </p>
+            </div>
+            <input
+              value={recomendacaoBusca}
+              onChange={(e) => setRecomendacaoBusca(e.target.value)}
+              placeholder={lang === 'en' ? 'Search products' : 'Buscar produtos'}
+              className="w-full rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/30"
+            />
+            <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+              {itens
+                .filter((other) => other.id !== itemEditando?.id)
+                .filter((other) => other.nome.toLowerCase().includes(recomendacaoBusca.trim().toLowerCase()))
+                .map((other) => {
+                  const selected = formItem.recomendados.includes(other.id)
+                  return (
+                    <label key={other.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-foreground hover:bg-secondary">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() =>
+                          setFormItem((prev) => ({
+                            ...prev,
+                            recomendados: selected
+                              ? prev.recomendados.filter((id) => id !== other.id)
+                              : [...prev.recomendados, other.id],
+                          }))
+                        }
+                      />
+                      <span className="min-w-0 flex-1 truncate">{other.nome}</span>
+                      {!other.disponivel ? <span className="text-[10px] text-muted-foreground">{t.unavailable}</span> : null}
+                    </label>
+                  )
+                })}
+            </div>
           </div>
         </Modal>
       )}

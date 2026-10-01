@@ -1,41 +1,50 @@
-Ofertas em lista, preços e ordem das categorias v2.2.0
-======================================================
+Dias da promoção, ofertas lado a lado e mais pedidos v2.3.0
+=============================================================
 
-O popup mostra todas as ofertas juntas, sem carrossel.
-O cardápio mostra o preço riscado e o percentual em verde.
-A ordem das categorias se escolhe arrastando, como nos banners.
+A promoção e o banner podem ser limitados aos dias da semana.
+O cadastro de promoções volta a mostrar os nomes dos campos.
+No computador, as ofertas do popup ficam uma ao lado da outra.
+O restaurante marca "Mais pedidos" no produto e vincula
+o que o carrinho deve sugerir enquanto esse item estiver no pedido.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.2.0 dentro do repositório.
-2) Rodar scripts/043_preco_banner_e_produto.sql no Supabase (uma vez).
-   Neste banco (kujvnoscdmdarwmoivtq) as colunas já foram criadas.
+   Não deixe a pasta deploy-altered-v2.3.0 dentro do repositório.
+2) Rodar no Supabase, uma vez, nesta ordem:
+   - scripts/044_promocao_dias_semana.sql
+   - scripts/045_mais_pedidos_e_recomendacoes.sql
+   Neste banco (kujvnoscdmdarwmoivtq) as colunas e a tabela já foram criadas.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.1.0. Aplique os dois.
+4) Este pacote vem DEPOIS do v2.2.0. Aplique os dois.
 
 Arquivos NOVOS
 --------------
-- scripts/043_preco_banner_e_produto.sql
+- components/admin/weekday-picker.tsx
+- components/storefront/cart-recommendations.tsx
+- lib/store-weekdays.ts
+- scripts/044_promocao_dias_semana.sql
+- scripts/045_mais_pedidos_e_recomendacoes.sql
 
 Arquivos ALTERADOS
 ------------------
 - app/admin/banners/page.tsx
 - app/admin/cardapio/page.tsx
+- app/admin/promocoes/page.tsx
 - app/api/banners/route.ts
-- app/busca/page.tsx
-- app/produto/[id]/page.tsx
-- components/admin-combos-panel.tsx
-- components/home-promo-carousel.tsx
+- app/api/promotions/banners/route.ts
+- app/carrinho/page.tsx
+- app/globals.css
+- components/checkout/desktop-cart-checkout.tsx
 - components/home-promo-carousel.module.css
 - components/storefront/storefront-home.tsx
-- components/storefront/store-image.tsx
-- lib/cart-context.tsx
-- public/images/product-placeholder.svg
+- lib/lang-context.tsx
+- lib/promotions-compute.ts
 - styles/storefront.css
 
 Obs.
 ----
-store-image.tsx e o placeholder entram para o build não falhar
-com "module-not-found" na página de banners.
+Dia em branco = a promoção vale todos os dias.
+O relógio usado é o da loja (Nova York).
+"Mais pedidos" não é calculado pelas vendas: só entra o produto marcado no cadastro.
 O .env.local NÃO entra neste pacote.

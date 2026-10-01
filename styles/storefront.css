@@ -2699,6 +2699,18 @@ img[data-fallback] { object-fit: contain !important; background: #f6efea; }
   .cadu-offer-image { width: 104px; height: 104px; }
   .cadu-offers-launcher { width: calc(100% - 28px); margin: 0 auto 20px; }
 }
+.cadu-most-ordered { display:inline-flex; margin-top:6px; padding:2px 7px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:10px; font-style:normal; font-weight:800; letter-spacing:.02em; }
+.cadu-cart-suggest { margin:12px 0 4px; padding-top:12px; border-top:1px solid #eadfd4; }
+.cadu-cart-suggest h3 { margin:0; color:#382217; font-size:14px; font-weight:800; }
+.cadu-cart-suggest > p { margin:4px 0 10px; color:#7A4A35; font-size:12px; line-height:1.4; }
+.cadu-cart-suggest-list { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+.cadu-cart-suggest-list li { display:flex; align-items:center; gap:10px; }
+.cadu-cart-suggest-thumb { width:48px; height:48px; flex-shrink:0; overflow:hidden; border-radius:10px; background:#f6efea; display:flex; align-items:center; justify-content:center; }
+.cadu-cart-suggest-thumb img { width:100%; height:100%; object-fit:cover; }
+.cadu-cart-suggest-copy { min-width:0; flex:1; }
+.cadu-cart-suggest-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#382217; font-size:13px; }
+.cadu-cart-suggest-copy span { color:#15803d; font-size:12px; font-weight:800; }
+.cadu-cart-suggest-list button { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; border:0; border-radius:999px; padding:7px 10px; background:#531b04; color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
 .cadu-product-price { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .cadu-product-price b { font-weight: inherit; }
 .cadu-product-price s { color: #9ca3af; font-size: 0.85em; font-weight: 600; text-decoration: line-through; }
