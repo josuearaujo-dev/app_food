@@ -1,45 +1,27 @@
-Ofertas especiais, preço do combo e sugestões do combo v2.10.0
-==============================================================
+Admin cardápio: lista e filtros de categoria v2.11.0
+====================================================
 
-Inclui:
-1) Nome da seção/popup volta a Special offers / Ofertas especiais
-2) Preço do cadastro do combo tem prioridade sobre o banner
-   (banner só vale se o combo estiver $0)
-3) Corrige /api/banners (href do combo + prioridade de preço)
-4) Fallback + logs [cadu:combo-add] no Add dos combos
-5) Sugestões do carrinho também leem os produtos do combo
-   (combo_itens + escolhas) e oferecem o cadastrado neles
+Na aba Itens do Admin → Cardápio:
+- busca por nome/descrição
+- filtros por categoria (chips com contagem)
+- filtros Disponível / Oculto / Destaque
+- lista agrupada por categoria com cards maiores
+  (foto, descrição, preço, badges)
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.10.0 dentro do repositório.
-2) No Supabase, se ainda não rodou:
-   - scripts/045_mais_pedidos_e_recomendacoes.sql
-   - scripts/047_combo_escolha.sql
+   Não deixe a pasta deploy-altered-v2.11.0 dentro do repositório.
+2) Nenhum SQL novo.
 3) Commit + push / redeploy Vercel.
-4) Pode aplicar sozinho em cima do site atual.
+4) Este pacote vem DEPOIS do v2.10.0.
 
-Arquivos
---------
-- app/api/banners/route.ts
-- app/combo/[id]/page.tsx
-- components/home-promo-carousel.tsx
-- components/home-promo-carousel.module.css
-- components/storefront/cart-recommendations.tsx
-- components/storefront/combo-customize-modal.tsx
-- components/storefront/store-image.tsx
-- components/storefront/storefront-home.tsx
-- lib/home-offers.ts
+Arquivos ALTERADOS
+------------------
+- app/admin/cardapio/page.tsx
 - lib/lang-context.tsx
-- lib/menu-layout.ts
-- lib/store-weekdays.ts
-- scripts/045_mais_pedidos_e_recomendacoes.sql
-- scripts/047_combo_escolha.sql
 
 Obs.
 ----
-Depois do deploy, /api/banners deve devolver href /combo/...
-e o price do combo cadastrado (se > 0).
-No carrinho, com um combo, aparecem sugestões dos produtos
-do combo. O .env.local NÃO entra neste pacote.
+Criar, editar, ocultar e excluir itens continuam iguais.
+O .env.local NÃO entra neste pacote.

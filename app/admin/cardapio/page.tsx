@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Pencil, Trash2, X, Check,
   Eye, EyeOff, Star, Package, ImageIcon, Upload, Loader2,
-  GripVertical, ArrowUp, ArrowDown,
+  GripVertical, ArrowUp, ArrowDown, Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
@@ -132,6 +132,9 @@ export default function AdminCardapioPage() {
   const [salvandoItem, setSalvandoItem] = useState(false)
   const [itemErro, setItemErro] = useState<string | null>(null)
   const [recomendacaoBusca, setRecomendacaoBusca] = useState('')
+  const [itemCatFilter, setItemCatFilter] = useState<string>('all')
+  const [itemBusca, setItemBusca] = useState('')
+  const [itemStatusFilter, setItemStatusFilter] = useState<'all' | 'available' | 'hidden' | 'featured'>('all')
   const [reorderingCats, setReorderingCats] = useState(false)
   const [draggedCatId, setDraggedCatId] = useState<string | null>(null)
   const [dropCatId, setDropCatId] = useState<string | null>(null)
@@ -169,6 +172,76 @@ export default function AdminCardapioPage() {
     const ids = [...categorias].sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id)).map((cat) => cat.id)
     return buildMenuOrder(ids, menuOrder)
   }, [categorias, menuOrder])
+
+  const categoryOrderIds = useMemo(
+    () => menuSlots.filter((slot) => slot.kind === 'category').map((slot) => slot.key),
+    [menuSlots]
+  )
+
+  const filteredItems = useMemo(() => {
+    const q = itemBusca.trim().toLowerCase()
+    return itens
+      .filter((item) => {
+        if (itemCatFilter === 'none') {
+          if (item.categoria_id) return false
+        } else if (itemCatFilter !== 'all' && item.categoria_id !== itemCatFilter) {
+          return false
+        }
+        if (itemStatusFilter === 'available' && !item.disponivel) return false
+        if (itemStatusFilter === 'hidden' && item.disponivel) return false
+        if (itemStatusFilter === 'featured' && !item.destaque) return false
+        if (q && !`${item.nome} ${item.descricao ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase().includes(q)) {
+          return false
+        }
+        return true
+      })
+      .sort((a, b) => {
+        const rank = (id: string | null) => {
+          if (!id) return 10_000
+          const index = categoryOrderIds.indexOf(id)
+          return index < 0 ? 9_999 : index
+        }
+        const byCat = rank(a.categoria_id) - rank(b.categoria_id)
+        if (byCat !== 0) return byCat
+        return (a.ordem ?? 0) - (b.ordem ?? 0) || a.nome.localeCompare(b.nome)
+      })
+  }, [itens, itemCatFilter, itemBusca, itemStatusFilter, categoryOrderIds])
+
+  const itemGroups = useMemo(() => {
+    type Group = { key: string; title: string; icon: string | null; items: Item[] }
+    if (itemCatFilter !== 'all') {
+      if (!filteredItems.length) return [] as Group[]
+      if (itemCatFilter === 'none') {
+        return [{ key: 'none', title: t.noCategory, icon: null, items: filteredItems }]
+      }
+      const category = categorias.find((cat) => cat.id === itemCatFilter)
+      return [{
+        key: itemCatFilter,
+        title: category?.nome ?? t.fieldCategory,
+        icon: category?.icone ?? null,
+        items: filteredItems,
+      }]
+    }
+    const groups: Group[] = []
+    for (const id of categoryOrderIds) {
+      const category = categorias.find((cat) => cat.id === id)
+      const rows = filteredItems.filter((item) => item.categoria_id === id)
+      if (!rows.length) continue
+      groups.push({
+        key: id,
+        title: category?.nome ?? t.fieldCategory,
+        icon: category?.icone ?? null,
+        items: rows,
+      })
+    }
+    const uncategorized = filteredItems.filter((item) => !item.categoria_id)
+    if (uncategorized.length) {
+      groups.push({ key: 'none', title: t.noCategory, icon: null, items: uncategorized })
+    }
+    return groups
+  }, [filteredItems, itemCatFilter, categoryOrderIds, categorias, t.noCategory, t.fieldCategory])
+
+  const hasItemFilters = itemCatFilter !== 'all' || itemBusca.trim().length > 0 || itemStatusFilter !== 'all'
 
   async function reorderCategoria(sourceId: string, targetId: string) {
     if (catReorderLock.current || sourceId === targetId) return
@@ -842,13 +915,17 @@ export default function AdminCardapioPage() {
           </div>
         ) : isItemsTab ? (
           <>
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                {itens.length} {itens.length === 1 ? t.item : t.items}
+                {hasItemFilters
+                  ? t.showingItemsCount
+                      .replace('{shown}', String(filteredItems.length))
+                      .replace('{total}', String(itens.length))
+                  : `${itens.length} ${itens.length === 1 ? t.item : t.items}`}
               </p>
               <button
                 onClick={abrirNovoItem}
-                className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-xl active:opacity-80 transition-opacity"
+                className="flex items-center justify-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-xl active:opacity-80 transition-opacity"
               >
                 <Plus size={16} />
                 {t.newItem}
@@ -864,58 +941,207 @@ export default function AdminCardapioPage() {
                 onAcao={abrirNovoItem}
               />
             ) : (
-              <div className="space-y-3">
-                {itens.map((item) => (
-                  <div key={item.id} className="flex gap-3 bg-card rounded-2xl p-3 border border-border">
-                    {item.imagem_url ? (
-                      <img src={item.imagem_url} alt={item.nome} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-accent/10 flex items-center justify-center">
-                        <ImageIcon size={22} className="text-accent/50" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-1">
-                        <p className="font-semibold text-sm text-foreground line-clamp-1 flex-1">{item.nome}</p>
-                        {item.destaque && <Star size={12} className="text-accent fill-accent flex-shrink-0 mt-0.5" />}
-                      </div>
-                      {item.categorias && (
-                        <span className="text-[10px] text-accent font-semibold">{item.categorias.nome}</span>
+              <>
+                <div className="mb-4 space-y-3">
+                  <label className="relative block">
+                    <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={itemBusca}
+                      onChange={(e) => setItemBusca(e.target.value)}
+                      placeholder={t.searchProducts}
+                      className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-accent/30"
+                    />
+                  </label>
+
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setItemCatFilter('all')}
+                      className={cn(
+                        'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        itemCatFilter === 'all'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-muted-foreground hover:text-foreground'
                       )}
-                      <p className="text-accent font-bold text-sm mt-0.5">
-                        ${item.preco.toFixed(2)}
-                        {item.preco_riscado != null ? <s className="ml-2 text-xs font-semibold text-muted-foreground">${Number(item.preco_riscado).toFixed(2)}</s> : null}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
+                    >
+                      {t.all}
+                    </button>
+                    {categoryOrderIds.map((id) => {
+                      const category = categorias.find((cat) => cat.id === id)
+                      if (!category) return null
+                      const count = itens.filter((item) => item.categoria_id === id).length
+                      return (
                         <button
-                          onClick={() => toggleDisponivel(item)}
+                          key={id}
+                          type="button"
+                          onClick={() => setItemCatFilter(id)}
                           className={cn(
-                            'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg',
-                            item.disponivel ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                            'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                            itemCatFilter === id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-muted-foreground hover:text-foreground'
                           )}
                         >
-                          {item.disponivel ? <Eye size={10} /> : <EyeOff size={10} />}
-                          {item.disponivel ? t.available : t.hidden}
+                          {category.icone ? `${category.icone} ` : ''}{category.nome}
+                          <span className="ml-1 opacity-70">{count}</span>
                         </button>
-                        <button
-                          onClick={() => abrirEditarItem(item)}
-                          className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"
-                          aria-label="Edit"
-                        >
-                          <Pencil size={13} className="text-foreground" />
-                        </button>
-                        <button
-                          onClick={() => excluirItem(item.id)}
-                          className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center"
-                          aria-label="Delete"
-                        >
-                          <Trash2 size={13} className="text-red-500" />
-                        </button>
-                      </div>
-                    </div>
+                      )
+                    })}
+                    {itens.some((item) => !item.categoria_id) ? (
+                      <button
+                        type="button"
+                        onClick={() => setItemCatFilter('none')}
+                        className={cn(
+                          'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                          itemCatFilter === 'none'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        {t.noCategory}
+                      </button>
+                    ) : null}
                   </div>
-                ))}
-              </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {([
+                      ['all', t.all],
+                      ['available', t.available],
+                      ['hidden', t.hidden],
+                      ['featured', t.filterFeaturedOnly],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setItemStatusFilter(value)}
+                        className={cn(
+                          'rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                          itemStatusFilter === value
+                            ? 'bg-accent/15 text-accent'
+                            : 'bg-secondary text-muted-foreground'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    {hasItemFilters ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItemCatFilter('all')
+                          setItemBusca('')
+                          setItemStatusFilter('all')
+                        }}
+                        className="ml-auto text-[11px] font-semibold text-accent"
+                      >
+                        {t.clearFilters}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {filteredItems.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
+                    <p className="text-sm font-semibold text-foreground">{t.noItemsFilter}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setItemCatFilter('all')
+                        setItemBusca('')
+                        setItemStatusFilter('all')
+                      }}
+                      className="mt-3 text-sm font-semibold text-accent"
+                    >
+                      {t.clearFilters}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {itemGroups.map((group) => (
+                      <section key={group.key} className="space-y-3">
+                        <div className="flex items-center gap-2 px-0.5">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/10 text-base">
+                            {group.icon || '📋'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-bold text-foreground">{group.title}</h3>
+                            <p className="text-[11px] text-muted-foreground">
+                              {group.items.length} {group.items.length === 1 ? t.item : t.items}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          {group.items.map((item) => (
+                            <div key={item.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+                              {item.imagem_url ? (
+                                <img src={item.imagem_url} alt={item.nome} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                              ) : (
+                                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+                                  <ImageIcon size={26} className="text-accent/50" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start gap-2">
+                                  <p className="flex-1 text-sm font-semibold text-foreground">{item.nome}</p>
+                                  {item.destaque ? <Star size={14} className="mt-0.5 shrink-0 fill-accent text-accent" /> : null}
+                                </div>
+                                {item.descricao ? (
+                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{item.descricao}</p>
+                                ) : null}
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                  {item.categorias ? (
+                                    <span className="rounded-lg bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">
+                                      {item.categorias.icone ? `${item.categorias.icone} ` : ''}{item.categorias.nome}
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-lg bg-secondary px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+                                      {t.noCategory}
+                                    </span>
+                                  )}
+                                  <span className="text-sm font-bold text-accent">
+                                    ${item.preco.toFixed(2)}
+                                    {item.preco_riscado != null ? (
+                                      <s className="ml-1.5 text-xs font-semibold text-muted-foreground">
+                                        ${Number(item.preco_riscado).toFixed(2)}
+                                      </s>
+                                    ) : null}
+                                  </span>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  <button
+                                    onClick={() => toggleDisponivel(item)}
+                                    className={cn(
+                                      'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold',
+                                      item.disponivel ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'
+                                    )}
+                                  >
+                                    {item.disponivel ? <Eye size={11} /> : <EyeOff size={11} />}
+                                    {item.disponivel ? t.available : t.hidden}
+                                  </button>
+                                  <button
+                                    onClick={() => abrirEditarItem(item)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary"
+                                    aria-label="Edit"
+                                  >
+                                    <Pencil size={14} className="text-foreground" />
+                                  </button>
+                                  <button
+                                    onClick={() => excluirItem(item.id)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 size={14} className="text-red-500" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         ) : (
