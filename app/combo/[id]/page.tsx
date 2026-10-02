@@ -4,7 +4,7 @@ import { StoreImage } from '@/components/storefront/store-image'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Minus, Plus } from 'lucide-react'
+import { Minus, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio, type SelectedOption } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
@@ -52,6 +52,19 @@ type ComboData = {
   combo_itens: ComboLine[]
 }
 
+type ChoiceOption = {
+  itemId: string
+  nome: string
+  imagemUrl: string | null
+}
+
+type ChoiceGroup = {
+  id: string
+  nome: string
+  quantidade: number
+  opcoes: ChoiceOption[]
+}
+
 type SelectionState = {
   singleByGroup: Record<string, string>
   extrasByGroup: Record<string, string[]>
@@ -68,8 +81,16 @@ function formatComboSelectionError(template: string, item: string, group: string
   return template.replace('{item}', item).replace('{group}', group)
 }
 
-export default function ComboDetailPage() {
+type ComboCustomizeProps = {
+  comboId?: string
+  layout?: 'page' | 'modal'
+  onAdded?: () => void
+  onClose?: () => void
+}
+
+export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: ComboCustomizeProps) {
   const params = useParams<{ id: string }>()
+  const resolvedId = comboId ?? params?.id
   const router = useRouter()
   const supabase = createClient()
   const { addItem } = useCart()
@@ -81,21 +102,28 @@ export default function ComboDetailPage() {
   const [observation, setObservation] = useState('')
   const [qtd, setQtd] = useState(1)
   const [erro, setErro] = useState<string | null>(null)
+  const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>([])
+  const [choiceSelection, setChoiceSelection] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     let active = true
     ;(async () => {
-      const id = params?.id
+      const id = resolvedId
       if (!id) return
       setLoading(true)
       setErro(null)
 
-      const { data: comboData, error: comboErr } = await supabase
-        .from('combos')
-        .select('id, nome, descricao, preco, imagem_url, combo_itens(item_id, quantidade, ordem, itens_cardapio(id, nome, preco, imagem_url))')
-        .eq('id', id)
-        .eq('ativo', true)
-        .maybeSingle()
+      const [{ data: comboData, error: comboErr }, bannerData] = await Promise.all([
+        supabase
+          .from('combos')
+          .select('id, nome, descricao, preco, imagem_url, combo_itens(item_id, quantidade, ordem, itens_cardapio(id, nome, preco, imagem_url))')
+          .eq('id', id)
+          .eq('ativo', true)
+          .maybeSingle(),
+        fetch('/api/banners', { cache: 'no-store' })
+          .then((response) => (response.ok ? response.json() : { slides: [] }))
+          .catch(() => ({ slides: [] })),
+      ])
 
       if (!active) return
       if (comboErr || !comboData) {
@@ -104,12 +132,52 @@ export default function ComboDetailPage() {
         return
       }
 
+      const { data: choiceRows } = await supabase
+        .from('combo_escolha_grupos')
+        .select('id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem, itens_cardapio(id, nome, imagem_url))')
+        .eq('combo_id', id)
+        .order('ordem')
+      const parsedChoices: ChoiceGroup[] = ((choiceRows ?? []) as Array<{
+        id: string
+        nome: string
+        quantidade: number
+        ordem: number
+        combo_escolha_opcoes?: Array<{
+          item_id: string
+          ordem: number
+          itens_cardapio?: { id: string; nome: string; imagem_url: string | null } | { id: string; nome: string; imagem_url: string | null }[] | null
+        }> | null
+      }>).map((group) => ({
+        id: group.id,
+        nome: group.nome,
+        quantidade: Math.max(1, Number(group.quantidade) || 1),
+        opcoes: [...(group.combo_escolha_opcoes ?? [])]
+          .sort((a, b) => a.ordem - b.ordem)
+          .map((option) => {
+            const product = Array.isArray(option.itens_cardapio) ? option.itens_cardapio[0] : option.itens_cardapio
+            return {
+              itemId: option.item_id,
+              nome: product?.nome ?? t.comboItemDefault,
+              imagemUrl: product?.imagem_url ?? null,
+            }
+          }),
+      }))
+
       const comboTyped = comboData as ComboData
+      const offer = ((bannerData.slides ?? []) as Array<{ href?: string | null; price?: number | null; imageUrl?: string }>).find(
+        (slide) => slide.href === `/combo/${comboTyped.id}`
+      )
+      const storedPrice = Number(comboTyped.preco ?? 0)
+      const offerPrice = typeof offer?.price === 'number' && offer.price > 0 ? offer.price : null
+      comboTyped.preco = offerPrice ?? storedPrice
+      if (!comboTyped.imagem_url && offer?.imageUrl) comboTyped.imagem_url = offer.imageUrl
       setCombo(comboTyped)
+      setChoiceGroups(parsedChoices)
+      setChoiceSelection({})
       trackViewContentProduct({
         id: comboTyped.id,
         name: comboTyped.nome,
-        priceDollars: Number(comboTyped.preco),
+        priceDollars: comboTyped.preco,
       })
 
       const itemIds = (comboTyped.combo_itens ?? []).map((ci) => ci.item_id)
@@ -191,7 +259,7 @@ export default function ComboDetailPage() {
     return () => {
       active = false
     }
-  }, [params?.id, supabase, t.comboNotFound])
+  }, [resolvedId, supabase, t.comboNotFound])
 
   const extraDelta = useMemo(() => {
     if (!combo) return 0
@@ -263,8 +331,27 @@ export default function ComboDetailPage() {
     })
   }
 
+  function toggleChoice(group: ChoiceGroup, itemId: string) {
+    setChoiceSelection((prev) => {
+      const current = prev[group.id] ?? []
+      if (current.includes(itemId)) {
+        return { ...prev, [group.id]: current.filter((id) => id !== itemId) }
+      }
+      if (current.length >= group.quantidade) return prev
+      return { ...prev, [group.id]: [...current, itemId] }
+    })
+    setErro(null)
+  }
+
   function handleAddCombo() {
     if (!combo) return
+    for (const group of choiceGroups) {
+      const picked = choiceSelection[group.id] ?? []
+      if (picked.length !== group.quantidade) {
+        setErro(t.comboChoiceError.replace('{group}', group.nome).replace('{count}', String(group.quantidade)))
+        return
+      }
+    }
     for (const line of combo.combo_itens ?? []) {
       const groups = groupsByItem[line.item_id] ?? []
       const sel = selections[line.item_id]
@@ -282,6 +369,19 @@ export default function ComboDetailPage() {
     }
 
     const selectedOptions: SelectedOption[] = []
+    for (const group of choiceGroups) {
+      for (const itemId of choiceSelection[group.id] ?? []) {
+        const option = group.opcoes.find((item) => item.itemId === itemId)
+        if (!option) continue
+        selectedOptions.push({
+          optionId: `${group.id}:${itemId}`,
+          groupType: 'extra',
+          groupName: group.nome,
+          label: option.nome,
+          priceDelta: 0,
+        })
+      }
+    }
     for (const line of combo.combo_itens ?? []) {
       const itemName = line.itens_cardapio?.nome ?? t.comboItemDefault
       const qty = Math.max(1, Number(line.quantidade) || 1)
@@ -335,31 +435,29 @@ export default function ComboDetailPage() {
       selectedOptions,
       unitPrice,
     })
-    router.push('/carrinho')
+    if (onAdded) onAdded()
+    else router.push('/carrinho')
   }
 
   if (loading) {
-    return <StorefrontLoadingState message={t.comboLoading} />
+    return layout === 'modal'
+      ? <p className="p-8 text-center text-sm text-muted-foreground">{t.comboLoading}</p>
+      : <StorefrontLoadingState message={t.comboLoading} />
   }
 
   if (!combo) {
-    return (
+    const message = <p className="px-4 pt-4 text-sm text-muted-foreground">{erro ?? t.comboNotFound}</p>
+    return layout === 'modal' ? message : (
       <StorefrontShell
         header={<StorefrontHeader title={t.comboNotFound} backHref="/" backLabel={t.back} />}
       >
-        <div className="px-4 pt-4">
-          <p className="text-sm text-muted-foreground">{erro ?? t.comboNotFound}</p>
-        </div>
+        {message}
       </StorefrontShell>
     )
   }
 
-  return (
-    <StorefrontShell
-      bottomPadding="cta-only"
-      header={<StorefrontHeader title={combo.nome} backHref="/" backLabel={t.back} />}
-    >
-      <section className="space-y-4 px-4 pt-4">
+  const details = (
+      <section className="space-y-4 px-4 pt-4 pb-4">
         {combo.imagem_url ? (
           <StoreImage
             src={combo.imagem_url}
@@ -368,6 +466,48 @@ export default function ComboDetailPage() {
           />
         ) : null}
         {combo.descricao ? <p className="text-sm text-muted-foreground">{combo.descricao}</p> : null}
+        {choiceGroups.map((group) => {
+          const picked = choiceSelection[group.id] ?? []
+          const full = picked.length >= group.quantidade
+          return (
+            <article key={group.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">{group.nome}</p>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {t.comboChoiceCount.replace('{picked}', String(picked.length)).replace('{count}', String(group.quantidade))}
+                </span>
+              </div>
+              <p className="mb-2 text-xs text-muted-foreground">{t.comboChoiceHint.replace('{count}', String(group.quantidade))}</p>
+              <div className="space-y-2">
+                {group.opcoes.map((option) => {
+                  const active = picked.includes(option.itemId)
+                  const locked = full && !active
+                  return (
+                    <button
+                      key={option.itemId}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => toggleChoice(group, option.itemId)}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm font-medium ${
+                        active
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : locked
+                            ? 'cursor-not-allowed border-border bg-background text-foreground opacity-40'
+                            : 'border-border bg-background text-foreground'
+                      }`}
+                    >
+                      {option.imagemUrl ? (
+                        <StoreImage src={option.imagemUrl} alt="" className={`h-10 w-10 shrink-0 rounded-lg object-cover ${locked ? 'grayscale' : ''}`} />
+                      ) : null}
+                      <span className="min-w-0 flex-1">{option.nome}</span>
+                      {active ? <X size={16} className="shrink-0" aria-hidden /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </article>
+          )
+        })}
         {(combo.combo_itens ?? []).map((line) => {
           const groups = groupsByItem[line.item_id] ?? []
           const sel = selections[line.item_id]
@@ -442,42 +582,72 @@ export default function ComboDetailPage() {
 
         {erro ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p> : null}
       </section>
+  )
 
-      <StorefrontFixedFooter withBottomNav={false}>
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{t.total}</p>
-            <p className="text-xl font-bold text-accent">
-              {t.currency}
-              {(unitPrice * qtd).toFixed(2)}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary px-1 py-1">
-            <button
-              type="button"
-              onClick={() => setQtd((v) => Math.max(1, v - 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-card"
-            >
-              <Minus size={14} />
-            </button>
-            <span className="w-6 text-center text-sm font-bold">{qtd}</span>
-            <button
-              type="button"
-              onClick={() => setQtd((v) => v + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
+  const actions = (
+    <>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{t.total}</p>
+          <p className="text-xl font-bold text-accent">
+            {t.currency}
+            {(unitPrice * qtd).toFixed(2)}
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={handleAddCombo}
-          className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
-        >
-          {t.comboAddToCart}
-        </button>
-      </StorefrontFixedFooter>
+        <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary px-1 py-1">
+          <button
+            type="button"
+            onClick={() => setQtd((v) => Math.max(1, v - 1))}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card"
+          >
+            <Minus size={14} />
+          </button>
+          <span className="w-6 text-center text-sm font-bold">{qtd}</span>
+          <button
+            type="button"
+            onClick={() => setQtd((v) => v + 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleAddCombo}
+        className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground"
+      >
+        {t.comboAddToCart}
+      </button>
+    </>
+  )
+
+  if (layout === 'modal') {
+    return (
+      <>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h2 className="text-base font-bold text-foreground">{combo.nome}</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-muted-foreground" aria-label={t.back}>
+            <span aria-hidden>×</span>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{details}</div>
+        <div className="border-t border-border bg-card p-4">{actions}</div>
+      </>
+    )
+  }
+
+  return (
+    <StorefrontShell
+      bottomPadding="cta-only"
+      header={<StorefrontHeader title={combo.nome} backHref="/" backLabel={t.back} />}
+    >
+      {details}
+      <StorefrontFixedFooter withBottomNav={false}>{actions}</StorefrontFixedFooter>
     </StorefrontShell>
   )
+}
+
+export default function ComboDetailPage() {
+  return <ComboCustomize />
 }

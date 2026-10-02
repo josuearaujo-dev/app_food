@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, BadgePercent } from 'lucide-react'
+import { ArrowRight, BadgePercent, Plus } from 'lucide-react'
 import { useLang } from '@/lib/lang-context'
 import styles from './home-promo-carousel.module.css'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -19,10 +19,10 @@ export type OfferSlide = {
   compareAtPrice?: number | null
 }
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void }
+type Props = { open: boolean; onOpenChange: (open: boolean) => void; showLauncher?: boolean; onOpenCombo?: (comboId: string) => void }
 
 /** Active promotions open on entry; a failed photo must not hide an offer. */
-export function HomePromoCarousel({ open, onOpenChange }: Props) {
+export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onOpenCombo }: Props) {
   const [slides, setSlides] = useState<OfferSlide[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -50,7 +50,7 @@ export function HomePromoCarousel({ open, onOpenChange }: Props) {
 
   return (
     <>
-      {slides.length > 0 && <button type="button" className={styles.launcher} onClick={() => onOpenChange(true)}>
+      {showLauncher && slides.length > 0 && <button type="button" className={styles.launcher} onClick={() => onOpenChange(true)}>
         <BadgePercent size={20} /><span>{title}</span><span className={styles.count}>{slides.length}</span><ArrowRight size={18} />
       </button>}
       <Dialog open={open && !loading} onOpenChange={onOpenChange}>
@@ -88,6 +88,10 @@ export function HomePromoCarousel({ open, onOpenChange }: Props) {
                 </div>
                 <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
               </>
+              const comboId = href?.startsWith('/combo/') ? href.slice('/combo/'.length) : null
+              if (comboId && onOpenCombo) {
+                return <button key={slide.id} type="button" className={styles.card} onClick={() => onOpenCombo(comboId)}>{content}</button>
+              }
               return href
                 ? <Link key={slide.id} href={href} className={styles.card} onClick={() => onOpenChange(false)}>{content}</Link>
                 : <article key={slide.id} className={styles.card}>{content}</article>
@@ -102,7 +106,7 @@ export function HomePromoCarousel({ open, onOpenChange }: Props) {
   )
 }
 
-export function SpecialOfferGrid({ slides }: { slides: OfferSlide[] }) {
+export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSlide[]; addLabel: string; onAdd: (slide: OfferSlide) => void }) {
   const { lang, t } = useLang()
   return (
     <div className={styles.section}>
@@ -117,8 +121,8 @@ export function SpecialOfferGrid({ slides }: { slides: OfferSlide[] }) {
         const discount = compareAt && price !== null
           ? Math.round(((compareAt - price) / compareAt) * 100)
           : null
-        const content = <>
-          <div className={styles.copy}>
+        const copy = (
+          <>
             <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
             <h3>{slide.title}</h3>
             {description ? <p className={styles.summary}>{description}</p> : null}
@@ -131,12 +135,19 @@ export function SpecialOfferGrid({ slides }: { slides: OfferSlide[] }) {
             ) : href ? (
               <span className={styles.link}>{lang === 'en' ? 'View offer' : 'Ver oferta'} <ArrowRight size={16} /></span>
             ) : null}
-          </div>
-          <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
-        </>
-        return href
-          ? <Link key={slide.id} href={href} className={styles.card}>{content}</Link>
-          : <article key={slide.id} className={styles.card}>{content}</article>
+          </>
+        )
+        return (
+          <article key={slide.id} className={styles.card}>
+            {href ? <Link href={href} className={styles.copy}>{copy}</Link> : <div className={styles.copy}>{copy}</div>}
+            <div className={styles.side}>
+              <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
+              <button type="button" className={styles.add} onClick={() => onAdd(slide)}>
+                {addLabel} <Plus size={14} />
+              </button>
+            </div>
+          </article>
+        )
       })}
     </div>
   )

@@ -5,7 +5,7 @@ import { StoreImage } from '@/components/storefront/store-image'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { SpecialOfferGrid, type OfferSlide } from '@/components/home-promo-carousel'
+import { HomePromoCarousel, SpecialOfferGrid, type OfferSlide } from '@/components/home-promo-carousel'
 import { buildMenuOrder, isMenuSection, type MenuOrderRow, type MenuSectionKey } from '@/lib/menu-layout'
 import {
   BadgePercent,
@@ -24,6 +24,7 @@ import { useLang } from '@/lib/lang-context'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
 import logoCover from '@/logo/logo-principal-transparent.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
+import { ComboCustomizeModal } from '@/components/storefront/combo-customize-modal'
 import { DesktopCartCheckout } from '@/components/checkout/desktop-cart-checkout'
 import { useProfileModal } from '@/lib/profile-modal-context'
 import { useStoreStatus } from '@/lib/store-status-client'
@@ -48,6 +49,7 @@ interface MenuCombo {
   preco: number
   compareAt: number | null
   imagem_url: string | null
+  needsSetup: boolean
 }
 
 export function StorefrontHome() {
@@ -58,12 +60,14 @@ export function StorefrontHome() {
   const [loading, setLoading] = useState(true)
   const [menuOrder, setMenuOrder] = useState<MenuOrderRow[]>([])
   const [offers, setOffers] = useState<OfferSlide[]>([])
+  const [promotionsOpen, setPromotionsOpen] = useState(true)
+  const [comboModalId, setComboModalId] = useState<string | null>(null)
   const [isSplash, setIsSplash] = useState(true)
   const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
   const [mostOrderedIds, setMostOrderedIds] = useState<string[]>([])
   const [combos, setCombos] = useState<MenuCombo[]>([])
   const [splashLeaving, setSplashLeaving] = useState(false)
-  const { items, totalItems } = useCart()
+  const { items, totalItems, addItem } = useCart()
   const { t, lang, toggleLang } = useLang()
   const { openProfile } = useProfileModal()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
@@ -96,13 +100,19 @@ export function StorefrontHome() {
     let cancelled = false
     const supabase = createClient()
     void Promise.all([
-      supabase.from('combos').select('id, nome, descricao, preco, imagem_url, ordem').eq('ativo', true).order('ordem').order('nome'),
+      supabase.from('combos').select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id), combo_escolha_grupos(id)').eq('ativo', true).order('ordem').order('nome'),
       fetch('/api/banners', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { slides: [] })).catch(() => ({ slides: [] })),
-    ]).then(([comboRes, bannerData]) => {
+    ]).then(async ([comboRes, bannerData]) => {
       if (cancelled) return
       const slides = (bannerData.slides ?? []) as OfferSlide[]
       setOffers(slides)
-      const rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null }>
+      const rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null; combo_itens?: Array<{ item_id: string }> | null; combo_escolha_grupos?: Array<{ id: string }> | null }>
+      const itemIds = [...new Set(rows.flatMap((combo) => (combo.combo_itens ?? []).map((line) => line.item_id)))]
+      const optionRes = itemIds.length
+        ? await supabase.from('item_opcao_grupos').select('item_id').in('item_id', itemIds)
+        : { data: [] as Array<{ item_id: string }> }
+      const itemsWithOptions = new Set(((optionRes.data ?? []) as Array<{ item_id: string }>).map((row) => row.item_id))
+      if (cancelled) return
       setCombos(rows.map((combo) => {
         const offer = slides.find((slide) => slide.href === `/combo/${combo.id}`)
         const offerPrice = typeof offer?.price === 'number' ? offer.price : null
@@ -115,6 +125,7 @@ export function StorefrontHome() {
           preco: price,
           compareAt,
           imagem_url: combo.imagem_url || offer?.imageUrl || null,
+          needsSetup: (combo.combo_escolha_grupos ?? []).length > 0 || (combo.combo_itens ?? []).some((line) => itemsWithOptions.has(line.item_id)),
         }
       }))
     }).catch(() => {
@@ -189,6 +200,35 @@ export function StorefrontHome() {
 
   const chips = menuBlocks.filter((block) => blockHasContent(block.key))
   const visibleBlocks = chips.filter((block) => categoriaSelecionada === 'todas' || block.key === categoriaSelecionada)
+
+  function openCombo(comboId: string) {
+    setPromotionsOpen(false)
+    window.setTimeout(() => setComboModalId(comboId), 180)
+  }
+
+  function addOffer(slide: OfferSlide) {
+    const href = slide.href ?? ''
+    if (href.startsWith('/produto/')) {
+      setCustomizeItemId(href.slice('/produto/'.length))
+      return
+    }
+    if (!href.startsWith('/combo/')) return
+    const comboId = href.slice('/combo/'.length)
+    const combo = combos.find((item) => item.id === comboId)
+    const price = typeof slide.price === 'number' && slide.price > 0 ? slide.price : combo?.preco ?? 0
+    if (!combo || combo.needsSetup || price <= 0) {
+      openCombo(comboId)
+      return
+    }
+    addItem({
+      id: combo.id,
+      nome: combo.nome,
+      descricao: combo.descricao,
+      preco: price,
+      imagem_url: combo.imagem_url,
+      categoria_id: null,
+    }, 1, { unitPrice: price })
+  }
 
   function productsFor(key: string) {
     if (key === 'most-ordered') {
@@ -335,6 +375,7 @@ export function StorefrontHome() {
             </label>
           </div>
 
+          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} showLauncher={false} onOpenCombo={openCombo} />
           <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
@@ -367,7 +408,7 @@ export function StorefrontHome() {
                       <span>{t.specialOffers.toUpperCase()}</span>
                       <h2>{t.specialOffers}</h2>
                     </div>
-                    <SpecialOfferGrid slides={searchedOffers} />
+                    <SpecialOfferGrid slides={searchedOffers} addLabel={t.addToCart} onAdd={addOffer} />
                   </section>
                 )
               }
@@ -444,6 +485,7 @@ export function StorefrontHome() {
       )}
 
       <ProductCustomizeModal itemId={customizeItemId} onClose={() => setCustomizeItemId(null)} />
+      <ComboCustomizeModal comboId={comboModalId} onClose={() => setComboModalId(null)} />
     </main>
   )
 }

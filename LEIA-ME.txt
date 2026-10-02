@@ -1,29 +1,34 @@
-Seções na lista de categorias v2.5.0
-=====================================
+Seções de escolha no combo e popup de adicionar v2.6.0
+=======================================================
 
-Special offers deixa de ser o botão que abre o popup e vira uma seção
-do cardápio, junto com Mais pedidos, Combos e Destaques.
-Essas seções entram na lista de categorias do admin para escolher a posição.
-A mesma ordem aparece nos filtros do cardápio.
+No cadastro do combo dá para criar uma seção em que o cliente
+escolhe quantos produtos, entre vários tipos.
+Ao recarregar a loja, o popup de Special offers volta a abrir.
+Os cards desse popup ficam menores.
+Clicar em um combo fecha esse popup e abre outro, na mesma página,
+para montar e adicionar o combo.
+Quando a quantidade da seção é atingida, as outras opções ficam
+esmaecidas e o item escolhido mostra um X para remover.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.5.0 dentro do repositório.
+   Não deixe a pasta deploy-altered-v2.6.0 dentro do repositório.
 2) Rodar no Supabase, uma vez:
-   - scripts/046_cardapio_ordem.sql
-   Neste banco (kujvnoscdmdarwmoivtq) a tabela já foi criada.
+   - scripts/047_combo_escolha.sql
+   Neste banco (kujvnoscdmdarwmoivtq) as tabelas já foram criadas.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.4.0. Aplique os dois.
+4) Este pacote vem DEPOIS do v2.5.0. Aplique os dois.
 
 Arquivos NOVOS
 --------------
-- lib/menu-layout.ts
-- scripts/046_cardapio_ordem.sql
+- components/storefront/combo-customize-modal.tsx
+- scripts/047_combo_escolha.sql
 
 Arquivos ALTERADOS
 ------------------
-- app/admin/cardapio/page.tsx
+- app/combo/[id]/page.tsx
+- components/admin-combos-panel.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
 - components/storefront/storefront-home.tsx
@@ -31,8 +36,7 @@ Arquivos ALTERADOS
 
 Obs.
 ----
-Até alguém mover a lista, a ordem é: Mais pedidos, Combos,
-Special offers, Destaques e depois as categorias de comida.
-No admin, as seções só podem ser movidas. Categorias continuam
-podendo ser editadas e excluídas.
+A página /combo/[id] continua existindo para quem entra pelo link direto.
+No popup e nessa página, o X tira o item escolhido e libera as outras opções.
+A seção Special offers no cardápio continua com o botão de adicionar.
 O .env.local NÃO entra neste pacote.

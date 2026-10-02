@@ -18,6 +18,19 @@ type ComboItemRow = {
   itens_cardapio?: { nome: string } | null
 }
 
+type ChoiceOptionRow = {
+  item_id: string
+  ordem: number
+}
+
+type ChoiceGroupRow = {
+  id: string
+  nome: string
+  quantidade: number
+  ordem: number
+  combo_escolha_opcoes?: ChoiceOptionRow[] | null
+}
+
 type ComboRow = {
   id: string
   nome: string
@@ -28,11 +41,20 @@ type ComboRow = {
   ativo: boolean
   ordem: number
   combo_itens: ComboItemRow[]
+  combo_escolha_grupos?: ChoiceGroupRow[] | null
 }
 
 type FormComboItem = {
   itemId: string
   quantidade: number
+}
+
+type FormChoiceGroup = {
+  key: string
+  nome: string
+  quantidade: number
+  itemIds: string[]
+  busca: string
 }
 
 export function AdminCombosPanel() {
@@ -55,6 +77,7 @@ export function AdminCombosPanel() {
     ativo: true,
     ordem: '0',
     itens: [] as FormComboItem[],
+    grupos: [] as FormChoiceGroup[],
   })
   const [itemSearch, setItemSearch] = useState('')
 
@@ -71,7 +94,7 @@ export function AdminCombosPanel() {
     const [{ data: combosData, error: cErr }, { data: itensData, error: iErr }] = await Promise.all([
       supabase
         .from('combos')
-        .select('id, nome, descricao, preco, imagem_url, destaque, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome))')
+        .select('id, nome, descricao, preco, imagem_url, destaque, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome)), combo_escolha_grupos(id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem))')
         .order('destaque', { ascending: false })
         .order('ordem', { ascending: true }),
       supabase.from('itens_cardapio').select('id, nome').eq('disponivel', true).order('nome'),
@@ -98,6 +121,7 @@ export function AdminCombosPanel() {
       ativo: true,
       ordem: '0',
       itens: [],
+      grupos: [],
     })
     setErro(null)
     setItemSearch('')
@@ -109,7 +133,7 @@ export function AdminCombosPanel() {
     setForm({
       nome: c.nome,
       descricao: c.descricao ?? '',
-      preco: String(c.preco),
+      preco: c.preco != null && Number.isFinite(Number(c.preco)) ? Number(c.preco).toFixed(2) : '',
       imagem_url: c.imagem_url ?? '',
       destaque: c.destaque,
       ativo: c.ativo,
@@ -118,6 +142,15 @@ export function AdminCombosPanel() {
         itemId: ci.item_id,
         quantidade: Math.max(1, Number(ci.quantidade) || 1),
       })),
+      grupos: [...(c.combo_escolha_grupos ?? [])]
+        .sort((a, b) => a.ordem - b.ordem)
+        .map((group) => ({
+          key: group.id,
+          nome: group.nome,
+          quantidade: Math.max(1, Number(group.quantidade) || 1),
+          itemIds: [...(group.combo_escolha_opcoes ?? [])].sort((a, b) => a.ordem - b.ordem).map((option) => option.item_id),
+          busca: '',
+        })),
     })
     setErro(null)
     setItemSearch('')
@@ -132,6 +165,31 @@ export function AdminCombosPanel() {
     })
   }
 
+  function addGrupo() {
+    setForm((prev) => ({
+      ...prev,
+      grupos: [...prev.grupos, { key: crypto.randomUUID(), nome: '', quantidade: 1, itemIds: [], busca: '' }],
+    }))
+  }
+
+  function updateGrupo(key: string, patch: Partial<FormChoiceGroup>) {
+    setForm((prev) => ({
+      ...prev,
+      grupos: prev.grupos.map((group) => (group.key === key ? { ...group, ...patch } : group)),
+    }))
+  }
+
+  function toggleGrupoItem(key: string, itemId: string) {
+    setForm((prev) => ({
+      ...prev,
+      grupos: prev.grupos.map((group) => {
+        if (group.key !== key) return group
+        const has = group.itemIds.includes(itemId)
+        return { ...group, itemIds: has ? group.itemIds.filter((id) => id !== itemId) : [...group.itemIds, itemId] }
+      }),
+    }))
+  }
+
   function setItemQuantidade(itemId: string, quantidade: number) {
     setForm((prev) => ({
       ...prev,
@@ -143,9 +201,16 @@ export function AdminCombosPanel() {
 
   async function salvar() {
     if (!form.nome.trim()) return setErro('Informe o nome do combo.')
-    const preco = Number(form.preco)
+    const preco = Number(form.preco.trim().replace(',', '.'))
     if (!Number.isFinite(preco) || preco < 0) return setErro('Informe um preço válido.')
-    if (form.itens.length === 0) return setErro('Selecione ao menos 1 item para o combo.')
+    if (form.itens.length === 0 && form.grupos.length === 0) return setErro('Selecione ao menos 1 item ou adicione uma seção de escolha.')
+    for (const group of form.grupos) {
+      if (!group.nome.trim()) return setErro('Informe o nome de cada seção de escolha.')
+      if (group.itemIds.length < 2) return setErro(`A seção "${group.nome || 'sem nome'}" precisa de pelo menos 2 produtos.`)
+      if (group.quantidade < 1 || group.quantidade > group.itemIds.length) {
+        return setErro(`Em "${group.nome}", a quantidade escolhida precisa ficar entre 1 e ${group.itemIds.length}.`)
+      }
+    }
     setSaving(true)
     setErro(null)
     try {
@@ -179,6 +244,34 @@ export function AdminCombosPanel() {
         }))
       )
       if (insErr) throw insErr
+      const { error: delGroupsErr } = await supabase.from('combo_escolha_grupos').delete().eq('combo_id', comboId)
+      if (delGroupsErr) throw delGroupsErr
+      if (form.grupos.length > 0) {
+        const { data: savedGroups, error: groupErr } = await supabase
+          .from('combo_escolha_grupos')
+          .insert(form.grupos.map((group, index) => ({
+            combo_id: comboId,
+            nome: group.nome.trim(),
+            quantidade: Math.max(1, Math.floor(group.quantidade)),
+            ordem: index + 1,
+          })))
+          .select('id, ordem')
+        if (groupErr) throw groupErr
+        const groupIdByOrder = new Map((savedGroups ?? []).map((group) => [group.ordem, group.id as string]))
+        const options = form.grupos.flatMap((group, index) => {
+          const grupoId = groupIdByOrder.get(index + 1)
+          if (!grupoId) return []
+          return group.itemIds.map((itemId, optionIndex) => ({
+            grupo_id: grupoId,
+            item_id: itemId,
+            ordem: optionIndex + 1,
+          }))
+        })
+        if (options.length > 0) {
+          const { error: optionErr } = await supabase.from('combo_escolha_opcoes').insert(options)
+          if (optionErr) throw optionErr
+        }
+      }
       setModalOpen(false)
       await load()
     } catch (e: unknown) {
@@ -281,7 +374,20 @@ export function AdminCombosPanel() {
                 <textarea value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Texto que aparece no banner de ofertas" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
                 <p className="mt-1 text-[11px] text-muted-foreground">Aparece no banner quando este combo for o destino e o banner não tiver descrição própria.</p>
               </div>
-              <input type="number" min={0} step={0.01} value={form.preco} onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))} placeholder="Preço do combo (USD)" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[#531b04]">Preço</label>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3">
+                  <span className="text-sm font-bold text-[#531b04]">$</span>
+                  <input
+                    value={form.preco}
+                    onChange={(e) => setForm((f) => ({ ...f, preco: e.target.value }))}
+                    inputMode="decimal"
+                    placeholder="19.99"
+                    className="w-full bg-white py-2.5 text-sm font-semibold text-[#382217] outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">Valor do combo no cardápio e nas ofertas.</p>
+              </div>
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-foreground">Imagem do combo</label>
                 {form.imagem_url ? (
@@ -364,6 +470,50 @@ export function AdminCombosPanel() {
                 {itensFiltrados.length === 0 ? (
                   <p className="px-1 py-2 text-xs text-muted-foreground">Nenhum produto encontrado para essa busca.</p>
                 ) : null}
+              </div>
+              <div className="space-y-3 rounded-xl border border-border bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-[#531b04]">Seções de escolha</p>
+                    <p className="text-[11px] text-muted-foreground">O cliente escolhe uma quantidade entre os produtos da seção.</p>
+                  </div>
+                  <button type="button" onClick={addGrupo} className="rounded-lg bg-[#531b04] px-3 py-2 text-xs font-bold text-white">
+                    <Plus size={14} className="mr-1 inline" />
+                    Seção
+                  </button>
+                </div>
+                {form.grupos.map((group, index) => {
+                  const q = group.busca.trim().toLowerCase()
+                  const options = itens.filter((item) => !q || item.nome.toLowerCase().includes(q))
+                  return (
+                    <div key={group.key} className="space-y-2 rounded-xl border border-[#e9dfd5] bg-[#fffaf4] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-[#531b04]">Seção {index + 1}</p>
+                        <button type="button" onClick={() => setForm((prev) => ({ ...prev, grupos: prev.grupos.filter((item) => item.key !== group.key) }))} className="text-xs font-semibold text-red-600">Remover</button>
+                      </div>
+                      <input value={group.nome} onChange={(e) => updateGrupo(group.key, { nome: e.target.value })} placeholder="Nome da seção, ex.: Escolha a bebida" className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-[#382217]" />
+                      <label className="block text-[11px] font-semibold text-[#531b04]">
+                        Quantos produtos o cliente escolhe
+                        <input
+                          type="number"
+                          min={1}
+                          value={group.quantidade}
+                          onChange={(e) => updateGrupo(group.key, { quantidade: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+                          className="mt-1 w-24 rounded-lg border border-border bg-white px-2 py-1.5 text-sm text-[#382217]"
+                        />
+                      </label>
+                      <input value={group.busca} onChange={(e) => updateGrupo(group.key, { busca: e.target.value })} placeholder="Buscar produto desta seção" className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-[#382217]" />
+                      <div className="max-h-40 space-y-1 overflow-y-auto">
+                        {options.map((item) => (
+                          <label key={item.id} className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-[#382217]">
+                            <input type="checkbox" checked={group.itemIds.includes(item.id)} onChange={() => toggleGrupoItem(group.key, item.id)} />
+                            <span className="min-w-0 flex-1">{item.nome}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="flex-1 rounded-xl border border-border py-3 text-sm font-semibold">
