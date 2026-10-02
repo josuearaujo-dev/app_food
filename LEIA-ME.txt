@@ -1,33 +1,46 @@
-Popup Combos com Add e seção única v2.7.0
-=========================================
+Corrige Add dos combos no popup/menu v2.8.0
+===========================================
 
-O popup de ofertas especiais passa a se chamar Combos
-e ganha botão Add em cada card.
-A seção antiga de Combos some do cardápio.
-A seção Special offers vira Combos e fica a única lista desses itens.
-No admin, a lista de seções acompanha isso.
+No servidor o botão Add dos combos não abria o popup de montagem
+porque o pacote v2.7.0 subiu o storefront sem os arquivos do modal.
+
+Este pacote traz TUDO que o Add precisa:
+- modal do combo
+- página/componente ComboCustomize
+- home + carousel com botão Add
+- seção Combos (sem a seção antiga duplicada)
+- SQL das seções de escolha
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.7.0 dentro do repositório.
-2) Nenhum SQL novo. O script 047 do pacote v2.6.0 continua valendo.
-   Neste banco (kujvnoscdmdarwmoivtq) ele já foi aplicado.
+   Não deixe a pasta deploy-altered-v2.8.0 dentro do repositório.
+2) Rodar no Supabase, se ainda não rodou:
+   - scripts/047_combo_escolha.sql
+   Sem essas tabelas, a seção de escolha do combo quebra.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.6.0. Aplique os dois.
+4) Pode aplicar este pacote sozinho em cima do site atual.
+   Ele substitui o que faltava no v2.6/v2.7.
+
+Arquivos NOVOS (se ainda não existirem no servidor)
+---------------------------------------------------
+- components/storefront/combo-customize-modal.tsx
+- lib/menu-layout.ts
+- scripts/047_combo_escolha.sql
 
 Arquivos ALTERADOS
 ------------------
 - app/admin/cardapio/page.tsx
+- app/combo/[id]/page.tsx
+- components/admin-combos-panel.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
+- components/storefront/store-image.tsx
 - components/storefront/storefront-home.tsx
 - lib/lang-context.tsx
-- lib/menu-layout.ts
 
 Obs.
 ----
-No popup, Add fecha as ofertas e abre o popup do combo
-quando há escolha ou opções. Sem escolha, adiciona direto.
-A ordem padrão das seções fica: Mais pedidos, Combos, Destaques.
+Se o build falhar falando de ComboCustomizeModal, era exatamente
+o arquivo que faltava no v2.7.0.
 O .env.local NÃO entra neste pacote.
