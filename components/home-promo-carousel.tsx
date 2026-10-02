@@ -62,7 +62,7 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onA
         <DialogContent className={styles.dialog}>
           <div className={styles.heading}>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription className={styles.description}>{lang === 'en' ? 'Pick a combo and add it to your bag.' : 'Escolha um combo e adicione à sacola.'}</DialogDescription>
+            <DialogDescription className={styles.description}>{lang === 'en' ? 'Explore our current offers.' : 'Confira as ofertas disponíveis.'}</DialogDescription>
           </div>
           <div className={styles.grid}>
             {slides.map((slide) => {
@@ -78,7 +78,7 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onA
                 : null
               const copy = (
                 <>
-                  <span className={styles.badge}>{lang === 'en' ? 'COMBO' : 'COMBO'}</span>
+                  <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
                   <h3>{slide.title}</h3>
                   {description ? <p className={styles.summary}>{description}</p> : null}
                   {price !== null ? (
@@ -147,7 +147,7 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
           : null
         const copy = (
           <>
-            <span className={styles.badge}>{lang === 'en' ? 'COMBO' : 'COMBO'}</span>
+            <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
             <h3>{slide.title}</h3>
             {description ? <p className={styles.summary}>{description}</p> : null}
             {price !== null ? (
@@ -157,7 +157,7 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
                 {discount ? <span>-{discount}%</span> : null}
               </div>
             ) : href ? (
-              <span className={styles.link}>{lang === 'en' ? 'View combo' : 'Ver combo'} <ArrowRight size={16} /></span>
+              <span className={styles.link}>{lang === 'en' ? 'View offer' : 'Ver oferta'} <ArrowRight size={16} /></span>
             ) : null}
           </>
         )

@@ -143,7 +143,14 @@ export async function GET() {
     const customSlides: OrderedSlide[] = banners.map((b) => {
       const product = b.destino_tipo === 'produto' && b.destino_produto_id ? products.get(b.destino_produto_id) : undefined
       const combo = comboForBanner(b)
-      const price = money(b.preco) ?? money(product?.preco ?? combo?.preco)
+      const comboPrice = combo ? money(combo.preco) : null
+      const productPrice = product ? money(product.preco) : null
+      const bannerPrice = money(b.preco)
+      // Combo registration wins when set; banner price is only a fallback for $0 combos.
+      const price =
+        comboPrice !== null && comboPrice > 0
+          ? comboPrice
+          : bannerPrice ?? productPrice ?? comboPrice
       const listed = money(b.preco_riscado)
       const fromProduct = product ? money(product.preco_riscado) : null
       const fromCombo = combo ? money(comboCompareAt.get(combo.id)) : null

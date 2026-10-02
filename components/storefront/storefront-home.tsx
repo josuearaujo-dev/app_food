@@ -140,7 +140,8 @@ export function StorefrontHome() {
           slides.find((slide) => slide.href === `/combo/${combo.id}`) ??
           slides.find((slide) => normalize(slide.title) === normalize(combo.nome))
         const offerPrice = typeof offer?.price === 'number' ? offer.price : null
-        const price = offerPrice !== null && offerPrice > 0 ? offerPrice : Number(combo.preco)
+        const storedPrice = Number(combo.preco)
+        const price = storedPrice > 0 ? storedPrice : (offerPrice !== null && offerPrice > 0 ? offerPrice : storedPrice)
         const compareAt = typeof offer?.compareAtPrice === 'number' && offer.compareAtPrice > price ? offer.compareAtPrice : null
         return {
           id: combo.id,
@@ -283,7 +284,12 @@ export function StorefrontHome() {
     }
     const comboId = href.slice('/combo/'.length)
     const combo = combos.find((item) => item.id === comboId) ?? matched
-    const price = typeof slide.price === 'number' && slide.price > 0 ? slide.price : combo?.preco ?? 0
+    const price =
+      combo && combo.preco > 0
+        ? combo.preco
+        : typeof slide.price === 'number' && slide.price > 0
+          ? slide.price
+          : combo?.preco ?? 0
     console.info('[cadu:combo-add] resolved combo', {
       comboId,
       found: Boolean(combo),

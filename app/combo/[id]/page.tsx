@@ -169,7 +169,7 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
       )
       const storedPrice = Number(comboTyped.preco ?? 0)
       const offerPrice = typeof offer?.price === 'number' && offer.price > 0 ? offer.price : null
-      comboTyped.preco = offerPrice ?? storedPrice
+      comboTyped.preco = storedPrice > 0 ? storedPrice : (offerPrice ?? storedPrice)
       if (!comboTyped.imagem_url && offer?.imageUrl) comboTyped.imagem_url = offer.imageUrl
       setCombo(comboTyped)
       setChoiceGroups(parsedChoices)

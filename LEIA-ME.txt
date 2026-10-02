@@ -1,22 +1,24 @@
-Logs + fallback Add dos combos v2.9.1
-=====================================
+Ofertas especiais, preço do combo e sugestões do combo v2.10.0
+==============================================================
 
-Em https://www.caducakeslanches.store /api/banners ainda devolve
-href: null. Por isso o Add não fazia nada.
-
-Este pacote:
-1) Corrige /api/banners para devolver /combo/{id}
-2) Se o href vier null, resolve o combo pelo nome (lista local
-   ou consulta no Supabase)
-3) Coloca logs no console do navegador e no server da Vercel
-   com o prefixo [cadu:combo-add]
+Inclui:
+1) Nome da seção/popup volta a Special offers / Ofertas especiais
+2) Preço do cadastro do combo tem prioridade sobre o banner
+   (banner só vale se o combo estiver $0)
+3) Corrige /api/banners (href do combo + prioridade de preço)
+4) Fallback + logs [cadu:combo-add] no Add dos combos
+5) Sugestões do carrinho também leem os produtos do combo
+   (combo_itens + escolhas) e oferecem o cadastrado neles
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-2) Commit + push / redeploy Vercel.
-3) Abrir o site, F12 > Console, clicar Add no popup Combos.
-4) Procurar linhas [cadu:combo-add].
+   Não deixe a pasta deploy-altered-v2.10.0 dentro do repositório.
+2) No Supabase, se ainda não rodou:
+   - scripts/045_mais_pedidos_e_recomendacoes.sql
+   - scripts/047_combo_escolha.sql
+3) Commit + push / redeploy Vercel.
+4) Pode aplicar sozinho em cima do site atual.
 
 Arquivos
 --------
@@ -24,26 +26,20 @@ Arquivos
 - app/combo/[id]/page.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
+- components/storefront/cart-recommendations.tsx
 - components/storefront/combo-customize-modal.tsx
 - components/storefront/store-image.tsx
 - components/storefront/storefront-home.tsx
+- lib/home-offers.ts
 - lib/lang-context.tsx
 - lib/menu-layout.ts
 - lib/store-weekdays.ts
+- scripts/045_mais_pedidos_e_recomendacoes.sql
 - scripts/047_combo_escolha.sql
 
-Como ler os logs
-----------------
-No Console do navegador:
-- banners loaded  -> o que a API mandou (href null ou não)
-- combos ready    -> quantos combos o app carregou
-- Add clicked     -> clique no botão
-- resolved href   -> achou o combo pelo nome
-- openCombo       -> abriu o modal
-- abort           -> não achou combo nenhum
-
-Na Vercel (Functions / Runtime Logs):
-- [cadu:combo-add] /api/banners
-
-Confirme também em /api/banners se href deixou de ser null.
-O .env.local NÃO entra neste pacote.
+Obs.
+----
+Depois do deploy, /api/banners deve devolver href /combo/...
+e o price do combo cadastrado (se > 0).
+No carrinho, com um combo, aparecem sugestões dos produtos
+do combo. O .env.local NÃO entra neste pacote.
