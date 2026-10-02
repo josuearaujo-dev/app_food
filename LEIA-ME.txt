@@ -1,42 +1,33 @@
-Seções de escolha no combo e popup de adicionar v2.6.0
-=======================================================
+Popup Combos com Add e seção única v2.7.0
+=========================================
 
-No cadastro do combo dá para criar uma seção em que o cliente
-escolhe quantos produtos, entre vários tipos.
-Ao recarregar a loja, o popup de Special offers volta a abrir.
-Os cards desse popup ficam menores.
-Clicar em um combo fecha esse popup e abre outro, na mesma página,
-para montar e adicionar o combo.
-Quando a quantidade da seção é atingida, as outras opções ficam
-esmaecidas e o item escolhido mostra um X para remover.
+O popup de ofertas especiais passa a se chamar Combos
+e ganha botão Add em cada card.
+A seção antiga de Combos some do cardápio.
+A seção Special offers vira Combos e fica a única lista desses itens.
+No admin, a lista de seções acompanha isso.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.6.0 dentro do repositório.
-2) Rodar no Supabase, uma vez:
-   - scripts/047_combo_escolha.sql
-   Neste banco (kujvnoscdmdarwmoivtq) as tabelas já foram criadas.
+   Não deixe a pasta deploy-altered-v2.7.0 dentro do repositório.
+2) Nenhum SQL novo. O script 047 do pacote v2.6.0 continua valendo.
+   Neste banco (kujvnoscdmdarwmoivtq) ele já foi aplicado.
 3) Commit + push no GitHub / deploy (Vercel).
-4) Este pacote vem DEPOIS do v2.5.0. Aplique os dois.
-
-Arquivos NOVOS
---------------
-- components/storefront/combo-customize-modal.tsx
-- scripts/047_combo_escolha.sql
+4) Este pacote vem DEPOIS do v2.6.0. Aplique os dois.
 
 Arquivos ALTERADOS
 ------------------
-- app/combo/[id]/page.tsx
-- components/admin-combos-panel.tsx
+- app/admin/cardapio/page.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
 - components/storefront/storefront-home.tsx
 - lib/lang-context.tsx
+- lib/menu-layout.ts
 
 Obs.
 ----
-A página /combo/[id] continua existindo para quem entra pelo link direto.
-No popup e nessa página, o X tira o item escolhido e libera as outras opções.
-A seção Special offers no cardápio continua com o botão de adicionar.
+No popup, Add fecha as ofertas e abre o popup do combo
+quando há escolha ou opções. Sem escolha, adiciona direto.
+A ordem padrão das seções fica: Mais pedidos, Combos, Destaques.
 O .env.local NÃO entra neste pacote.

@@ -19,15 +19,20 @@ export type OfferSlide = {
   compareAtPrice?: number | null
 }
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void; showLauncher?: boolean; onOpenCombo?: (comboId: string) => void }
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  showLauncher?: boolean
+  onAdd?: (slide: OfferSlide) => void
+}
 
 /** Active promotions open on entry; a failed photo must not hide an offer. */
-export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onOpenCombo }: Props) {
+export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onAdd }: Props) {
   const [slides, setSlides] = useState<OfferSlide[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const { lang, t } = useLang()
-  const title = lang === 'en' ? 'Special offers' : 'Promoções'
+  const title = t.specialOffers
 
   useEffect(() => {
     const controller = new AbortController()
@@ -57,7 +62,7 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onO
         <DialogContent className={styles.dialog}>
           <div className={styles.heading}>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription className={styles.description}>{lang === 'en' ? 'Explore our current offers.' : 'Confira as ofertas disponíveis.'}</DialogDescription>
+            <DialogDescription className={styles.description}>{lang === 'en' ? 'Pick a combo and add it to your bag.' : 'Escolha um combo e adicione à sacola.'}</DialogDescription>
           </div>
           <div className={styles.grid}>
             {slides.map((slide) => {
@@ -71,9 +76,9 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onO
               const discount = compareAt && price !== null
                 ? Math.round(((compareAt - price) / compareAt) * 100)
                 : null
-              const content = <>
-                <div className={styles.copy}>
-                  <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
+              const copy = (
+                <>
+                  <span className={styles.badge}>{lang === 'en' ? 'COMBO' : 'COMBO'}</span>
                   <h3>{slide.title}</h3>
                   {description ? <p className={styles.summary}>{description}</p> : null}
                   {price !== null ? (
@@ -82,19 +87,30 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onO
                       {compareAt ? <s>{t.currency}{compareAt.toFixed(2)}</s> : null}
                       {discount ? <span>-{discount}%</span> : null}
                     </div>
-                  ) : href ? (
-                    <span className={styles.link}>{lang === 'en' ? 'View offer' : 'Ver oferta'} <ArrowRight size={16} /></span>
                   ) : null}
-                </div>
-                <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
-              </>
-              const comboId = href?.startsWith('/combo/') ? href.slice('/combo/'.length) : null
-              if (comboId && onOpenCombo) {
-                return <button key={slide.id} type="button" className={styles.card} onClick={() => onOpenCombo(comboId)}>{content}</button>
-              }
-              return href
-                ? <Link key={slide.id} href={href} className={styles.card} onClick={() => onOpenChange(false)}>{content}</Link>
-                : <article key={slide.id} className={styles.card}>{content}</article>
+                </>
+              )
+              return (
+                <article key={slide.id} className={styles.card}>
+                  <div className={styles.copy}>{copy}</div>
+                  <div className={styles.side}>
+                    <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
+                    {onAdd ? (
+                      <button
+                        type="button"
+                        className={styles.add}
+                        onClick={() => onAdd(slide)}
+                      >
+                        {t.addToCart} <Plus size={14} />
+                      </button>
+                    ) : href ? (
+                      <Link href={href} className={styles.add} onClick={() => onOpenChange(false)}>
+                        {lang === 'en' ? 'View' : 'Ver'} <ArrowRight size={14} />
+                      </Link>
+                    ) : null}
+                  </div>
+                </article>
+              )
             })}
             {!slides.length && <p>{failed
               ? (lang === 'en' ? 'Unable to load offers. Please reload the page.' : 'Não foi possível carregar as ofertas. Atualize a página.')
@@ -123,7 +139,7 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
           : null
         const copy = (
           <>
-            <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
+            <span className={styles.badge}>{lang === 'en' ? 'COMBO' : 'COMBO'}</span>
             <h3>{slide.title}</h3>
             {description ? <p className={styles.summary}>{description}</p> : null}
             {price !== null ? (
@@ -133,13 +149,13 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
                 {discount ? <span>-{discount}%</span> : null}
               </div>
             ) : href ? (
-              <span className={styles.link}>{lang === 'en' ? 'View offer' : 'Ver oferta'} <ArrowRight size={16} /></span>
+              <span className={styles.link}>{lang === 'en' ? 'View combo' : 'Ver combo'} <ArrowRight size={16} /></span>
             ) : null}
           </>
         )
         return (
           <article key={slide.id} className={styles.card}>
-            {href ? <Link href={href} className={styles.copy}>{copy}</Link> : <div className={styles.copy}>{copy}</div>}
+            <div className={styles.copy}>{copy}</div>
             <div className={styles.side}>
               <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
               <button type="button" className={styles.add} onClick={() => onAdd(slide)}>

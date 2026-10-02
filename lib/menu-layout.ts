@@ -1,4 +1,4 @@
-export const MENU_SECTION_KEYS = ['most-ordered', 'combos', 'offers', 'featured'] as const
+export const MENU_SECTION_KEYS = ['most-ordered', 'offers', 'featured'] as const
 
 export type MenuSectionKey = (typeof MENU_SECTION_KEYS)[number]
 
@@ -14,9 +14,8 @@ export type MenuBlock = {
 
 const DEFAULT_SECTION_ORDER: Record<MenuSectionKey, number> = {
   'most-ordered': 1,
-  combos: 2,
-  offers: 3,
-  featured: 4,
+  offers: 2,
+  featured: 3,
 }
 
 export function isMenuSection(key: string): key is MenuSectionKey {

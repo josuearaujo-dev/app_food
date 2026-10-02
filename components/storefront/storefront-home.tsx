@@ -166,12 +166,6 @@ export function StorefrontHome() {
     return itens.filter((item) => `${item.nome} ${item.descricao ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase().includes(q))
   }, [itens, query])
 
-  const searchedCombos = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return combos
-    return combos.filter((combo) => `${combo.nome} ${combo.descricao ?? ''}`.toLowerCase().includes(q))
-  }, [combos, query])
-
   const searchedOffers = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return offers
@@ -185,14 +179,12 @@ export function StorefrontHome() {
 
   function sectionTitle(key: MenuSectionKey) {
     if (key === 'most-ordered') return t.mostOrdered
-    if (key === 'combos') return t.combos
     if (key === 'offers') return t.specialOffers
     return t.featured
   }
 
   function blockHasContent(key: string) {
     if (key === 'most-ordered') return searchedItems.some((item) => mostOrderedIds.includes(item.id))
-    if (key === 'combos') return searchedCombos.length > 0
     if (key === 'offers') return searchedOffers.length > 0
     if (key === 'featured') return searchedItems.some((item) => item.destaque)
     return searchedItems.some((item) => item.categoria_id === key)
@@ -209,6 +201,7 @@ export function StorefrontHome() {
   function addOffer(slide: OfferSlide) {
     const href = slide.href ?? ''
     if (href.startsWith('/produto/')) {
+      setPromotionsOpen(false)
       setCustomizeItemId(href.slice('/produto/'.length))
       return
     }
@@ -220,6 +213,7 @@ export function StorefrontHome() {
       openCombo(comboId)
       return
     }
+    setPromotionsOpen(false)
     addItem({
       id: combo.id,
       nome: combo.nome,
@@ -375,7 +369,7 @@ export function StorefrontHome() {
             </label>
           </div>
 
-          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} showLauncher={false} onOpenCombo={openCombo} />
+          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} showLauncher={false} onAdd={addOffer} />
           <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
@@ -403,27 +397,12 @@ export function StorefrontHome() {
             visibleBlocks.map((block) => {
               if (block.key === 'offers') {
                 return (
-                  <section key={block.key} className="cadu-catalog-section" id="ofertas">
+                  <section key={block.key} className="cadu-catalog-section" id="combos">
                     <div className="cadu-section-heading">
                       <span>{t.specialOffers.toUpperCase()}</span>
                       <h2>{t.specialOffers}</h2>
                     </div>
                     <SpecialOfferGrid slides={searchedOffers} addLabel={t.addToCart} onAdd={addOffer} />
-                  </section>
-                )
-              }
-              if (block.key === 'combos') {
-                return (
-                  <section key={block.key} className="cadu-catalog-section" id="combos">
-                    <div className="cadu-section-heading">
-                      <span>{t.combos.toUpperCase()}</span>
-                      <h2>{t.combos}</h2>
-                    </div>
-                    <div className="cadu-product-grid cadu-product-grid--featured">
-                      {searchedCombos.map((combo) => (
-                        <ComboCard key={combo.id} combo={combo} addLabel={t.addToCart} />
-                      ))}
-                    </div>
                   </section>
                 )
               }
@@ -532,41 +511,6 @@ function ProductCard({
       <button type="button" className="cadu-product-add" onClick={onAdd}>
         {addLabel} <Plus size={16} />
       </button>
-    </article>
-  )
-}
-
-function ComboCard({ combo, addLabel }: { combo: MenuCombo; addLabel: string }) {
-  const { t } = useLang()
-  return (
-    <article className="cadu-product-card">
-      <Link href={`/combo/${combo.id}`} className="cadu-product-thumb block">
-        {combo.imagem_url ? (
-          <StoreImage src={combo.imagem_url} alt={combo.nome} />
-        ) : (
-          <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
-        )}
-      </Link>
-      <Link href={`/combo/${combo.id}`} className="cadu-product-copy block no-underline text-inherit">
-        <span>{t.combos}</span>
-        <h3>{combo.nome}</h3>
-        {combo.descricao ? <p>{combo.descricao}</p> : null}
-        <strong className="cadu-product-price">
-          <b>
-            {t.currency}
-            {combo.preco.toFixed(2)}
-          </b>
-          {combo.compareAt ? (
-            <>
-              <s>{t.currency}{combo.compareAt.toFixed(2)}</s>
-              <span>-{Math.round(((combo.compareAt - combo.preco) / combo.compareAt) * 100)}%</span>
-            </>
-          ) : null}
-        </strong>
-      </Link>
-      <Link href={`/combo/${combo.id}`} className="cadu-product-add">
-        {addLabel} <Plus size={16} />
-      </Link>
     </article>
   )
 }

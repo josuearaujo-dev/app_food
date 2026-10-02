@@ -161,7 +161,6 @@ export default function AdminCardapioPage() {
 
   function sectionTitle(key: MenuSectionKey) {
     if (key === 'most-ordered') return t.mostOrdered
-    if (key === 'combos') return t.combos
     if (key === 'offers') return t.specialOffers
     return t.featured
   }
@@ -941,7 +940,7 @@ export default function AdminCardapioPage() {
                   {menuSlots.map((slot, index) => {
                     const category = slot.kind === 'category' ? categorias.find((cat) => cat.id === slot.key) : undefined
                     const name = category?.nome ?? (isMenuSection(slot.key) ? sectionTitle(slot.key) : slot.key)
-                    const icon = category?.icone ?? (slot.key === 'offers' ? '🏷️' : slot.key === 'combos' ? '🍱' : slot.key === 'most-ordered' ? '🔥' : slot.key === 'featured' ? '⭐' : '📋')
+                    const icon = category?.icone ?? (slot.key === 'offers' ? '🍱' : slot.key === 'most-ordered' ? '🔥' : slot.key === 'featured' ? '⭐' : '📋')
                     return (
                     <li
                       key={slot.key}
