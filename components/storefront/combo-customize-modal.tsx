@@ -21,6 +21,8 @@ export function ComboCustomizeModal({
 
   if (!comboId) return null
 
+  console.info('[cadu:combo-add] ComboCustomizeModal open', { comboId })
+
   return (
     <div
       className="cadu-modal-backdrop"

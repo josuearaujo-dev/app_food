@@ -57,16 +57,18 @@ function money(value: number | null | undefined): number | null {
   return Number.isFinite(amount) && amount >= 0 ? Number(amount.toFixed(2)) : null
 }
 
-function toHref(row: BannerRow): string | null {
+function offerName(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function toHref(row: BannerRow, comboId: string | null): string | null {
   if (row.destino_tipo === 'produto' && row.destino_produto_id) {
     return `/produto/${row.destino_produto_id}`
-  }
-  if (row.destino_tipo === 'combo' && row.destino_combo_id) {
-    return `/combo/${row.destino_combo_id}`
   }
   if (row.destino_tipo === 'url' && row.destino_url?.trim()) {
     return row.destino_url.trim()
   }
+  if (comboId) return `/combo/${comboId}`
   return null
 }
 
@@ -107,26 +109,28 @@ export async function GET() {
     const banners = ((customRes.data as BannerRow[] | null) ?? []).filter(
       (b) => isScheduledWeekday(b.dias_semana, weekday) && Boolean(b.imagem_url?.trim())
     )
+    const combosRes = await supabase.from('combos').select('id, nome, descricao, preco').eq('ativo', true)
+    const combos = new Map(
+      ((combosRes.data as Array<{ id: string; nome: string; descricao: string | null; preco: number }> | null) ?? []).map((item) => [item.id, item])
+    )
+    const comboByName = new Map([...combos.values()].map((combo) => [offerName(combo.nome), combo]))
+    const comboForBanner = (banner: BannerRow) => {
+      if (banner.destino_tipo === 'produto' || banner.destino_tipo === 'url') return undefined
+      if (banner.destino_combo_id && combos.has(banner.destino_combo_id)) return combos.get(banner.destino_combo_id)
+      return comboByName.get(offerName(banner.titulo || ''))
+    }
+    const comboIds = [...new Set(banners.map((banner) => comboForBanner(banner)?.id).filter(Boolean))] as string[]
     const productIds = [...new Set(banners.map((b) => b.destino_produto_id).filter(Boolean))] as string[]
-    const comboIds = [...new Set(banners.map((b) => b.destino_combo_id).filter(Boolean))] as string[]
     const comboItemsRes = comboIds.length
       ? await supabase.from('combo_itens').select('combo_id, item_id, quantidade').in('combo_id', comboIds)
       : { data: [] }
     const comboLines = (comboItemsRes.data as Array<{ combo_id: string; item_id: string; quantidade: number }> | null) ?? []
     const priceIds = [...new Set([...productIds, ...comboLines.map((line) => line.item_id)])]
-    const [productsRes, combosRes] = await Promise.all([
-      priceIds.length
-        ? supabase.from('itens_cardapio').select('id, descricao, descricao_en, preco, preco_riscado').in('id', priceIds)
-        : Promise.resolve({ data: [] }),
-      comboIds.length
-        ? supabase.from('combos').select('id, descricao, preco').in('id', comboIds)
-        : Promise.resolve({ data: [] }),
-    ])
+    const productsRes = priceIds.length
+      ? await supabase.from('itens_cardapio').select('id, descricao, descricao_en, preco, preco_riscado').in('id', priceIds)
+      : { data: [] }
     const products = new Map(
       ((productsRes.data as Array<{ id: string; descricao: string | null; descricao_en: string | null; preco: number; preco_riscado: number | null }> | null) ?? []).map((item) => [item.id, item])
-    )
-    const combos = new Map(
-      ((combosRes.data as Array<{ id: string; descricao: string | null; preco: number }> | null) ?? []).map((item) => [item.id, item])
     )
     const comboCompareAt = new Map<string, number>()
     for (const line of comboLines) {
@@ -138,11 +142,11 @@ export async function GET() {
 
     const customSlides: OrderedSlide[] = banners.map((b) => {
       const product = b.destino_tipo === 'produto' && b.destino_produto_id ? products.get(b.destino_produto_id) : undefined
-      const combo = b.destino_tipo === 'combo' && b.destino_combo_id ? combos.get(b.destino_combo_id) : undefined
+      const combo = comboForBanner(b)
       const price = money(b.preco) ?? money(product?.preco ?? combo?.preco)
       const listed = money(b.preco_riscado)
       const fromProduct = product ? money(product.preco_riscado) : null
-      const fromCombo = combo && b.destino_combo_id ? money(comboCompareAt.get(b.destino_combo_id)) : null
+      const fromCombo = combo ? money(comboCompareAt.get(combo.id)) : null
       const regular = listed ?? fromProduct ?? fromCombo
       return {
         id: `custom-${b.id}`,
@@ -151,7 +155,7 @@ export async function GET() {
         descriptionEn: b.descricao_en?.trim() || product?.descricao_en?.trim() || null,
         imageUrl: b.imagem_url.trim(),
         imageUrlEn: b.imagem_url_en?.trim() || undefined,
-        href: toHref(b),
+        href: toHref(b, combo?.id ?? null),
         price,
         compareAtPrice: regular !== null && price !== null && regular > price ? regular : null,
         sortOrder: Number.isFinite(Number(b.ordem)) ? Number(b.ordem) : 0,
@@ -202,8 +206,15 @@ export async function GET() {
       compareAtPrice,
     }))
 
+    console.info('[cadu:combo-add] /api/banners', {
+      banners: banners.length,
+      combos: combos.size,
+      slides: slides.map((slide) => ({ title: slide.title, href: slide.href, price: slide.price })),
+    })
+
     return NextResponse.json({ slides })
   } catch (e) {
+    console.error('[cadu:combo-add] /api/banners failed', e)
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Erro ao carregar banners.', slides: [] },
       { status: 500 }

@@ -99,22 +99,46 @@ export function StorefrontHome() {
   useEffect(() => {
     let cancelled = false
     const supabase = createClient()
+    const normalize = (value: string) =>
+      value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
     void Promise.all([
       supabase.from('combos').select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id), combo_escolha_grupos(id)').eq('ativo', true).order('ordem').order('nome'),
       fetch('/api/banners', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { slides: [] })).catch(() => ({ slides: [] })),
     ]).then(async ([comboRes, bannerData]) => {
       if (cancelled) return
       const slides = (bannerData.slides ?? []) as OfferSlide[]
+      console.info('[cadu:combo-add] banners loaded', {
+        count: slides.length,
+        slides: slides.map((slide) => ({ id: slide.id, title: slide.title, href: slide.href, price: slide.price })),
+        comboQueryError: comboRes.error?.message ?? null,
+        comboQueryCount: comboRes.data?.length ?? 0,
+      })
       setOffers(slides)
-      const rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null; combo_itens?: Array<{ item_id: string }> | null; combo_escolha_grupos?: Array<{ id: string }> | null }>
+      let rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null; combo_itens?: Array<{ item_id: string }> | null; combo_escolha_grupos?: Array<{ id: string }> | null }>
+      if (comboRes.error || !comboRes.data) {
+        console.warn('[cadu:combo-add] combo query failed, using fallback without escolha groups', comboRes.error)
+        const fallback = await supabase
+          .from('combos')
+          .select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id)')
+          .eq('ativo', true)
+          .order('ordem')
+          .order('nome')
+        console.info('[cadu:combo-add] combo fallback', {
+          error: fallback.error?.message ?? null,
+          count: fallback.data?.length ?? 0,
+        })
+        rows = (fallback.data ?? []) as typeof rows
+      }
       const itemIds = [...new Set(rows.flatMap((combo) => (combo.combo_itens ?? []).map((line) => line.item_id)))]
       const optionRes = itemIds.length
         ? await supabase.from('item_opcao_grupos').select('item_id').in('item_id', itemIds)
         : { data: [] as Array<{ item_id: string }> }
       const itemsWithOptions = new Set(((optionRes.data ?? []) as Array<{ item_id: string }>).map((row) => row.item_id))
       if (cancelled) return
-      setCombos(rows.map((combo) => {
-        const offer = slides.find((slide) => slide.href === `/combo/${combo.id}`)
+      const mapped = rows.map((combo) => {
+        const offer =
+          slides.find((slide) => slide.href === `/combo/${combo.id}`) ??
+          slides.find((slide) => normalize(slide.title) === normalize(combo.nome))
         const offerPrice = typeof offer?.price === 'number' ? offer.price : null
         const price = offerPrice !== null && offerPrice > 0 ? offerPrice : Number(combo.preco)
         const compareAt = typeof offer?.compareAtPrice === 'number' && offer.compareAtPrice > price ? offer.compareAtPrice : null
@@ -127,8 +151,11 @@ export function StorefrontHome() {
           imagem_url: combo.imagem_url || offer?.imageUrl || null,
           needsSetup: (combo.combo_escolha_grupos ?? []).length > 0 || (combo.combo_itens ?? []).some((line) => itemsWithOptions.has(line.item_id)),
         }
-      }))
-    }).catch(() => {
+      })
+      console.info('[cadu:combo-add] combos ready', mapped.map((combo) => ({ id: combo.id, nome: combo.nome, needsSetup: combo.needsSetup, preco: combo.preco })))
+      setCombos(mapped)
+    }).catch((error) => {
+      console.error('[cadu:combo-add] failed to load combos/banners', error)
       if (!cancelled) setCombos([])
     })
     return () => {
@@ -194,21 +221,75 @@ export function StorefrontHome() {
   const visibleBlocks = chips.filter((block) => categoriaSelecionada === 'todas' || block.key === categoriaSelecionada)
 
   function openCombo(comboId: string) {
+    console.info('[cadu:combo-add] openCombo', { comboId })
     setPromotionsOpen(false)
     window.setTimeout(() => setComboModalId(comboId), 180)
   }
 
-  function addOffer(slide: OfferSlide) {
-    const href = slide.href ?? ''
+  async function addOffer(slide: OfferSlide) {
+    const normalize = (value: string) =>
+      value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    console.info('[cadu:combo-add] Add clicked', {
+      slide: { id: slide.id, title: slide.title, href: slide.href, price: slide.price },
+      combosLoaded: combos.length,
+      comboNames: combos.map((item) => item.nome),
+    })
+    let href = slide.href ?? ''
+    let matched = combos.find((item) => normalize(item.nome) === normalize(slide.title)) ?? null
+    if (!href.startsWith('/combo/') && !href.startsWith('/produto/')) {
+      if (matched) {
+        href = `/combo/${matched.id}`
+        console.info('[cadu:combo-add] resolved href from loaded combos', { href, matched: matched.nome })
+      } else {
+        console.warn('[cadu:combo-add] no href and no local match, querying supabase by title')
+        const supabase = createClient()
+        const { data, error } = await supabase.from('combos').select('id, nome, descricao, preco, imagem_url').eq('ativo', true)
+        console.info('[cadu:combo-add] supabase combos lookup', {
+          error: error?.message ?? null,
+          count: data?.length ?? 0,
+          names: (data ?? []).map((row) => row.nome),
+        })
+        const row = ((data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null }>).find(
+          (item) => normalize(item.nome) === normalize(slide.title)
+        )
+        if (row) {
+          href = `/combo/${row.id}`
+          matched = {
+            id: row.id,
+            nome: row.nome,
+            descricao: row.descricao,
+            preco: Number(row.preco),
+            compareAt: null,
+            imagem_url: row.imagem_url,
+            needsSetup: true,
+          }
+          console.info('[cadu:combo-add] resolved href from supabase', { href })
+        }
+      }
+    }
     if (href.startsWith('/produto/')) {
+      console.info('[cadu:combo-add] opening product modal', href)
       setPromotionsOpen(false)
       setCustomizeItemId(href.slice('/produto/'.length))
       return
     }
-    if (!href.startsWith('/combo/')) return
+    if (!href.startsWith('/combo/')) {
+      console.error('[cadu:combo-add] abort: could not resolve combo href', {
+        title: slide.title,
+        href: slide.href,
+        combosLoaded: combos.length,
+      })
+      return
+    }
     const comboId = href.slice('/combo/'.length)
-    const combo = combos.find((item) => item.id === comboId)
+    const combo = combos.find((item) => item.id === comboId) ?? matched
     const price = typeof slide.price === 'number' && slide.price > 0 ? slide.price : combo?.preco ?? 0
+    console.info('[cadu:combo-add] resolved combo', {
+      comboId,
+      found: Boolean(combo),
+      needsSetup: combo?.needsSetup ?? null,
+      price,
+    })
     if (!combo || combo.needsSetup || price <= 0) {
       openCombo(comboId)
       return
@@ -222,6 +303,7 @@ export function StorefrontHome() {
       imagem_url: combo.imagem_url,
       categoria_id: null,
     }, 1, { unitPrice: price })
+    console.info('[cadu:combo-add] added directly to cart', { comboId, price })
   }
 
   function productsFor(key: string) {

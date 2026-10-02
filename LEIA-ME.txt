@@ -1,46 +1,49 @@
-Corrige Add dos combos no popup/menu v2.8.0
-===========================================
+Logs + fallback Add dos combos v2.9.1
+=====================================
 
-No servidor o botão Add dos combos não abria o popup de montagem
-porque o pacote v2.7.0 subiu o storefront sem os arquivos do modal.
+Em https://www.caducakeslanches.store /api/banners ainda devolve
+href: null. Por isso o Add não fazia nada.
 
-Este pacote traz TUDO que o Add precisa:
-- modal do combo
-- página/componente ComboCustomize
-- home + carousel com botão Add
-- seção Combos (sem a seção antiga duplicada)
-- SQL das seções de escolha
+Este pacote:
+1) Corrige /api/banners para devolver /combo/{id}
+2) Se o href vier null, resolve o combo pelo nome (lista local
+   ou consulta no Supabase)
+3) Coloca logs no console do navegador e no server da Vercel
+   com o prefixo [cadu:combo-add]
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.8.0 dentro do repositório.
-2) Rodar no Supabase, se ainda não rodou:
-   - scripts/047_combo_escolha.sql
-   Sem essas tabelas, a seção de escolha do combo quebra.
-3) Commit + push no GitHub / deploy (Vercel).
-4) Pode aplicar este pacote sozinho em cima do site atual.
-   Ele substitui o que faltava no v2.6/v2.7.
+2) Commit + push / redeploy Vercel.
+3) Abrir o site, F12 > Console, clicar Add no popup Combos.
+4) Procurar linhas [cadu:combo-add].
 
-Arquivos NOVOS (se ainda não existirem no servidor)
----------------------------------------------------
-- components/storefront/combo-customize-modal.tsx
-- lib/menu-layout.ts
-- scripts/047_combo_escolha.sql
-
-Arquivos ALTERADOS
-------------------
-- app/admin/cardapio/page.tsx
+Arquivos
+--------
+- app/api/banners/route.ts
 - app/combo/[id]/page.tsx
-- components/admin-combos-panel.tsx
 - components/home-promo-carousel.tsx
 - components/home-promo-carousel.module.css
+- components/storefront/combo-customize-modal.tsx
 - components/storefront/store-image.tsx
 - components/storefront/storefront-home.tsx
 - lib/lang-context.tsx
+- lib/menu-layout.ts
+- lib/store-weekdays.ts
+- scripts/047_combo_escolha.sql
 
-Obs.
-----
-Se o build falhar falando de ComboCustomizeModal, era exatamente
-o arquivo que faltava no v2.7.0.
+Como ler os logs
+----------------
+No Console do navegador:
+- banners loaded  -> o que a API mandou (href null ou não)
+- combos ready    -> quantos combos o app carregou
+- Add clicked     -> clique no botão
+- resolved href   -> achou o combo pelo nome
+- openCombo       -> abriu o modal
+- abort           -> não achou combo nenhum
+
+Na Vercel (Functions / Runtime Logs):
+- [cadu:combo-add] /api/banners
+
+Confirme também em /api/banners se href deixou de ser null.
 O .env.local NÃO entra neste pacote.

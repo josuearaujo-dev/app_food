@@ -99,7 +99,15 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onA
                       <button
                         type="button"
                         className={styles.add}
-                        onClick={() => onAdd(slide)}
+                        onClick={() => {
+                          console.info('[cadu:combo-add] popup Add button', {
+                            id: slide.id,
+                            title: slide.title,
+                            href: slide.href,
+                            price: slide.price,
+                          })
+                          onAdd(slide)
+                        }}
                       >
                         {t.addToCart} <Plus size={14} />
                       </button>
@@ -158,7 +166,15 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
             <div className={styles.copy}>{copy}</div>
             <div className={styles.side}>
               <OfferImage key={src} src={src} original={slide.imageUrl} title={slide.title} />
-              <button type="button" className={styles.add} onClick={() => onAdd(slide)}>
+              <button type="button" className={styles.add} onClick={() => {
+                console.info('[cadu:combo-add] menu Add button', {
+                  id: slide.id,
+                  title: slide.title,
+                  href: slide.href,
+                  price: slide.price,
+                })
+                onAdd(slide)
+              }}>
                 {addLabel} <Plus size={14} />
               </button>
             </div>
