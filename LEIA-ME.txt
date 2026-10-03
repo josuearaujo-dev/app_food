@@ -1,25 +1,31 @@
-Your bag: borda e espaçamento v2.12.0
-=====================================
+Mais pedidos pelas vendas reais v2.13.0
+======================================
 
-Corrige a sacola desktop (Your bag):
-- borda e sombra visíveis no painel
-- mais padding nos itens, sugestões e painel de entrega
-- bloco "Suggested for your order" com borda própria
-- anula override antigo que tirava a borda da sacola
+A seção "Mais pedidos" / "Most ordered" usa as vendas reais
+(pedido_itens), top 6 produtos disponíveis.
+
+Por que não aparecia
+--------------------
+A rota /api/most-ordered não estava no site publicado (404).
+Sem essa API, o menu não recebia os IDs e escondia a seção.
+No banco já há vendas suficientes para montar o ranking.
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.12.0 dentro do repositório.
+   Não deixe a pasta deploy-altered-v2.13.0 dentro do repositório.
 2) Nenhum SQL novo.
 3) Commit + push / redeploy Vercel.
-4) Este pacote vem DEPOIS do v2.11.0.
-5) Depois do deploy, faça hard refresh (Cmd+Shift+R) no site.
+4) Hard refresh (Cmd+Shift+R).
+5) Confira: https://SEU-DOMINIO/api/most-ordered
+   deve responder JSON com "ids": [ ... ] (não 404).
 
-Arquivos ALTERADOS
-------------------
-- styles/storefront.css
+Arquivos
+--------
+- app/api/most-ordered/route.ts   (NOVO no servidor se ainda não existir)
+- components/storefront/storefront-home.tsx
 
 Obs.
 ----
-Só CSS. O .env.local NÃO entra neste pacote.
+Combos não entram neste ranking (pedido_itens.item_id nulo).
+O .env.local NÃO entra neste pacote.
