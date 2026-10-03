@@ -63,7 +63,9 @@ export function StorefrontHome() {
   const [offers, setOffers] = useState<OfferSlide[]>([])
   const [offersReady, setOffersReady] = useState(false)
   const [banners, setBanners] = useState<BannerSlide[]>([])
-  const [promotionsOpen, setPromotionsOpen] = useState(true)
+  const [bannersReady, setBannersReady] = useState(false)
+  const [bannersOpen, setBannersOpen] = useState(false)
+  const [promotionsOpen, setPromotionsOpen] = useState(false)
   const [comboModalId, setComboModalId] = useState<string | null>(null)
   const [isSplash, setIsSplash] = useState(true)
   const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
@@ -121,8 +123,19 @@ export function StorefrontHome() {
       })
       setBanners(bannerSlides)
       setOffers(offerSlides)
+      setBannersReady(true)
       setOffersReady(true)
-      if (!offerSlides.length) setPromotionsOpen(false)
+      // Sequência: popup de banners → ao fechar, popup de ofertas especiais.
+      if (bannerSlides.length) {
+        setBannersOpen(true)
+        setPromotionsOpen(false)
+      } else if (offerSlides.length) {
+        setBannersOpen(false)
+        setPromotionsOpen(true)
+      } else {
+        setBannersOpen(false)
+        setPromotionsOpen(false)
+      }
       let rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null; combo_itens?: Array<{ item_id: string }> | null; combo_escolha_grupos?: Array<{ id: string }> | null }>
       if (comboRes.error || !comboRes.data) {
         console.warn('[cadu:combo-add] combo query failed, using fallback without escolha groups', comboRes.error)
@@ -466,9 +479,19 @@ export function StorefrontHome() {
             </label>
           </div>
 
-          <HomeBannerCarousel slides={banners} />
+          <HomeBannerCarousel
+            open={bannersReady && bannersOpen}
+            onOpenChange={(open) => {
+              setBannersOpen(open)
+              if (!open && offers.length > 0) {
+                // Fecha banner → abre ofertas especiais.
+                window.setTimeout(() => setPromotionsOpen(true), 180)
+              }
+            }}
+            slides={banners}
+          />
           <HomePromoCarousel
-            open={promotionsOpen}
+            open={offersReady && promotionsOpen && !bannersOpen}
             onOpenChange={setPromotionsOpen}
             showLauncher={false}
             onAdd={addOffer}

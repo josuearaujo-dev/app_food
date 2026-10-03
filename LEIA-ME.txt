@@ -1,51 +1,35 @@
-Banners separados das Ofertas especiais v2.14.0
-===============================================
+Banners e Ofertas como popups v2.14.1
+=====================================
 
-Motivo do problema
-------------------
-/api/banners misturava banners_home + promoções num único
-"slides". O popup e a seção Ofertas especiais usavam a mesma
-lista. O carousel de banners da home tinha sido removido do JSX
-(CSS ainda existia).
-
-O que muda
-----------
-1) Carousel de BANNERS (Admin → Banners) volta a aparecer no menu,
-   antes do popup.
-2) Popup + seção "Ofertas especiais" usam só produtos/combos com
-   a flag "Oferta especial".
-3) SQL 048 cria a coluna oferta_especial e marca o que já estava
-   nos banners ativos (para não ficar vazio).
+Correção
+--------
+- Banner volta a ser POPUP (carousel), não fica no menu.
+- Ordem na entrada: 1º popup de banners → ao fechar → 2º popup
+  de Ofertas especiais.
+- Ofertas especiais continuam na seção do menu também.
+- Se o SQL 048 ainda não rodou, as ofertas usam os destinos
+  dos banners como fallback (para o popup não ficar vazio).
 
 Como aplicar
 ------------
-1) Rodar no Supabase SQL Editor:
+1) Rodar no Supabase SQL Editor (recomendado):
    scripts/048_oferta_especial.sql
 2) Copiar TODOS os arquivos desta pasta mantendo o caminho.
-   Não deixe a pasta deploy-altered-v2.14.0 dentro do repositório.
-3) Commit + push / redeploy Vercel.
-4) Hard refresh (Cmd+Shift+R).
-5) Confira:
-   - /api/banners → banners da home
-   - /api/special-offers → ofertas marcadas
+3) Redeploy Vercel + hard refresh.
 
-Arquivos NOVOS
---------------
-- app/api/special-offers/route.ts
-- components/home-banner-carousel.tsx
-- scripts/048_oferta_especial.sql
-
-Arquivos ALTERADOS
-------------------
+Arquivos NOVOS / ALTERADOS
+--------------------------
 - app/api/banners/route.ts
+- app/api/special-offers/route.ts
 - app/admin/cardapio/page.tsx
-- components/admin-combos-panel.tsx
+- components/home-banner-carousel.tsx
 - components/home-promo-carousel.tsx
+- components/home-promo-carousel.module.css
 - components/storefront/storefront-home.tsx
+- components/admin-combos-panel.tsx
 - lib/lang-context.tsx
+- scripts/048_oferta_especial.sql
 
 Obs.
 ----
-Admin → Cardápio / Combos: interruptor "Oferta especial".
-Admin → Banners: só o carousel de imagens.
 O .env.local NÃO entra neste pacote.
