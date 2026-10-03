@@ -35,6 +35,7 @@ interface Item {
   alergenicos_alerta: string | null
   disponivel: boolean
   destaque: boolean
+  oferta_especial: boolean
   categoria_id: string | null
   ordem: number
   categorias: Categoria | null
@@ -127,7 +128,7 @@ export default function AdminCardapioPage() {
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
     extra_groups: [] as ExtraGroupForm[],
-    categoria_id: '', disponivel: true, destaque: false, recomendados: [] as string[], ordem: 0,
+    categoria_id: '', disponivel: true, destaque: false, oferta_especial: false, recomendados: [] as string[], ordem: 0,
   })
   const [salvandoItem, setSalvandoItem] = useState(false)
   const [itemErro, setItemErro] = useState<string | null>(null)
@@ -647,6 +648,7 @@ export default function AdminCardapioPage() {
       categoria_id: '',
       disponivel: true,
       destaque: false,
+      oferta_especial: false,
       recomendados: [],
       ordem: outros.length + 1,
     })
@@ -683,6 +685,7 @@ export default function AdminCardapioPage() {
       categoria_id: item.categoria_id ?? '',
       disponivel: item.disponivel,
       destaque: item.destaque,
+      oferta_especial: !!item.oferta_especial,
       recomendados: (links ?? []).map((link) => link.recomendado_id as string),
       ordem: posicao,
     })
@@ -732,6 +735,7 @@ export default function AdminCardapioPage() {
       categoria_id: catIdNorm,
       disponivel: formItem.disponivel,
       destaque: formItem.destaque,
+      oferta_especial: formItem.oferta_especial,
     }
 
     const montarIdsOrdenados = (itemId: string) => [
@@ -1436,7 +1440,9 @@ export default function AdminCardapioPage() {
           <div className="flex flex-wrap gap-4">
             <Toggle label={t.fieldAvailable} value={formItem.disponivel} onChange={(v) => setFormItem({ ...formItem, disponivel: v })} />
             <Toggle label={t.fieldFeatured} value={formItem.destaque} onChange={(v) => setFormItem({ ...formItem, destaque: v })} />
+            <Toggle label={t.fieldSpecialOffer} value={formItem.oferta_especial} onChange={(v) => setFormItem({ ...formItem, oferta_especial: v })} />
           </div>
+          <p className="text-[11px] text-muted-foreground">{t.fieldSpecialOfferHint}</p>
 
           <div className="space-y-2 border-t border-border pt-3">
             <div>

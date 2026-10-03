@@ -24,34 +24,43 @@ type Props = {
   onOpenChange: (open: boolean) => void
   showLauncher?: boolean
   onAdd?: (slide: OfferSlide) => void
+  /** When provided, uses these special-offer slides (no internal fetch). */
+  slides?: OfferSlide[]
 }
 
-/** Active promotions open on entry; a failed photo must not hide an offer. */
-export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onAdd }: Props) {
-  const [slides, setSlides] = useState<OfferSlide[]>([])
-  const [loading, setLoading] = useState(true)
+/** Popup de Ofertas especiais (produtos/combos com flag). Banners da home são outro componente. */
+export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onAdd, slides: slidesProp }: Props) {
+  const [fetchedSlides, setFetchedSlides] = useState<OfferSlide[]>([])
+  const [loading, setLoading] = useState(!slidesProp)
   const [failed, setFailed] = useState(false)
   const { lang, t } = useLang()
   const title = t.specialOffers
+  const slides = slidesProp ?? fetchedSlides
 
   useEffect(() => {
+    if (slidesProp !== undefined) {
+      setLoading(false)
+      return
+    }
     const controller = new AbortController()
-    fetch('/api/banners', { signal: controller.signal, cache: 'no-store' })
+    fetch('/api/special-offers', { signal: controller.signal, cache: 'no-store' })
       .then((response) => {
-        if (!response.ok) throw new Error('Banners unavailable')
+        if (!response.ok) throw new Error('Special offers unavailable')
         return response.json()
       })
       .then((data: { slides?: OfferSlide[] }) => {
-        if (!controller.signal.aborted && Array.isArray(data.slides)) setSlides(data.slides)
+        if (!controller.signal.aborted && Array.isArray(data.slides)) setFetchedSlides(data.slides)
       })
       .catch(() => { if (!controller.signal.aborted) setFailed(true) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [])
+  }, [slidesProp])
 
   useEffect(() => {
+    // Parent controls open state when slides are passed in.
+    if (slidesProp !== undefined) return
     if (!loading && !slides.length) onOpenChange(false)
-  }, [loading, slides.length, onOpenChange])
+  }, [loading, slides.length, onOpenChange, slidesProp])
 
   return (
     <>

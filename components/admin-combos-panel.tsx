@@ -38,6 +38,7 @@ type ComboRow = {
   preco: number
   imagem_url: string | null
   destaque: boolean
+  oferta_especial: boolean
   ativo: boolean
   ordem: number
   combo_itens: ComboItemRow[]
@@ -74,6 +75,7 @@ export function AdminCombosPanel() {
     preco: '',
     imagem_url: '',
     destaque: false,
+    oferta_especial: false,
     ativo: true,
     ordem: '0',
     itens: [] as FormComboItem[],
@@ -94,7 +96,7 @@ export function AdminCombosPanel() {
     const [{ data: combosData, error: cErr }, { data: itensData, error: iErr }] = await Promise.all([
       supabase
         .from('combos')
-        .select('id, nome, descricao, preco, imagem_url, destaque, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome)), combo_escolha_grupos(id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem))')
+        .select('id, nome, descricao, preco, imagem_url, destaque, oferta_especial, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome)), combo_escolha_grupos(id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem))')
         .order('destaque', { ascending: false })
         .order('ordem', { ascending: true }),
       supabase.from('itens_cardapio').select('id, nome').eq('disponivel', true).order('nome'),
@@ -118,6 +120,7 @@ export function AdminCombosPanel() {
       preco: '',
       imagem_url: '',
       destaque: false,
+      oferta_especial: false,
       ativo: true,
       ordem: '0',
       itens: [],
@@ -136,6 +139,7 @@ export function AdminCombosPanel() {
       preco: c.preco != null && Number.isFinite(Number(c.preco)) ? Number(c.preco).toFixed(2) : '',
       imagem_url: c.imagem_url ?? '',
       destaque: c.destaque,
+      oferta_especial: !!c.oferta_especial,
       ativo: c.ativo,
       ordem: String(c.ordem ?? 0),
       itens: (c.combo_itens ?? []).map((ci) => ({
@@ -220,6 +224,7 @@ export function AdminCombosPanel() {
         preco: Number(preco.toFixed(2)),
         imagem_url: form.imagem_url.trim() || null,
         destaque: form.destaque,
+        oferta_especial: form.oferta_especial,
         ativo: form.ativo,
         ordem: Math.max(0, Math.floor(Number(form.ordem) || 0)),
       }
@@ -388,6 +393,17 @@ export function AdminCombosPanel() {
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">Valor do combo no cardápio e nas ofertas.</p>
               </div>
+              <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.oferta_especial}
+                  onChange={(e) => setForm((f) => ({ ...f, oferta_especial: e.target.checked }))}
+                />
+                <span>
+                  <strong className="block">Oferta especial</strong>
+                  <span className="text-[11px] text-muted-foreground">Aparece no popup e na seção Ofertas especiais.</span>
+                </span>
+              </label>
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-foreground">Imagem do combo</label>
                 {form.imagem_url ? (

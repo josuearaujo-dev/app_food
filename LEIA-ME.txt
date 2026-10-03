@@ -1,31 +1,51 @@
-Mais pedidos pelas vendas reais v2.13.0
-======================================
+Banners separados das Ofertas especiais v2.14.0
+===============================================
 
-A seção "Mais pedidos" / "Most ordered" usa as vendas reais
-(pedido_itens), top 6 produtos disponíveis.
+Motivo do problema
+------------------
+/api/banners misturava banners_home + promoções num único
+"slides". O popup e a seção Ofertas especiais usavam a mesma
+lista. O carousel de banners da home tinha sido removido do JSX
+(CSS ainda existia).
 
-Por que não aparecia
---------------------
-A rota /api/most-ordered não estava no site publicado (404).
-Sem essa API, o menu não recebia os IDs e escondia a seção.
-No banco já há vendas suficientes para montar o ranking.
+O que muda
+----------
+1) Carousel de BANNERS (Admin → Banners) volta a aparecer no menu,
+   antes do popup.
+2) Popup + seção "Ofertas especiais" usam só produtos/combos com
+   a flag "Oferta especial".
+3) SQL 048 cria a coluna oferta_especial e marca o que já estava
+   nos banners ativos (para não ficar vazio).
 
 Como aplicar
 ------------
-1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.13.0 dentro do repositório.
-2) Nenhum SQL novo.
+1) Rodar no Supabase SQL Editor:
+   scripts/048_oferta_especial.sql
+2) Copiar TODOS os arquivos desta pasta mantendo o caminho.
+   Não deixe a pasta deploy-altered-v2.14.0 dentro do repositório.
 3) Commit + push / redeploy Vercel.
 4) Hard refresh (Cmd+Shift+R).
-5) Confira: https://SEU-DOMINIO/api/most-ordered
-   deve responder JSON com "ids": [ ... ] (não 404).
+5) Confira:
+   - /api/banners → banners da home
+   - /api/special-offers → ofertas marcadas
 
-Arquivos
---------
-- app/api/most-ordered/route.ts   (NOVO no servidor se ainda não existir)
+Arquivos NOVOS
+--------------
+- app/api/special-offers/route.ts
+- components/home-banner-carousel.tsx
+- scripts/048_oferta_especial.sql
+
+Arquivos ALTERADOS
+------------------
+- app/api/banners/route.ts
+- app/admin/cardapio/page.tsx
+- components/admin-combos-panel.tsx
+- components/home-promo-carousel.tsx
 - components/storefront/storefront-home.tsx
+- lib/lang-context.tsx
 
 Obs.
 ----
-Combos não entram neste ranking (pedido_itens.item_id nulo).
+Admin → Cardápio / Combos: interruptor "Oferta especial".
+Admin → Banners: só o carousel de imagens.
 O .env.local NÃO entra neste pacote.

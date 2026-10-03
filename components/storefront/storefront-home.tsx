@@ -5,6 +5,7 @@ import { StoreImage } from '@/components/storefront/store-image'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { HomeBannerCarousel, type BannerSlide } from '@/components/home-banner-carousel'
 import { HomePromoCarousel, SpecialOfferGrid, type OfferSlide } from '@/components/home-promo-carousel'
 import { buildMenuOrder, isMenuSection, type MenuOrderRow, type MenuSectionKey } from '@/lib/menu-layout'
 import {
@@ -60,6 +61,8 @@ export function StorefrontHome() {
   const [loading, setLoading] = useState(true)
   const [menuOrder, setMenuOrder] = useState<MenuOrderRow[]>([])
   const [offers, setOffers] = useState<OfferSlide[]>([])
+  const [offersReady, setOffersReady] = useState(false)
+  const [banners, setBanners] = useState<BannerSlide[]>([])
   const [promotionsOpen, setPromotionsOpen] = useState(true)
   const [comboModalId, setComboModalId] = useState<string | null>(null)
   const [isSplash, setIsSplash] = useState(true)
@@ -103,17 +106,23 @@ export function StorefrontHome() {
       value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
     void Promise.all([
       supabase.from('combos').select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id), combo_escolha_grupos(id)').eq('ativo', true).order('ordem').order('nome'),
-      fetch('/api/banners', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { slides: [] })).catch(() => ({ slides: [] })),
-    ]).then(async ([comboRes, bannerData]) => {
+      fetch('/api/banners', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { banners: [], slides: [] })).catch(() => ({ banners: [], slides: [] })),
+      fetch('/api/special-offers', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : { slides: [] })).catch(() => ({ slides: [] })),
+    ]).then(async ([comboRes, bannerData, offersData]) => {
       if (cancelled) return
-      const slides = (bannerData.slides ?? []) as OfferSlide[]
-      console.info('[cadu:combo-add] banners loaded', {
-        count: slides.length,
-        slides: slides.map((slide) => ({ id: slide.id, title: slide.title, href: slide.href, price: slide.price })),
+      const bannerSlides = ((bannerData.banners ?? bannerData.slides ?? []) as BannerSlide[])
+      const offerSlides = (offersData.slides ?? []) as OfferSlide[]
+      console.info('[cadu:combo-add] banners + offers loaded', {
+        banners: bannerSlides.length,
+        offers: offerSlides.length,
+        offerSlides: offerSlides.map((slide) => ({ id: slide.id, title: slide.title, href: slide.href, price: slide.price })),
         comboQueryError: comboRes.error?.message ?? null,
         comboQueryCount: comboRes.data?.length ?? 0,
       })
-      setOffers(slides)
+      setBanners(bannerSlides)
+      setOffers(offerSlides)
+      setOffersReady(true)
+      if (!offerSlides.length) setPromotionsOpen(false)
       let rows = (comboRes.data ?? []) as Array<{ id: string; nome: string; descricao: string | null; preco: number; imagem_url: string | null; combo_itens?: Array<{ item_id: string }> | null; combo_escolha_grupos?: Array<{ id: string }> | null }>
       if (comboRes.error || !comboRes.data) {
         console.warn('[cadu:combo-add] combo query failed, using fallback without escolha groups', comboRes.error)
@@ -457,7 +466,14 @@ export function StorefrontHome() {
             </label>
           </div>
 
-          <HomePromoCarousel open={promotionsOpen} onOpenChange={setPromotionsOpen} showLauncher={false} onAdd={addOffer} />
+          <HomeBannerCarousel slides={banners} />
+          <HomePromoCarousel
+            open={promotionsOpen}
+            onOpenChange={setPromotionsOpen}
+            showLauncher={false}
+            onAdd={addOffer}
+            slides={offersReady ? offers : undefined}
+          />
           <div className="cadu-catalog-body">
           {loading ? (
             <div className="space-y-3" aria-busy="true">
