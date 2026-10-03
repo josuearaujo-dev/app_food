@@ -1,27 +1,25 @@
-Admin cardápio: lista e filtros de categoria v2.11.0
-====================================================
+Your bag: borda e espaçamento v2.12.0
+=====================================
 
-Na aba Itens do Admin → Cardápio:
-- busca por nome/descrição
-- filtros por categoria (chips com contagem)
-- filtros Disponível / Oculto / Destaque
-- lista agrupada por categoria com cards maiores
-  (foto, descrição, preço, badges)
+Corrige a sacola desktop (Your bag):
+- borda e sombra visíveis no painel
+- mais padding nos itens, sugestões e painel de entrega
+- bloco "Suggested for your order" com borda própria
+- anula override antigo que tirava a borda da sacola
 
 Como aplicar
 ------------
 1) Copiar TODOS os arquivos desta pasta mantendo o mesmo caminho.
-   Não deixe a pasta deploy-altered-v2.11.0 dentro do repositório.
+   Não deixe a pasta deploy-altered-v2.12.0 dentro do repositório.
 2) Nenhum SQL novo.
 3) Commit + push / redeploy Vercel.
-4) Este pacote vem DEPOIS do v2.10.0.
+4) Este pacote vem DEPOIS do v2.11.0.
+5) Depois do deploy, faça hard refresh (Cmd+Shift+R) no site.
 
 Arquivos ALTERADOS
 ------------------
-- app/admin/cardapio/page.tsx
-- lib/lang-context.tsx
+- styles/storefront.css
 
 Obs.
 ----
-Criar, editar, ocultar e excluir itens continuam iguais.
-O .env.local NÃO entra neste pacote.
+Só CSS. O .env.local NÃO entra neste pacote.
