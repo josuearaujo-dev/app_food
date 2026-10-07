@@ -35,7 +35,9 @@ type ComboRow = {
   id: string
   nome: string
   descricao: string | null
+  descricao_en: string | null
   preco: number
+  preco_riscado: number | null
   imagem_url: string | null
   destaque: boolean
   oferta_especial: boolean
@@ -72,7 +74,9 @@ export function AdminCombosPanel() {
   const [form, setForm] = useState({
     nome: '',
     descricao: '',
+    descricao_en: '',
     preco: '',
+    preco_riscado: '',
     imagem_url: '',
     destaque: false,
     oferta_especial: false,
@@ -96,7 +100,7 @@ export function AdminCombosPanel() {
     const [{ data: combosData, error: cErr }, { data: itensData, error: iErr }] = await Promise.all([
       supabase
         .from('combos')
-        .select('id, nome, descricao, preco, imagem_url, destaque, oferta_especial, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome)), combo_escolha_grupos(id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem))')
+        .select('id, nome, descricao, descricao_en, preco, preco_riscado, imagem_url, destaque, oferta_especial, ativo, ordem, combo_itens(item_id, quantidade, ordem, itens_cardapio(nome)), combo_escolha_grupos(id, nome, quantidade, ordem, combo_escolha_opcoes(item_id, ordem))')
         .order('destaque', { ascending: false })
         .order('ordem', { ascending: true }),
       supabase.from('itens_cardapio').select('id, nome').eq('disponivel', true).order('nome'),
@@ -117,7 +121,9 @@ export function AdminCombosPanel() {
     setForm({
       nome: '',
       descricao: '',
+      descricao_en: '',
       preco: '',
+      preco_riscado: '',
       imagem_url: '',
       destaque: false,
       oferta_especial: false,
@@ -136,7 +142,9 @@ export function AdminCombosPanel() {
     setForm({
       nome: c.nome,
       descricao: c.descricao ?? '',
+      descricao_en: c.descricao_en ?? '',
       preco: c.preco != null && Number.isFinite(Number(c.preco)) ? Number(c.preco).toFixed(2) : '',
+      preco_riscado: c.preco_riscado != null && Number.isFinite(Number(c.preco_riscado)) ? Number(c.preco_riscado).toFixed(2) : '',
       imagem_url: c.imagem_url ?? '',
       destaque: c.destaque,
       oferta_especial: !!c.oferta_especial,
@@ -207,6 +215,11 @@ export function AdminCombosPanel() {
     if (!form.nome.trim()) return setErro('Informe o nome do combo.')
     const preco = Number(form.preco.trim().replace(',', '.'))
     if (!Number.isFinite(preco) || preco < 0) return setErro('Informe um preço válido.')
+    const riscadoRaw = form.preco_riscado.trim()
+    const riscado = riscadoRaw ? Number(riscadoRaw.replace(',', '.')) : null
+    if (riscadoRaw && (!Number.isFinite(riscado) || (riscado ?? 0) <= preco)) {
+      return setErro('O preço riscado precisa ser maior que o preço do combo.')
+    }
     if (form.itens.length === 0 && form.grupos.length === 0) return setErro('Selecione ao menos 1 item ou adicione uma seção de escolha.')
     for (const group of form.grupos) {
       if (!group.nome.trim()) return setErro('Informe o nome de cada seção de escolha.')
@@ -221,7 +234,9 @@ export function AdminCombosPanel() {
       const payload = {
         nome: form.nome.trim(),
         descricao: form.descricao.trim() || null,
+        descricao_en: form.descricao_en.trim() || null,
         preco: Number(preco.toFixed(2)),
+        preco_riscado: riscado != null ? Number(riscado.toFixed(2)) : null,
         imagem_url: form.imagem_url.trim() || null,
         destaque: form.destaque,
         oferta_especial: form.oferta_especial,
@@ -376,8 +391,13 @@ export function AdminCombosPanel() {
               <input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} placeholder="Nome do combo" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
               <div>
                 <label className="mb-1 block text-xs font-semibold text-foreground">Descrição</label>
-                <textarea value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Texto que aparece no banner de ofertas" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-                <p className="mt-1 text-[11px] text-muted-foreground">Aparece no banner quando este combo for o destino e o banner não tiver descrição própria.</p>
+                <textarea value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Texto em português" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+                <p className="mt-1 text-[11px] text-muted-foreground">Aparece no cardápio e nas ofertas quando o idioma é português.</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">Descrição (inglês)</label>
+                <textarea value={form.descricao_en} onChange={(e) => setForm((f) => ({ ...f, descricao_en: e.target.value }))} placeholder="English description" rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+                <p className="mt-1 text-[11px] text-muted-foreground">Usada quando o cardápio está em inglês. Se ficar vazia, usa a descrição em português.</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-[#531b04]">Preço</label>
@@ -391,7 +411,21 @@ export function AdminCombosPanel() {
                     className="w-full bg-white py-2.5 text-sm font-semibold text-[#382217] outline-none"
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">Valor do combo no cardápio e nas ofertas.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Valor cobrado do combo no cardápio e nas ofertas.</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[#531b04]">Preço riscado</label>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3">
+                  <span className="text-sm font-bold text-[#531b04]">$</span>
+                  <input
+                    value={form.preco_riscado}
+                    onChange={(e) => setForm((f) => ({ ...f, preco_riscado: e.target.value }))}
+                    inputMode="decimal"
+                    placeholder="24.99"
+                    className="w-full bg-white py-2.5 text-sm font-semibold text-[#382217] outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">Opcional. É o valor riscado no card. Precisa ser maior que o preço. Se vazio, a loja soma os itens do combo.</p>
               </div>
               <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm">
                 <input

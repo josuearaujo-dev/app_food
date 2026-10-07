@@ -47,6 +47,7 @@ type ComboData = {
   id: string
   nome: string
   descricao: string | null
+  descricao_en: string | null
   preco: number
   imagem_url: string | null
   combo_itens: ComboLine[]
@@ -94,7 +95,7 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
   const router = useRouter()
   const supabase = createClient()
   const { addItem } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [loading, setLoading] = useState(true)
   const [combo, setCombo] = useState<ComboData | null>(null)
   const [groupsByItem, setGroupsByItem] = useState<Record<string, GroupItem[]>>({})
@@ -116,7 +117,7 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
       const [{ data: comboData, error: comboErr }, bannerData] = await Promise.all([
         supabase
           .from('combos')
-          .select('id, nome, descricao, preco, imagem_url, combo_itens(item_id, quantidade, ordem, itens_cardapio(id, nome, preco, imagem_url))')
+          .select('id, nome, descricao, descricao_en, preco, imagem_url, combo_itens(item_id, quantidade, ordem, itens_cardapio(id, nome, preco, imagem_url))')
           .eq('id', id)
           .eq('ativo', true)
           .maybeSingle(),
@@ -465,7 +466,9 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
             className="h-48 w-full rounded-2xl object-cover shadow-(--shadow-card)"
           />
         ) : null}
-        {combo.descricao ? <p className="text-sm text-muted-foreground">{combo.descricao}</p> : null}
+        {(lang === 'en' ? combo.descricao_en || combo.descricao : combo.descricao) ? (
+          <p className="text-sm text-muted-foreground">{lang === 'en' ? combo.descricao_en || combo.descricao : combo.descricao}</p>
+        ) : null}
         {choiceGroups.map((group) => {
           const picked = choiceSelection[group.id] ?? []
           const full = picked.length >= group.quantidade

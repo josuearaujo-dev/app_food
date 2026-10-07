@@ -1,35 +1,26 @@
-Banners e Ofertas como popups v2.14.1
-=====================================
+Combo: preço riscado e descrição em inglês v2.15.0
+==================================================
 
-Correção
---------
-- Banner volta a ser POPUP (carousel), não fica no menu.
-- Ordem na entrada: 1º popup de banners → ao fechar → 2º popup
-  de Ofertas especiais.
-- Ofertas especiais continuam na seção do menu também.
-- Se o SQL 048 ainda não rodou, as ofertas usam os destinos
-  dos banners como fallback (para o popup não ficar vazio).
+No cadastro do combo:
+- campo Preço riscado (valor que aparece riscado no card)
+- campo Descrição (inglês)
+
+Se o preço riscado estiver vazio, a loja continua somando os itens.
+Se a descrição em inglês estiver vazia, usa a descrição em português.
 
 Como aplicar
 ------------
-1) Rodar no Supabase SQL Editor (recomendado):
-   scripts/048_oferta_especial.sql
-2) Copiar TODOS os arquivos desta pasta mantendo o caminho.
-3) Redeploy Vercel + hard refresh.
+1) Rodar no Supabase SQL Editor:
+   scripts/049_combo_preco_riscado_descricao_en.sql
+2) Copiar os arquivos mantendo o caminho.
+3) Redeploy + hard refresh.
+4) Editar cada combo e preencher o preço riscado e a descrição EN.
 
-Arquivos NOVOS / ALTERADOS
---------------------------
-- app/api/banners/route.ts
-- app/api/special-offers/route.ts
-- app/admin/cardapio/page.tsx
-- components/home-banner-carousel.tsx
-- components/home-promo-carousel.tsx
-- components/home-promo-carousel.module.css
-- components/storefront/storefront-home.tsx
+Arquivos
+--------
+- scripts/049_combo_preco_riscado_descricao_en.sql
 - components/admin-combos-panel.tsx
-- lib/lang-context.tsx
-- scripts/048_oferta_especial.sql
+- app/api/special-offers/route.ts
+- app/combo/[id]/page.tsx
 
-Obs.
-----
 O .env.local NÃO entra neste pacote.

@@ -18,7 +18,9 @@ type ComboRow = {
   id: string
   nome: string
   descricao: string | null
+  descricao_en?: string | null
   preco: number
+  preco_riscado?: number | null
   imagem_url: string | null
   ordem: number
   combo_itens?: Array<{ item_id: string; quantidade: number }> | null
@@ -66,21 +68,23 @@ function toProductSlide(p: ProductRow): OfferSlide {
 
 function toComboSlide(c: ComboRow, priceById: Map<string, number | null>): OfferSlide {
   const price = money(c.preco)
-  let compareAt = 0
-  let hasCompare = false
+  const listed = money(c.preco_riscado)
+  let summed = 0
+  let hasSum = false
   for (const line of c.combo_itens ?? []) {
     const unit = priceById.get(line.item_id)
     if (unit === null || unit === undefined) continue
     const qty = Number(line.quantidade) > 0 ? Number(line.quantidade) : 1
-    compareAt += unit * qty
-    hasCompare = true
+    summed += unit * qty
+    hasSum = true
   }
-  const compare = hasCompare ? Number(compareAt.toFixed(2)) : null
+  const fromItems = hasSum ? Number(summed.toFixed(2)) : null
+  const compare = listed !== null && listed > 0 ? listed : fromItems
   return {
     id: `combo-${c.id}`,
     title: c.nome,
     description: c.descricao,
-    descriptionEn: null,
+    descriptionEn: c.descricao_en?.trim() || null,
     imageUrl: (c.imagem_url || '').trim() || '/images/product-placeholder.svg',
     href: `/combo/${c.id}`,
     price,
@@ -123,7 +127,7 @@ async function offersFromBanners(supabase: ReturnType<typeof createAdminClient>)
 
   const { data: allCombos } = await supabase
     .from('combos')
-    .select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id, quantidade)')
+    .select('id, nome, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem, combo_itens(item_id, quantidade)')
     .eq('ativo', true)
   const combos = (allCombos ?? []) as ComboRow[]
   const comboById = new Map(combos.map((c) => [c.id, c]))
@@ -190,7 +194,7 @@ export async function GET() {
         .order('nome'),
       supabase
         .from('combos')
-        .select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id, quantidade)')
+        .select('id, nome, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem, combo_itens(item_id, quantidade)')
         .eq('oferta_especial', true)
         .eq('ativo', true)
         .order('ordem')
@@ -200,16 +204,27 @@ export async function GET() {
     const columnMissing =
       missingColumn(productsRes.error?.message) || missingColumn(combosRes.error?.message)
 
-    if (!columnMissing && (productsRes.error || combosRes.error)) {
+    let comboRows = combosRes
+    if (combosRes.error && /preco_riscado|descricao_en/i.test(combosRes.error.message || '')) {
+      comboRows = await supabase
+        .from('combos')
+        .select('id, nome, descricao, preco, imagem_url, ordem, combo_itens(item_id, quantidade)')
+        .eq('oferta_especial', true)
+        .eq('ativo', true)
+        .order('ordem')
+        .order('nome')
+    }
+
+    if (!columnMissing && (productsRes.error || comboRows.error)) {
       return NextResponse.json(
-        { error: productsRes.error?.message || combosRes.error?.message, slides: [] },
+        { error: productsRes.error?.message || comboRows.error?.message, slides: [] },
         { status: 500 }
       )
     }
 
     if (!columnMissing) {
       const products = (productsRes.data ?? []) as ProductRow[]
-      const combos = (combosRes.data ?? []) as ComboRow[]
+      const combos = (comboRows.data ?? []) as ComboRow[]
       const priceById = await comboPriceMap(supabase, combos)
       const slides = [...combos.map((c) => toComboSlide(c, priceById)), ...products.map(toProductSlide)]
       if (slides.length) return NextResponse.json({ slides, source: 'flags' })
