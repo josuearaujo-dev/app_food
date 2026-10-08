@@ -11,13 +11,17 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
 /** Keep failed remote images from leaving broken icons or collapsing the layout. */
 export function StoreImage({ src, fallbackSrc = '/images/product-placeholder.svg', alt = '', onError, ...props }: Props) {
   const [failedSources, setFailedSources] = useState<string[]>([])
+  const [useOriginal, setUseOriginal] = useState(false)
   const source = src?.trim() || ''
+  const optimized = cachedMenuImageSrc(source)
   const failed = !source || failedSources.includes(source)
-  const displayedSource = !failed
-    ? cachedMenuImageSrc(source)
-    : failedSources.includes(fallbackSrc)
+  const displayedSource = failed
+    ? failedSources.includes(fallbackSrc)
       ? '/images/product-placeholder.svg'
       : fallbackSrc
+    : useOriginal
+      ? source
+      : optimized
 
   return (
     <img
@@ -28,8 +32,12 @@ export function StoreImage({ src, fallbackSrc = '/images/product-placeholder.svg
       decoding="async"
       data-fallback={failed || undefined}
       onError={(event) => {
-        if (!failedSources.includes(displayedSource)) {
-          setFailedSources((previous) => [...previous, displayedSource])
+        if (!useOriginal && optimized !== source) {
+          setUseOriginal(true)
+          return
+        }
+        if (!failedSources.includes(source)) {
+          setFailedSources((previous) => [...previous, source])
         }
         onError?.(event)
       }}
