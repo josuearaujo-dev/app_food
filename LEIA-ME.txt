@@ -1,24 +1,30 @@
-Cardápio v2.16.0
-================
+Fotos inteiras e cardápio v2.17.0
+=================================
 
-- Nome e descrição do produto em inglês (cadastro e cardápio).
+Fotos de produtos e combos aparecem inteiras, menores, dentro de uma
+moldura com borda. O arquivo original continua no banco. Nada precisa
+ser enviado de novo.
+
+Próximas fotos (produto e combo): 1000 x 1000 pixels, quadrada,
+JPG ou PNG. Nesse tamanho a imagem preenche a moldura sem corte.
+Se não for quadrada, ainda aparece inteira, com a borda no espaço vazio.
+
+O site pede ao Supabase uma cópia de até 1000px, sem corte, em WebP.
+O visitante não baixa o arquivo grande.
+
+Também neste pacote, se o v2.16.0 ainda não foi aplicado:
+- Nome e descrição do produto em inglês.
 - Descrição completa nos cards do menu e nas ofertas especiais.
-- Foto do combo inteira no modal.
-- Fotos do cardápio servidas menores, sem reenviar os arquivos.
-  O site baixa cada foto do banco uma vez, reduz para no máximo 960px
-  e guarda a cópia no servidor. O visitante não baixa o arquivo grande.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho.
+1) Copiar os arquivos mantendo o caminho. Este pacote substitui o v2.16.0.
 2) Redeploy + hard refresh.
-3) A pasta .cache/menu-images é criada sozinha no servidor.
-   O processo do site precisa poder gravar nela.
-4) No Supabase da conta nova, SQL Editor, se ainda não rodou:
+3) No Supabase da conta nova, SQL Editor, se ainda não rodou:
    scripts/050_itens_cardapio_nome_descricao_en.sql
    Preenche nome e descrição em inglês dos 77 produtos.
    Não altera o português.
-5) Opcional, na mesma conta nova:
+4) Opcional, na mesma conta nova:
    scripts/051_storage_cache_imagens.sql
    Só muda o cache dos arquivos que ainda forem abertos direto no Storage.
 

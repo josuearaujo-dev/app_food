@@ -9,7 +9,7 @@ export function cachedMenuImageSrc(src: string | null | undefined) {
   const clean = src?.trim().split('#')[0]?.split('?')[0] ?? ''
   if (!STORAGE_IMAGE.test(clean)) return src?.trim() || ''
   const render = clean.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-  return `${render}?width=960&quality=72&format=webp`
+  return `${render}?width=1000&resize=contain&quality=75&format=webp`
 }
 
 export function isMenuStorageUrl(src: string) {

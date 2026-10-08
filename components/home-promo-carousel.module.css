@@ -31,8 +31,8 @@ a.card:hover { border-color:#b78b6c; box-shadow:0 6px 20px #531b040b; }
 .prices s { color:#9ca3af; font-size:15px; font-weight:600; text-decoration:line-through; }
 .prices span { padding:3px 8px; border-radius:8px; background:#dcfce7; color:#15803d; font-size:13px; font-weight:800; }
 .link { display:inline-flex; align-items:center; justify-content:center; gap:16px; min-height:44px; margin-top:16px; padding:11px 18px; background:#531b04; color:white; border-radius:10px; font-size:13px; font-weight:650; }
-.image { display:block; flex-shrink:0; width:160px; height:160px; border-radius:12px; object-fit:contain; background:#faf5ef; }
-.side .image { width:100%; height:120px; }
+.image { display:block; flex-shrink:0; width:160px; height:160px; border-radius:12px; object-fit:contain; object-position:center; background:#fff8f3; border:1px solid #e4d5c8; padding:6px; box-sizing:border-box; }
+.side .image { width:100%; height:132px; }
 .art { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; flex-shrink:0; width:140px; height:150px; border:1px solid #ead7c1; border-radius:16px; color:#9d6635; background:radial-gradient(circle at 80% 20%,#ffe0a6 0,transparent 60%),#fff4df; }
 .art span { font-size:11px; font-weight:750; letter-spacing:.16em; }
 @media(max-width:640px) {
