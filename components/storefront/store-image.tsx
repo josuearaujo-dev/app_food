@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ImgHTMLAttributes } from 'react'
+import { cachedMenuImageSrc } from '@/lib/menu-image-src'
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   src?: string | null
@@ -12,7 +13,11 @@ export function StoreImage({ src, fallbackSrc = '/images/product-placeholder.svg
   const [failedSources, setFailedSources] = useState<string[]>([])
   const source = src?.trim() || ''
   const failed = !source || failedSources.includes(source)
-  const displayedSource = !failed ? source : failedSources.includes(fallbackSrc) ? '/images/product-placeholder.svg' : fallbackSrc
+  const displayedSource = !failed
+    ? cachedMenuImageSrc(source)
+    : failedSources.includes(fallbackSrc)
+      ? '/images/product-placeholder.svg'
+      : fallbackSrc
 
   return (
     <img

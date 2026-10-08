@@ -29,6 +29,7 @@ type ComboRow = {
 type ProductRow = {
   id: string
   nome: string
+  nome_en: string | null
   descricao: string | null
   descricao_en: string | null
   preco: number
@@ -57,6 +58,7 @@ function toProductSlide(p: ProductRow): OfferSlide {
   return {
     id: `product-${p.id}`,
     title: p.nome,
+    titleEn: p.nome_en,
     description: p.descricao,
     descriptionEn: p.descricao_en,
     imageUrl: (p.imagem_url || '').trim() || '/images/product-placeholder.svg',
@@ -143,7 +145,7 @@ async function offersFromBanners(supabase: ReturnType<typeof createAdminClient>)
   const { data: productsData } = productIds.length
     ? await supabase
         .from('itens_cardapio')
-        .select('id, nome, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem')
+        .select('id, nome, nome_en, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem')
         .in('id', productIds)
         .eq('disponivel', true)
     : { data: [] as ProductRow[] }
@@ -187,7 +189,7 @@ export async function GET() {
     const [productsRes, combosRes] = await Promise.all([
       supabase
         .from('itens_cardapio')
-        .select('id, nome, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem')
+        .select('id, nome, nome_en, descricao, descricao_en, preco, preco_riscado, imagem_url, ordem')
         .eq('oferta_especial', true)
         .eq('disponivel', true)
         .order('ordem')

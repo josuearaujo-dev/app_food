@@ -10,6 +10,7 @@ import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { WeekdayPicker } from '@/components/admin/weekday-picker'
 import { parseWeekdays } from '@/lib/store-weekdays'
 import { cn } from '@/lib/utils'
+import { MENU_IMAGE_CACHE_CONTROL, prepareMenuImage } from '@/lib/menu-image-upload'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
 
@@ -129,9 +130,9 @@ function PromoBannerUploader({
     setUploading(true)
 
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const prepared = await prepareMenuImage(file)
       // Mantém o mesmo padrão do upload de itens (sem pasta), evitando bloqueio por policy de storage.
-      const nome = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const nome = `${Date.now()}-${Math.random().toString(36).slice(2)}.${prepared.extension}`
       const pathAttempt = nome
 
       // Log de contexto para diagnóstico (não bloqueia o fluxo).
@@ -174,7 +175,11 @@ function PromoBannerUploader({
 
       const { error: uploadError } = await supabase.storage
         .from(CARDAPIO_BUCKET)
-        .upload(nome, file, { cacheControl: '3600', upsert: false })
+        .upload(nome, prepared.body, {
+          cacheControl: MENU_IMAGE_CACHE_CONTROL,
+          contentType: prepared.contentType,
+          upsert: false,
+        })
 
       if (uploadError) {
         console.error('[PromoBannerUploader] Upload failed', {

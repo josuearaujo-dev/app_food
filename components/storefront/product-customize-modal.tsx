@@ -8,6 +8,7 @@ import { Minus, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import {
   buildSelectedOptions,
   calculateOptionsDelta,
@@ -37,7 +38,7 @@ function BlocoInfoOpcao({ info }: { info: string | null | undefined }) {
 export function ProductCustomizeModal({ itemId, onClose }: Props) {
   const supabase = createClient()
   const { addItem } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<ProductOptionsState | null>(null)
   const [qtd, setQtd] = useState(1)
@@ -147,7 +148,7 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
       className={`cadu-modal-backdrop ${closing ? 'cadu-modal-backdrop--closing' : ''}`}
       role="dialog"
       aria-modal="true"
-      aria-label={state?.item.nome ?? t.customizeProduct}
+      aria-label={state ? localizedMenuCopy(lang, state.item.nome, state.item.nome_en) : t.customizeProduct}
       onClick={(e) => {
         if (e.target === e.currentTarget) closeModal()
       }}
@@ -162,8 +163,10 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
             <div className="cadu-modal-header">
               <div className="min-w-0 flex-1">
                 <span className="cadu-modal-kicker">{t.customizeProduct}</span>
-                <h2>{state.item.nome}</h2>
-                {state.item.descricao && <p>{state.item.descricao}</p>}
+                <h2>{localizedMenuCopy(lang, state.item.nome, state.item.nome_en)}</h2>
+                {localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en) ? (
+                  <p>{localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en)}</p>
+                ) : null}
               </div>
               <button type="button" className="cadu-modal-close" onClick={closeModal} aria-label={t.back}>
                 <X size={20} />

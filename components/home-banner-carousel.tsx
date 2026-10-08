@@ -5,6 +5,7 @@ import Link from 'next/link'
 import useEmblaCarousel from 'embla-carousel-react'
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 import { useLang } from '@/lib/lang-context'
+import { cachedMenuImageSrc } from '@/lib/menu-image-src'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import styles from './home-promo-carousel.module.css'
 
@@ -86,7 +87,7 @@ export function HomeBannerCarousel({ open, onOpenChange, slides }: Props) {
                 const href = slide.href && /^(\/[^/]|https?:\/\/)/i.test(slide.href) ? slide.href : null
                 const image = (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={src} alt={slide.title} className={styles.bannerImage} />
+                  <img src={cachedMenuImageSrc(src)} alt={slide.title} className={styles.bannerImage} />
                 )
                 return (
                   <div

@@ -5,6 +5,7 @@ import { StoreImage } from '@/components/storefront/store-image'
 
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { useStoreStatus } from '@/lib/store-status-client'
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
@@ -16,7 +17,7 @@ import { ProductCustomizeModal } from '@/components/storefront/product-customize
 
 export default function CarrinhoPage() {
   const { items, updateQuantity, removeItem, totalPrice, totalItems, clearCart } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const storeIsClosed = !storeStatusLoading && !acceptingOrders
   const [suggestId, setSuggestId] = useState<string | null>(null)
@@ -63,12 +64,12 @@ export default function CarrinhoPage() {
         />
       }
     >
-      <div className="space-y-3 px-4 pt-4">
+      <div className="space-y-4 px-4 pt-4 pb-2">
         {items.map(({ cartItemId, item, quantity, totalPrice: itemTotal, observation, selectedOptions }) => (
-          <div key={cartItemId} className="flex gap-3 rounded-2xl border border-border bg-card p-3">
+          <div key={cartItemId} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
             {item.imagem_url ? (
               <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                <StoreImage src={item.imagem_url} alt={item.nome} className="h-full w-full object-cover" />
+                <StoreImage src={item.imagem_url} alt={localizedMenuCopy(lang, item.nome, item.nome_en)} className="h-full w-full object-cover" />
               </div>
             ) : (
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-accent/10">
@@ -76,7 +77,7 @@ export default function CarrinhoPage() {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-1 text-sm font-semibold text-foreground">{item.nome}</p>
+              <p className="line-clamp-1 text-sm font-semibold text-foreground">{localizedMenuCopy(lang, item.nome, item.nome_en)}</p>
               <p className="mt-0.5 text-sm font-bold text-accent">
                 {t.currency}
                 {itemTotal.toFixed(2)}
@@ -119,7 +120,7 @@ export default function CarrinhoPage() {
                   type="button"
                   onClick={() => removeItem(cartItemId)}
                   className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 text-red-500"
-                  aria-label={`Remove ${item.nome}`}
+                  aria-label={`Remove ${localizedMenuCopy(lang, item.nome, item.nome_en)}`}
                 >
                   <Trash2 size={14} />
                 </button>

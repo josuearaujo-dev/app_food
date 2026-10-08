@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { cn } from '@/lib/utils'
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontShell } from '@/components/layout/storefront-shell'
@@ -23,7 +24,7 @@ export default function BuscaPage() {
   const [itens, setItens] = useState<ItemComCategoria[]>([])
   const [loading, setLoading] = useState(false)
   const { addItem, updateQuantity, items } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
 
   const buscar = useCallback(async (q: string) => {
     setLoading(true)
@@ -34,7 +35,8 @@ export default function BuscaPage() {
       .eq('disponivel', true)
 
     if (q.trim()) {
-      req = req.ilike('nome', `%${q.trim()}%`)
+      const term = q.trim().replace(/[%_,]/g, ' ')
+      req = req.or(`nome.ilike.%${term}%,nome_en.ilike.%${term}%,descricao.ilike.%${term}%,descricao_en.ilike.%${term}%`)
     }
 
     const { data } = await req.order('nome').limit(50)
@@ -140,13 +142,13 @@ export default function BuscaPage() {
                             </p>
                           )}
                           <h3 className="mt-0.5 line-clamp-2 text-left text-[15px] font-semibold leading-snug text-foreground">
-                            {item.nome}
+                            {localizedMenuCopy(lang, item.nome, item.nome_en)}
                           </h3>
-                          {item.descricao && (
+                          {localizedMenuCopy(lang, item.descricao, item.descricao_en) ? (
                             <p className="mt-1 line-clamp-2 text-left text-xs leading-relaxed text-muted-foreground">
-                              {item.descricao}
+                              {localizedMenuCopy(lang, item.descricao, item.descricao_en)}
                             </p>
-                          )}
+                          ) : null}
                         </Link>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <p className="cadu-product-price text-[15px] font-bold tabular-nums text-accent">
@@ -167,7 +169,7 @@ export default function BuscaPage() {
                                 type="button"
                                 onClick={() => addItem(item, 1)}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform active:scale-[0.98]"
-                                aria-label={`${t.addToCart}: ${item.nome}`}
+                                aria-label={`${t.addToCart}: ${localizedMenuCopy(lang, item.nome, item.nome_en)}`}
                               >
                                 <Plus size={20} strokeWidth={2.5} />
                               </button>

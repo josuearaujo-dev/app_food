@@ -1047,6 +1047,19 @@
   border-radius: 14px;
 }
 
+.cadu-combo-hero {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  background: #fff8f3;
+}
+
+.cadu-combo-hero--page {
+  border-radius: 16px;
+}
+
 .cadu-modal-body {
   flex: 1;
   overflow-y: auto;
@@ -2797,3 +2810,43 @@ aside.cadu-desktop-cart .cadu-desktop-checkout-panel {
 .cadu-product-price b { font-weight: inherit; }
 .cadu-product-price s { color: #9ca3af; font-size: 0.85em; font-weight: 600; text-decoration: line-through; }
 .cadu-product-price span { padding: 2px 6px; border-radius: 6px; background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 800; }
+
+/* Menu cards: a bit larger, description fully visible */
+.cadu-product-card {
+  padding: 18px;
+  gap: 16px;
+  min-height: 228px;
+  grid-template-columns: minmax(0, 1fr) 136px;
+}
+.cadu-product-thumb {
+  width: 136px;
+  height: 136px;
+}
+.cadu-product-copy p {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+@media (min-width: 981px) and (max-width: 1150px) {
+  .cadu-product-card {
+    grid-template-columns: minmax(0, 1fr) 112px;
+  }
+  .cadu-product-thumb {
+    width: 112px;
+    height: 112px;
+  }
+}
+@media (max-width: 980px) {
+  .cadu-product-card {
+    min-height: 0;
+    padding: 16px;
+    grid-template-columns: minmax(0, 1fr) 116px;
+  }
+  .cadu-product-thumb {
+    width: 116px;
+    height: 116px;
+  }
+}

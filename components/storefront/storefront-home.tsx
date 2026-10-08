@@ -22,6 +22,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import logoPerfil from '@/logo/logo-perfil-1024.png'
 import logoCover from '@/logo/logo-principal-transparent.png'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
@@ -159,8 +160,8 @@ export function StorefrontHome() {
       if (cancelled) return
       const mapped = rows.map((combo) => {
         const offer =
-          slides.find((slide) => slide.href === `/combo/${combo.id}`) ??
-          slides.find((slide) => normalize(slide.title) === normalize(combo.nome))
+          offerSlides.find((slide) => slide.href === `/combo/${combo.id}`) ??
+          offerSlides.find((slide) => normalize(slide.title) === normalize(combo.nome))
         const offerPrice = typeof offer?.price === 'number' ? offer.price : null
         const storedPrice = Number(combo.preco)
         const price = storedPrice > 0 ? storedPrice : (offerPrice !== null && offerPrice > 0 ? offerPrice : storedPrice)
@@ -213,7 +214,9 @@ export function StorefrontHome() {
   const searchedItems = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return itens
-    return itens.filter((item) => `${item.nome} ${item.descricao ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase().includes(q))
+    return itens.filter((item) =>
+      `${item.nome} ${item.nome_en ?? ''} ${item.descricao ?? ''} ${item.descricao_en ?? ''} ${item.categorias?.nome ?? ''}`.toLowerCase().includes(q)
+    )
   }, [itens, query])
 
   const searchedOffers = useMemo(() => {
@@ -607,12 +610,14 @@ function ProductCard({
   addLabel: string
   onAdd: () => void
 }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const nome = localizedMenuCopy(lang, item.nome, item.nome_en)
+  const descricao = localizedMenuCopy(lang, item.descricao, item.descricao_en)
   return (
     <article className="cadu-product-card">
       <Link href={`/produto/${item.id}`} className="cadu-product-thumb block">
         {item.imagem_url ? (
-          <StoreImage src={item.imagem_url} alt={item.nome} />
+          <StoreImage src={item.imagem_url} alt={nome} />
         ) : (
           <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
         )}
@@ -620,8 +625,8 @@ function ProductCard({
       <Link href={`/produto/${item.id}`} className="cadu-product-copy block no-underline text-inherit">
         {item.categorias && <span>{item.categorias.nome}</span>}
         {popular ? <em className="cadu-most-ordered">{t.mostOrdered}</em> : null}
-        <h3>{item.nome}</h3>
-        {item.descricao && <p>{item.descricao}</p>}
+        <h3>{nome}</h3>
+        {descricao ? <p>{descricao}</p> : null}
         <strong className="cadu-product-price">
           <b>
             {t.currency}

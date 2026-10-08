@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { MENU_IMAGE_CACHE_CONTROL, prepareMenuImage } from '@/lib/menu-image-upload'
+import { cachedMenuImageSrc } from '@/lib/menu-image-src'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
 
@@ -315,11 +317,15 @@ export function AdminCombosPanel() {
     }
     setUploadingImage(true)
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      const fileName = `combo-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const prepared = await prepareMenuImage(file)
+      const fileName = `combo-${Date.now()}-${Math.random().toString(36).slice(2)}.${prepared.extension}`
       const { error: upErr } = await supabase.storage
         .from(CARDAPIO_BUCKET)
-        .upload(fileName, file, { cacheControl: '3600', upsert: false })
+        .upload(fileName, prepared.body, {
+          cacheControl: MENU_IMAGE_CACHE_CONTROL,
+          contentType: prepared.contentType,
+          upsert: false,
+        })
       if (upErr) throw upErr
       const { data } = supabase.storage.from(CARDAPIO_BUCKET).getPublicUrl(fileName)
       setForm((f) => ({ ...f, imagem_url: data.publicUrl }))
@@ -443,7 +449,7 @@ export function AdminCombosPanel() {
                 {form.imagem_url ? (
                   <div className="relative h-36 overflow-hidden rounded-xl border border-border bg-secondary">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={form.imagem_url} alt="" className="h-full w-full object-cover" />
+                    <img src={cachedMenuImageSrc(form.imagem_url)} alt="" className="h-full w-full object-cover" />
                     <div className="absolute right-2 top-2 flex gap-2">
                       <button
                         type="button"

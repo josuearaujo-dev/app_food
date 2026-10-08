@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, BadgePercent, Plus } from 'lucide-react'
 import { useLang } from '@/lib/lang-context'
+import { cachedMenuImageSrc } from '@/lib/menu-image-src'
 import styles from './home-promo-carousel.module.css'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 export type OfferSlide = {
   id: string
   title: string
+  titleEn?: string | null
   description?: string | null
   descriptionEn?: string | null
   imageUrl: string
@@ -77,6 +79,7 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onA
             {slides.map((slide) => {
               const src = lang === 'en' && slide.imageUrlEn ? slide.imageUrlEn : slide.imageUrl
               const href = slide.href && /^(\/[^/]|https?:\/\/)/i.test(slide.href) ? slide.href : null
+              const titleText = (lang === 'en' ? slide.titleEn || slide.title : slide.title).trim()
               const description = (lang === 'en' ? slide.descriptionEn || slide.description : slide.description)?.trim()
               const price = typeof slide.price === 'number' ? slide.price : null
               const compareAt = typeof slide.compareAtPrice === 'number' && price !== null && slide.compareAtPrice > price
@@ -88,7 +91,7 @@ export function HomePromoCarousel({ open, onOpenChange, showLauncher = true, onA
               const copy = (
                 <>
                   <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
-                  <h3>{slide.title}</h3>
+                  <h3>{titleText}</h3>
                   {description ? <p className={styles.summary}>{description}</p> : null}
                   {price !== null ? (
                     <div className={styles.prices}>
@@ -146,6 +149,7 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
       {slides.map((slide) => {
         const src = lang === 'en' && slide.imageUrlEn ? slide.imageUrlEn : slide.imageUrl
         const href = slide.href && /^(\/[^/]|https?:\/\/)/i.test(slide.href) ? slide.href : null
+        const titleText = (lang === 'en' ? slide.titleEn || slide.title : slide.title).trim()
         const description = (lang === 'en' ? slide.descriptionEn || slide.description : slide.description)?.trim()
         const price = typeof slide.price === 'number' ? slide.price : null
         const compareAt = typeof slide.compareAtPrice === 'number' && price !== null && slide.compareAtPrice > price
@@ -157,7 +161,7 @@ export function SpecialOfferGrid({ slides, addLabel, onAdd }: { slides: OfferSli
         const copy = (
           <>
             <span className={styles.badge}>{lang === 'en' ? 'OFFER' : 'OFERTA'}</span>
-            <h3>{slide.title}</h3>
+            <h3>{titleText}</h3>
             {description ? <p className={styles.summary}>{description}</p> : null}
             {price !== null ? (
               <div className={styles.prices}>
@@ -198,5 +202,5 @@ function OfferImage({ src, original, title }: { src: string; original: string; t
   const [failed, setFailed] = useState<string[]>([])
   const source = [src, original].find((url) => url?.trim() && !failed.includes(url))
   if (!source) return <div className={styles.art} aria-hidden="true"><BadgePercent size={48} strokeWidth={1.3} /><span>CADU</span></div>
-  return <img src={source} alt={title} className={styles.image} onError={() => setFailed((urls) => [...urls, source])} />
+  return <img src={cachedMenuImageSrc(source)} alt={title} className={styles.image} onError={() => setFailed((urls) => [...urls, source])} />
 }

@@ -7,6 +7,7 @@ import { Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-r
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { useMediaMinWidth } from '@/lib/hooks/use-media-min-width'
 import {
   clearCheckoutCustomer,
@@ -44,7 +45,7 @@ const MOUNT_PREFIX = 'desktop-'
 export function DesktopCartCheckout() {
   const isDesktop = useMediaMinWidth(981)
   const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const supabase = createClient()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
@@ -331,7 +332,7 @@ export function DesktopCartCheckout() {
               <div key={line.cartItemId} className="cadu-cart-item">
                 <div className="cadu-cart-item-top">
                   <strong>
-                    {line.quantity}x {line.item.nome}
+                    {line.quantity}x {localizedMenuCopy(lang, line.item.nome, line.item.nome_en)}
                   </strong>
                   <button
                     type="button"

@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import { useLang } from '@/lib/lang-context'
 import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { buildMenuOrder, isMenuSection, type MenuOrderRow, type MenuSectionKey } from '@/lib/menu-layout'
+import { MENU_IMAGE_CACHE_CONTROL, prepareMenuImage } from '@/lib/menu-image-upload'
+import { cachedMenuImageSrc } from '@/lib/menu-image-src'
 
 const BUCKET = 'cardapio-imagens'
 
@@ -25,7 +27,9 @@ interface Categoria {
 interface Item {
   id: string
   nome: string
+  nome_en: string | null
   descricao: string | null
+  descricao_en: string | null
   preco: number
   preco_riscado: number | null
   imagem_url: string | null
@@ -123,7 +127,7 @@ export default function AdminCardapioPage() {
   const [modalItem, setModalItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<Item | null>(null)
   const [formItem, setFormItem] = useState({
-    nome: '', descricao: '', preco: '', preco_riscado: '', imagem_url: '',
+    nome: '', nome_en: '', descricao: '', descricao_en: '', preco: '', preco_riscado: '', imagem_url: '',
     quantidade_info: '', tamanhos_disponiveis: '', ingredientes_info: '', alergenicos_alerta: '',
     size_options: [] as OptionLine[],
     quantity_options: [] as OptionLine[],
@@ -634,7 +638,9 @@ export default function AdminCardapioPage() {
       .sort((a, b) => a.ordem - b.ordem || a.id.localeCompare(b.id))
     setFormItem({
       nome: '',
+      nome_en: '',
       descricao: '',
+      descricao_en: '',
       preco: '',
       preco_riscado: '',
       imagem_url: '',
@@ -671,7 +677,9 @@ export default function AdminCardapioPage() {
     const posicao = Math.max(1, mesmaCat.findIndex((i) => i.id === item.id) + 1)
     setFormItem({
       nome: item.nome,
+      nome_en: item.nome_en ?? '',
       descricao: item.descricao ?? '',
+      descricao_en: item.descricao_en ?? '',
       preco: item.preco.toString(),
       preco_riscado: item.preco_riscado != null ? Number(item.preco_riscado).toFixed(2) : '',
       imagem_url: item.imagem_url ?? '',
@@ -724,7 +732,9 @@ export default function AdminCardapioPage() {
 
     const payloadBase = {
       nome: formItem.nome.trim(),
+      nome_en: formItem.nome_en.trim() || null,
       descricao: formItem.descricao.trim() || null,
+      descricao_en: formItem.descricao_en.trim() || null,
       preco: Number(preco.toFixed(2)),
       preco_riscado: riscado != null ? Number(riscado.toFixed(2)) : null,
       imagem_url: formItem.imagem_url.trim() || null,
@@ -1078,7 +1088,7 @@ export default function AdminCardapioPage() {
                           {group.items.map((item) => (
                             <div key={item.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
                               {item.imagem_url ? (
-                                <img src={item.imagem_url} alt={item.nome} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                                <img src={cachedMenuImageSrc(item.imagem_url)} alt={item.nome} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
                               ) : (
                                 <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-accent/10">
                                   <ImageIcon size={26} className="text-accent/50" />
@@ -1247,12 +1257,27 @@ export default function AdminCardapioPage() {
             placeholder={t.placeholderName}
           />
           <CampoTexto
+            label={t.fieldNameEn}
+            value={formItem.nome_en}
+            onChange={(v) => setFormItem({ ...formItem, nome_en: v })}
+            placeholder="Ex: Bacon Burger"
+            hint="Usado quando o cardápio está em inglês. Se vazio, mostra o nome em português."
+          />
+          <CampoTexto
             label={t.fieldDesc}
             value={formItem.descricao}
             onChange={(v) => setFormItem({ ...formItem, descricao: v })}
             placeholder={t.placeholderDesc}
             multiline
             hint="Aparece no banner de ofertas quando este produto for o destino e o banner não tiver descrição própria."
+          />
+          <CampoTexto
+            label={t.fieldDescEn}
+            value={formItem.descricao_en}
+            onChange={(v) => setFormItem({ ...formItem, descricao_en: v })}
+            placeholder="English description"
+            multiline
+            hint="Usada quando o cardápio está em inglês. Se vazia, mostra a descrição em português."
           />
           <CampoTexto
             label={t.fieldPrice}
@@ -1549,12 +1574,16 @@ function UploadImagem({ supabase, imagemAtual, onUpload, onRemover, labelImage, 
     setUploading(true)
 
     try {
-      const ext = file.name.split('.').pop()
-      const nome = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const prepared = await prepareMenuImage(file)
+      const nome = `${Date.now()}-${Math.random().toString(36).slice(2)}.${prepared.extension}`
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .upload(nome, file, { cacheControl: '3600', upsert: false })
+        .upload(nome, prepared.body, {
+          cacheControl: MENU_IMAGE_CACHE_CONTROL,
+          contentType: prepared.contentType,
+          upsert: false,
+        })
 
       if (uploadError) throw uploadError
 

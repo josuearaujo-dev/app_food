@@ -10,6 +10,7 @@ import { AdminPageContent } from '@/components/layout/admin-app-shell'
 import { WeekdayPicker } from '@/components/admin/weekday-picker'
 import { useLang } from '@/lib/lang-context'
 import { parseWeekdays } from '@/lib/store-weekdays'
+import { MENU_IMAGE_CACHE_CONTROL, prepareMenuImage } from '@/lib/menu-image-upload'
 
 const CARDAPIO_BUCKET = 'cardapio-imagens'
 
@@ -292,10 +293,11 @@ export default function AdminBannersPage() {
       } finally {
         URL.revokeObjectURL(previewUrl)
       }
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadErr } = await supabase.storage.from(CARDAPIO_BUCKET).upload(fileName, file, {
-        cacheControl: '3600',
+      const prepared = await prepareMenuImage(file)
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${prepared.extension}`
+      const { error: uploadErr } = await supabase.storage.from(CARDAPIO_BUCKET).upload(fileName, prepared.body, {
+        cacheControl: MENU_IMAGE_CACHE_CONTROL,
+        contentType: prepared.contentType,
         upsert: false,
       })
       if (uploadErr) throw uploadErr

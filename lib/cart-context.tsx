@@ -6,7 +6,9 @@ import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 export interface ItemCardapio {
   id: string
   nome: string
+  nome_en?: string | null
   descricao: string | null
+  descricao_en?: string | null
   preco: number
   preco_riscado?: number | null
   imagem_url: string | null

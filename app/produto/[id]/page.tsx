@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useParams, useRouter } from 'next/navigation'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { StorefrontFixedFooter } from '@/components/layout/storefront-fixed-footer'
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontLoadingState } from '@/components/layout/storefront-loading-state'
@@ -96,7 +97,7 @@ export default function ProdutoDetalhePage() {
   const router = useRouter()
   const supabase = createClient()
   const { addItem } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [item, setItem] = useState<ItemDetalhe | null>(null)
   const [loading, setLoading] = useState(true)
   const [qtd, setQtd] = useState(1)
@@ -324,15 +325,15 @@ export default function ProdutoDetalhePage() {
     >
       <section className="space-y-4 px-4 pt-4">
         {item.imagem_url ? (
-          <StoreImage src={item.imagem_url} alt={item.nome} className="w-full h-52 object-cover rounded-2xl" />
+          <StoreImage src={item.imagem_url} alt={localizedMenuCopy(lang, item.nome, item.nome_en)} className="w-full h-52 object-cover rounded-2xl" />
         ) : (
           <div className="flex h-52 w-full items-center justify-center rounded-2xl bg-accent/10 text-6xl">🍽️</div>
         )}
         <div>
-          <h2 className="text-lg font-bold text-foreground">{item.nome}</h2>
-          {item.descricao && (
-            <p className="text-sm text-muted-foreground mt-1">{item.descricao}</p>
-          )}
+          <h2 className="text-lg font-bold text-foreground">{localizedMenuCopy(lang, item.nome, item.nome_en)}</h2>
+          {localizedMenuCopy(lang, item.descricao, item.descricao_en) ? (
+            <p className="text-sm text-muted-foreground mt-1">{localizedMenuCopy(lang, item.descricao, item.descricao_en)}</p>
+          ) : null}
           <p className="cadu-product-price mt-1.5 text-xl font-bold text-accent">
             <b>
               {t.currency}

@@ -5,11 +5,13 @@ import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type CartItem } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
+import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { StoreImage } from '@/components/storefront/store-image'
 
 type Suggested = {
   id: string
   nome: string
+  nome_en: string | null
   preco: number
   imagem_url: string | null
   ordem: number
@@ -31,7 +33,7 @@ function choiceProductIdsFromCart(items: CartItem[]) {
 
 export function CartRecommendations({ onAdd }: { onAdd: (itemId: string) => void }) {
   const { items } = useCart()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [suggested, setSuggested] = useState<Suggested[]>([])
   const cartKey = items
     .map((line) => `${line.item.id}:${line.selectedOptions.map((option) => option.optionId).join('|')}`)
@@ -63,7 +65,7 @@ export function CartRecommendations({ onAdd }: { onAdd: (itemId: string) => void
 
       const { data } = await supabase
         .from('produto_recomendacoes')
-        .select('ordem, recomendado:itens_cardapio!produto_recomendacoes_recomendado_fk(id, nome, preco, imagem_url, disponivel)')
+        .select('ordem, recomendado:itens_cardapio!produto_recomendacoes_recomendado_fk(id, nome, nome_en, preco, imagem_url, disponivel)')
         .in('item_id', triggerIds)
         .order('ordem')
 
@@ -73,8 +75,8 @@ export function CartRecommendations({ onAdd }: { onAdd: (itemId: string) => void
       const next: Suggested[] = []
       for (const row of data ?? []) {
         const product = row.recomendado as
-          | { id: string; nome: string; preco: number; imagem_url: string | null; disponivel: boolean }
-          | { id: string; nome: string; preco: number; imagem_url: string | null; disponivel: boolean }[]
+          | { id: string; nome: string; nome_en: string | null; preco: number; imagem_url: string | null; disponivel: boolean }
+          | { id: string; nome: string; nome_en: string | null; preco: number; imagem_url: string | null; disponivel: boolean }[]
           | null
         const item = Array.isArray(product) ? product[0] : product
         if (!item || !item.disponivel || alreadyInOrder.has(item.id) || seen.has(item.id)) continue
@@ -82,6 +84,7 @@ export function CartRecommendations({ onAdd }: { onAdd: (itemId: string) => void
         next.push({
           id: item.id,
           nome: item.nome,
+          nome_en: item.nome_en,
           preco: Number(item.preco),
           imagem_url: item.imagem_url,
           ordem: Number(row.ordem) || 0,
@@ -101,14 +104,14 @@ export function CartRecommendations({ onAdd }: { onAdd: (itemId: string) => void
     <section className="cadu-cart-suggest" aria-label={t.recommendTitle}>
       <h3>{t.recommendTitle}</h3>
       <p>{t.recommendHint}</p>
-      <ul className="cadu-cart-suggest-list">
+      <ul className={`cadu-cart-suggest-list${suggested.length > 2 ? ' cadu-cart-suggest-list--scroll' : ''}`}>
         {suggested.map((item) => (
           <li key={item.id}>
             <div className="cadu-cart-suggest-thumb">
               {item.imagem_url ? <StoreImage src={item.imagem_url} alt="" /> : <span aria-hidden>🍽️</span>}
             </div>
             <div className="cadu-cart-suggest-copy">
-              <strong>{item.nome}</strong>
+              <strong>{localizedMenuCopy(lang, item.nome, item.nome_en)}</strong>
               <span>
                 {t.currency}
                 {item.preco.toFixed(2)}

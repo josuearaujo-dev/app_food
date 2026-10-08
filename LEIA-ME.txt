@@ -1,26 +1,25 @@
-Combo: preço riscado e descrição em inglês v2.15.0
-==================================================
+Cardápio v2.16.0
+================
 
-No cadastro do combo:
-- campo Preço riscado (valor que aparece riscado no card)
-- campo Descrição (inglês)
-
-Se o preço riscado estiver vazio, a loja continua somando os itens.
-Se a descrição em inglês estiver vazia, usa a descrição em português.
+- Nome e descrição do produto em inglês (cadastro e cardápio).
+- Descrição completa nos cards do menu e nas ofertas especiais.
+- Foto do combo inteira no modal.
+- Fotos do cardápio servidas menores, sem reenviar os arquivos.
+  O site baixa cada foto do banco uma vez, reduz para no máximo 960px
+  e guarda a cópia no servidor. O visitante não baixa o arquivo grande.
 
 Como aplicar
 ------------
-1) Rodar no Supabase SQL Editor:
-   scripts/049_combo_preco_riscado_descricao_en.sql
-2) Copiar os arquivos mantendo o caminho.
-3) Redeploy + hard refresh.
-4) Editar cada combo e preencher o preço riscado e a descrição EN.
-
-Arquivos
---------
-- scripts/049_combo_preco_riscado_descricao_en.sql
-- components/admin-combos-panel.tsx
-- app/api/special-offers/route.ts
-- app/combo/[id]/page.tsx
+1) Copiar os arquivos mantendo o caminho.
+2) Redeploy + hard refresh.
+3) A pasta .cache/menu-images é criada sozinha no servidor.
+   O processo do site precisa poder gravar nela.
+4) No Supabase da conta nova, SQL Editor, se ainda não rodou:
+   scripts/050_itens_cardapio_nome_descricao_en.sql
+   Preenche nome e descrição em inglês dos 77 produtos.
+   Não altera o português.
+5) Opcional, na mesma conta nova:
+   scripts/051_storage_cache_imagens.sql
+   Só muda o cache dos arquivos que ainda forem abertos direto no Storage.
 
 O .env.local NÃO entra neste pacote.

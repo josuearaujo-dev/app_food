@@ -457,15 +457,17 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
     )
   }
 
+  const hero = combo.imagem_url ? (
+    <StoreImage
+      src={combo.imagem_url}
+      alt={combo.nome}
+      className={layout === 'modal' ? 'cadu-combo-hero' : 'cadu-combo-hero cadu-combo-hero--page'}
+    />
+  ) : null
+
   const details = (
-      <section className="space-y-4 px-4 pt-4 pb-4">
-        {combo.imagem_url ? (
-          <StoreImage
-            src={combo.imagem_url}
-            alt={combo.nome}
-            className="h-48 w-full rounded-2xl object-cover shadow-(--shadow-card)"
-          />
-        ) : null}
+      <section className={`space-y-4 px-4 pb-4 ${hero ? 'pt-3' : 'pt-4'}`}>
+        {layout !== 'modal' ? hero : null}
         {(lang === 'en' ? combo.descricao_en || combo.descricao : combo.descricao) ? (
           <p className="text-sm text-muted-foreground">{lang === 'en' ? combo.descricao_en || combo.descricao : combo.descricao}</p>
         ) : null}
@@ -634,7 +636,10 @@ export function ComboCustomize({ comboId, layout = 'page', onAdded, onClose }: C
             <span aria-hidden>×</span>
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{details}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {hero}
+          {details}
+        </div>
         <div className="border-t border-border bg-card p-4">{actions}</div>
       </>
     )
