@@ -164,26 +164,25 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
               <div className="min-w-0 flex-1">
                 <span className="cadu-modal-kicker">{t.customizeProduct}</span>
                 <h2>{localizedMenuCopy(lang, state.item.nome, state.item.nome_en)}</h2>
-                {localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en) ? (
-                  <p>{localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en)}</p>
-                ) : null}
               </div>
               <button type="button" className="cadu-modal-close" onClick={closeModal} aria-label={t.back}>
                 <X size={20} />
               </button>
             </div>
 
+            <div className="cadu-modal-scroll">
             {state.item.imagem_url ? (
               <StoreImage
                 src={state.item.imagem_url}
                 alt=""
-                className="cadu-modal-image"
+                className="cadu-combo-hero"
               />
-            ) : (
-              <div className="cadu-modal-image flex items-center justify-center text-5xl bg-[var(--cadu-surface)]">
-                🍽️
-              </div>
-            )}
+            ) : null}
+            {localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en) ? (
+              <p className="cadu-modal-scroll-copy">
+                {localizedMenuCopy(lang, state.item.descricao, state.item.descricao_en)}
+              </p>
+            ) : null}
 
             <div className="cadu-modal-body">
               {state.sizeOptions.length > 0 && (
@@ -362,6 +361,7 @@ export function ProductCustomizeModal({ itemId, onClose }: Props) {
               >
                 {t.viewFullDetails}
               </Link>
+            </div>
             </div>
 
             <div className="cadu-modal-footer">

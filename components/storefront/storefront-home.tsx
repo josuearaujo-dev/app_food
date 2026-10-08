@@ -615,14 +615,25 @@ function ProductCard({
   const descricao = localizedMenuCopy(lang, item.descricao, item.descricao_en)
   return (
     <article className="cadu-product-card">
-      <Link href={`/produto/${item.id}`} className="cadu-product-thumb block">
+      <button type="button" className="cadu-product-thumb" onClick={onAdd} aria-label={nome}>
         {item.imagem_url ? (
-          <StoreImage src={item.imagem_url} alt={nome} />
+          <StoreImage src={item.imagem_url} alt="" />
         ) : (
           <div className="flex h-full min-h-[124px] items-center justify-center text-3xl">🍽️</div>
         )}
-      </Link>
-      <Link href={`/produto/${item.id}`} className="cadu-product-copy block no-underline text-inherit">
+      </button>
+      <div
+        className="cadu-product-copy"
+        role="button"
+        tabIndex={0}
+        onClick={onAdd}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onAdd()
+          }
+        }}
+      >
         {item.categorias && <span>{item.categorias.nome}</span>}
         {popular ? <em className="cadu-most-ordered">{t.mostOrdered}</em> : null}
         <h3>{nome}</h3>
@@ -639,7 +650,7 @@ function ProductCard({
             </>
           ) : null}
         </strong>
-      </Link>
+      </div>
       <button type="button" className="cadu-product-add" onClick={onAdd}>
         {addLabel} <Plus size={16} />
       </button>

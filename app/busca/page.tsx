@@ -4,7 +4,6 @@ import { StoreImage } from '@/components/storefront/store-image'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Plus, Minus } from 'lucide-react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, type ItemCardapio } from '@/lib/cart-context'
 import { useLang } from '@/lib/lang-context'
@@ -12,6 +11,7 @@ import { localizedMenuCopy } from '@/lib/menu-i18n'
 import { cn } from '@/lib/utils'
 import { StorefrontHeader } from '@/components/layout/storefront-header'
 import { StorefrontShell } from '@/components/layout/storefront-shell'
+import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 
 interface ItemComCategoria extends ItemCardapio {
   disponivel: boolean
@@ -23,6 +23,7 @@ export default function BuscaPage() {
   const [query, setQuery] = useState('')
   const [itens, setItens] = useState<ItemComCategoria[]>([])
   const [loading, setLoading] = useState(false)
+  const [customizeItemId, setCustomizeItemId] = useState<string | null>(null)
   const { addItem, updateQuantity, items } = useCart()
   const { t, lang } = useLang()
 
@@ -117,9 +118,11 @@ export default function BuscaPage() {
                         'flex gap-3 overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md'
                       )}
                     >
-                      <Link
-                        href={`/produto/${item.id}`}
-                        className="shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                      <button
+                        type="button"
+                        onClick={() => setCustomizeItemId(item.id)}
+                        className="shrink-0 cursor-pointer rounded-xl border-0 bg-transparent p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                        aria-label={localizedMenuCopy(lang, item.nome, item.nome_en)}
                       >
                         {item.imagem_url ? (
                           <div className="h-[88px] w-[88px] overflow-hidden rounded-xl bg-secondary">
@@ -132,9 +135,20 @@ export default function BuscaPage() {
                             </span>
                           </div>
                         )}
-                      </Link>
+                      </button>
                       <div className="flex min-w-0 flex-1 flex-col">
-                        <Link href={`/produto/${item.id}`} className="min-w-0 flex-1 text-left">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setCustomizeItemId(item.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              setCustomizeItemId(item.id)
+                            }
+                          }}
+                          className="min-w-0 flex-1 cursor-pointer text-left"
+                        >
                           {item.categorias && (
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
                               {item.categorias.icone ? `${item.categorias.icone} ` : ''}
@@ -149,7 +163,7 @@ export default function BuscaPage() {
                               {localizedMenuCopy(lang, item.descricao, item.descricao_en)}
                             </p>
                           ) : null}
-                        </Link>
+                        </div>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <p className="cadu-product-price text-[15px] font-bold tabular-nums text-accent">
                             <b>
@@ -205,6 +219,7 @@ export default function BuscaPage() {
           </>
         )}
       </div>
+      <ProductCustomizeModal itemId={customizeItemId} onClose={() => setCustomizeItemId(null)} />
     </StorefrontShell>
   )
 }

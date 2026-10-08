@@ -169,7 +169,7 @@ export async function loadProductOptions(
   const { data } = await supabase
     .from('itens_cardapio')
     .select(
-      'id, nome, descricao, preco, imagem_url, categoria_id, disponivel, quantidade_info, tamanhos_disponiveis, ingredientes_info, alergenicos_alerta'
+      'id, nome, nome_en, descricao, descricao_en, preco, imagem_url, categoria_id, disponivel, quantidade_info, tamanhos_disponiveis, ingredientes_info, alergenicos_alerta'
     )
     .eq('id', itemId)
     .maybeSingle()

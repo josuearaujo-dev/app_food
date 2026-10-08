@@ -31,7 +31,7 @@ export function ComboCustomizeModal({
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="cadu-product-modal" role="dialog" aria-modal="true" style={{ height: 'min(88vh, 780px)' }}>
+      <div className="cadu-product-modal" role="dialog" aria-modal="true">
         <ComboCustomize key={comboId} comboId={comboId} layout="modal" onClose={onClose} onAdded={onClose} />
       </div>
     </div>
