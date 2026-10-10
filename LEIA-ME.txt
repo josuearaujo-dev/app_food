@@ -1,19 +1,20 @@
-Fila de impressão v2.19.0
-========================
+Pagamento sem esperar a impressora v2.19.1
+==========================================
 
-No horário de pico a PrintNode recusava cupons (limite de 10 por segundo).
-O pedido era salvo e a comanda se perdia, sem nova tentativa.
+O checkout esperava a PrintNode terminar. No pico a impressora demora
+ou recusa, e a tela de pagamento ficava travada mesmo com o cartão
+já cobrado.
 
-Agora os cupons entram numa fila:
-- saem um por vez, abaixo do limite
-- se a impressora recusar, o cupom espera e é enviado de novo
-- o mesmo pedido não imprime duas vezes
-- com o painel admin aberto, a fila continua sendo esvaziada
+Agora o pagamento só grava o pedido na fila e responde na hora.
+A impressão segue depois, um cupom por vez.
+
+Se o v2.19.0 ainda não foi aplicado, copie este pacote inteiro.
+Se já foi, basta substituir lib/print-queue.ts.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho. Este pacote entra por cima do v2.18.0.
-2) Redeploy + hard refresh no admin.
+1) Copiar os arquivos mantendo o caminho.
+2) Redeploy + hard refresh.
 3) Deixar o admin aberto no horário de movimento.
 
 Não precisa rodar SQL.

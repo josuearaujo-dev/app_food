@@ -1,4 +1,3 @@
-import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { printPedidoKitchen } from '@/lib/order-kitchen-print'
 import { getPrintNodeConfig, isPrintNodeRateLimit } from '@/lib/printnode'
@@ -39,37 +38,23 @@ export async function enqueueKitchenPrint(orderId: string) {
 }
 
 export async function scheduleKitchenPrint(orderId: string) {
-  const printCfg = await getPrintNodeConfig()
-  if (!printCfg.enabled || !printCfg.printerId) return
-
   try {
+    const printCfg = await getPrintNodeConfig()
+    if (!printCfg.enabled || !printCfg.printerId) return
     await enqueueKitchenPrint(orderId)
   } catch (error) {
-    console.error('[PrintNode] Fila indisponivel, imprimindo direto', {
+    console.error('[PrintNode] Falha ao enfileirar pedido', {
       orderId,
       error: error instanceof Error ? error.message : String(error),
     })
-    try {
-      await printPedidoKitchen(orderId)
-    } catch (printError) {
-      console.error('[PrintNode] Falha ao imprimir pedido', {
-        orderId,
-        error: printError instanceof Error ? printError.message : String(printError),
-      })
-    }
     return
   }
 
-  startDrain()
-}
-
-function startDrain() {
-  void kickDrain()
-  try {
-    after(() => kickDrain())
-  } catch {
-    // kickDrain above already started the worker in this process.
-  }
+  // Printing must not run inside the payment response. A slow or rate-limited
+  // printer was holding checkout until the client gave up.
+  setTimeout(() => {
+    void kickDrain()
+  }, 0)
 }
 
 export function kickDrain() {
@@ -171,11 +156,4 @@ function scheduleContinuation() {
   setTimeout(() => {
     void kickDrain()
   }, 400)
-  try {
-    after(() => {
-      void kickDrain()
-    })
-  } catch {
-    // The timeout above keeps the queue moving on a long-running server.
-  }
 }
