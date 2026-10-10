@@ -71,6 +71,20 @@ export function AdminAppShell({ children }: { children: ReactNode }) {
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }, [pathname])
 
+  useEffect(() => {
+    let stopped = false
+    const tick = () => {
+      if (stopped) return
+      void fetch('/api/admin/print-jobs/drain', { method: 'POST' }).catch(() => {})
+    }
+    tick()
+    const timer = setInterval(tick, 5000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [])
+
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()

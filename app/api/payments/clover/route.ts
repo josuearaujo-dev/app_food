@@ -6,10 +6,9 @@ import {
   getOrderById,
   markOrderPaid,
   markOrderPaymentFailed,
-  markOrderReadyForPrint,
   rotateOrderIdempotencyKey,
 } from '@/lib/orders/repository'
-import { printPedidoKitchen } from '@/lib/order-kitchen-print'
+import { scheduleKitchenPrint } from '@/lib/print-queue'
 
 function chargeLooksPaid(charge: {
   paid?: boolean
@@ -226,11 +225,10 @@ export async function POST(request: Request) {
         },
       })
 
-      await markOrderReadyForPrint(order.id)
       try {
-        await printPedidoKitchen(order.id)
+        await scheduleKitchenPrint(order.id)
       } catch (printError) {
-        console.error('[PrintNode] Falha ao imprimir pedido (Clover)', {
+        console.error('[PrintNode] Falha ao enfileirar pedido (Clover)', {
           orderId: order.id,
           error: printError instanceof Error ? printError.message : String(printError),
         })

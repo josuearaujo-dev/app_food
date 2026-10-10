@@ -89,6 +89,35 @@ function toBasicAuthHeader(apiKey: string) {
   return `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`
 }
 
+/** PrintNode allows 10 requests/second. Stay under that even in a rush. */
+const PRINTNODE_GAP_MS = 150
+let nextPrintSlot = 0
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function pacePrintNode() {
+  const now = Date.now()
+  const wait = Math.max(0, nextPrintSlot - now)
+  nextPrintSlot = Math.max(now, nextPrintSlot) + PRINTNODE_GAP_MS
+  if (wait > 0) await sleep(wait)
+}
+
+export class PrintNodeRequestError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'PrintNodeRequestError'
+    this.status = status
+  }
+}
+
+export function isPrintNodeRateLimit(error: unknown) {
+  return error instanceof PrintNodeRequestError && error.status === 429
+}
+
 export async function fetchPrintNodePrinters(apiKey: string) {
   const response = await fetch(`${PRINTNODE_API_BASE}/printers`, {
     method: 'GET',
@@ -120,34 +149,56 @@ export async function createPrintNodeRawJob(input: {
   source?: string
   idempotencyKey?: string
 }) {
-  const response = await fetch(`${PRINTNODE_API_BASE}/printjobs`, {
-    method: 'POST',
-    headers: {
-      Authorization: toBasicAuthHeader(input.apiKey),
-      'Content-Type': 'application/json',
-      ...(input.idempotencyKey ? { 'X-Idempotency-Key': input.idempotencyKey } : {}),
-    },
-    body: JSON.stringify({
-      printerId: input.printerId,
-      title: input.title,
-      contentType: 'raw_base64',
-      content: encodeKitchenReceiptEscPos(input.content).toString('base64'),
-      source: input.source ?? 'Cadu Cakes & Lanches',
-    }),
-    cache: 'no-store',
+  const payload = JSON.stringify({
+    printerId: input.printerId,
+    title: input.title,
+    contentType: 'raw_base64',
+    content: encodeKitchenReceiptEscPos(input.content).toString('base64'),
+    source: input.source ?? 'Cadu Cakes & Lanches',
   })
 
-  if (!response.ok) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await pacePrintNode()
+    const response = await fetch(`${PRINTNODE_API_BASE}/printjobs`, {
+      method: 'POST',
+      headers: {
+        Authorization: toBasicAuthHeader(input.apiKey),
+        'Content-Type': 'application/json',
+        ...(input.idempotencyKey ? { 'X-Idempotency-Key': input.idempotencyKey } : {}),
+      },
+      body: payload,
+      cache: 'no-store',
+    })
+
+    // Same key means PrintNode already accepted this ticket.
+    if (response.status === 409) return 0
+
+    if (response.status === 429) {
+      if (attempt === 4) {
+        const body = await response.text()
+        throw new PrintNodeRequestError(429, `PrintNode printjobs failed: 429 ${body}`)
+      }
+      await sleep(800 * (attempt + 1))
+      continue
+    }
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new PrintNodeRequestError(
+        response.status,
+        `PrintNode printjobs failed: ${response.status} ${body}`
+      )
+    }
+
     const body = await response.text()
-    throw new Error(`PrintNode printjobs failed: ${response.status} ${body}`)
+    const id = Number(body)
+    if (!Number.isFinite(id) || id <= 0) {
+      throw new Error(`PrintNode returned invalid print job id: ${body}`)
+    }
+    return id
   }
 
-  const body = await response.text()
-  const id = Number(body)
-  if (!Number.isFinite(id) || id <= 0) {
-    throw new Error(`PrintNode returned invalid print job id: ${body}`)
-  }
-  return id
+  throw new PrintNodeRequestError(429, 'PrintNode printjobs failed: 429')
 }
 
 export async function createKitchenReceiptPrintJobs(input: {

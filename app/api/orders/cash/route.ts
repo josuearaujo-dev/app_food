@@ -4,13 +4,7 @@ import { computePromotionForOrderCart } from '@/lib/order-promotions'
 import { getDeliveryFeeAmount, isStoreAcceptingOrders, listDeliveryLocations } from '@/lib/store-settings'
 import { calculateOrderTax } from '@/lib/order-tax'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { fetchCategoryNameMap } from '@/lib/receipt-category-map'
-import {
-  buildKitchenReceiptText,
-  calculateKitchenReceiptCopyCount,
-  createKitchenReceiptPrintJobs,
-  getPrintNodeConfig,
-} from '@/lib/printnode'
+import { scheduleKitchenPrint } from '@/lib/print-queue'
 
 type CashOrderBody = {
   customer?: unknown
@@ -173,61 +167,9 @@ export async function POST(request: Request) {
     const orderNumber = localOrderId.replace(/-/g, '').slice(-8).toUpperCase()
 
     try {
-      const printCfg = await getPrintNodeConfig()
-      if (printCfg.enabled && printCfg.printerId) {
-        const categoryNameById = await fetchCategoryNameMap(
-          supabase,
-          safeItems.map((item) => item.categoria_id)
-        )
-        const subtotal = subtotalBeforePromo(safeItems)
-        const discount = Number(Math.max(0, promo.discountAmount).toFixed(2))
-        const receipt = buildKitchenReceiptText({
-          orderNumber,
-          createdAtISO: new Date().toISOString(),
-          customerName: customer.nome,
-          customerPhone: customer.telefone,
-          fulfillmentType: customer.fulfillmentType,
-          address: customer.enderecoEntrega,
-          items: safeItems.map((item) => ({
-            name: item.name,
-            categoryName: item.categoria_id ? categoryNameById.get(item.categoria_id) : null,
-            quantity: item.quantity,
-            unitAmount: item.unitAmount,
-            subtotal: Number((item.quantity * item.unitAmount).toFixed(2)),
-            observation: item.observation,
-            options: item.selectedOptions.map((op) => ({
-              label: op.label,
-              groupName: op.groupName,
-              groupType: op.groupType,
-            })),
-          })),
-          subtotal,
-          discount,
-          deliveryFee,
-          taxAmount,
-          total: payable,
-          currency: '$',
-          paymentLine: 'Dinheiro na entrega',
-        })
-        const copies = calculateKitchenReceiptCopyCount({
-          fulfillmentType: customer.fulfillmentType,
-          items: safeItems,
-          extraCopyCategoryIds: printCfg.extraCopyCategoryIds,
-          deliveryExtraCopies: printCfg.deliveryExtraCopies,
-        })
-
-        await createKitchenReceiptPrintJobs({
-          apiKey: printCfg.apiKey,
-          printerId: printCfg.printerId,
-          title: `Pedido #${orderNumber}`,
-          content: receipt,
-          source: 'Cadu Cakes & Lanches Checkout',
-          idempotencyKey: `pedido-${localOrderId}`,
-          copies,
-        })
-      }
+      await scheduleKitchenPrint(localOrderId)
     } catch (printError) {
-      console.error('[PrintNode] Falha ao imprimir pedido (dinheiro)', {
+      console.error('[PrintNode] Falha ao enfileirar pedido (dinheiro)', {
         localOrderId,
         error: printError instanceof Error ? printError.message : String(printError),
       })
@@ -247,10 +189,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
-
-function subtotalBeforePromo(
-  items: Array<{ quantity: number; unitAmount: number }>
-) {
-  return items.reduce((acc, item) => acc + item.quantity * item.unitAmount, 0)
 }

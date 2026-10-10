@@ -1,17 +1,20 @@
-Popups do cardápio v2.18.0
-=========================
+Fila de impressão v2.19.0
+========================
 
-Clicar na foto ou no nome do produto abre o popup, no cardápio e na busca.
-A rolagem do popup de produto fica igual à do combo: a foto desce junto
-com a descrição e as opções. O nome fica no topo e o botão de adicionar
-fica embaixo.
+No horário de pico a PrintNode recusava cupons (limite de 10 por segundo).
+O pedido era salvo e a comanda se perdia, sem nova tentativa.
 
-A foto do produto usa o mesmo formato da foto do combo: quadrada, com
-borda, 420 × 420 pixels na tela.
+Agora os cupons entram numa fila:
+- saem um por vez, abaixo do limite
+- se a impressora recusar, o cupom espera e é enviado de novo
+- o mesmo pedido não imprime duas vezes
+- com o painel admin aberto, a fila continua sendo esvaziada
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho. Este pacote entra por cima do v2.17.0.
-2) Redeploy + hard refresh.
+1) Copiar os arquivos mantendo o caminho. Este pacote entra por cima do v2.18.0.
+2) Redeploy + hard refresh no admin.
+3) Deixar o admin aberto no horário de movimento.
 
+Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.

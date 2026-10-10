@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
+import { scheduleKitchenPrint } from '@/lib/print-queue'
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === 'live'
@@ -199,6 +200,17 @@ export async function POST(
 
           if (insertItemsError) {
             throw insertItemsError
+          }
+        }
+
+        if (localOrderId) {
+          try {
+            await scheduleKitchenPrint(localOrderId)
+          } catch (printError) {
+            console.error('[PrintNode] Falha ao enfileirar pedido (PayPal)', {
+              orderId: localOrderId,
+              error: printError instanceof Error ? printError.message : String(printError),
+            })
           }
         }
       }

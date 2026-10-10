@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateOrderTax } from '@/lib/order-tax'
 import {
   buildKitchenReceiptText,
+  calculateKitchenReceiptCopyCount,
+  createKitchenReceiptPrintJobs,
   createPrintNodeRawJob,
   getPrintNodeConfig,
 } from '@/lib/printnode'
@@ -28,6 +30,7 @@ type PedidoRow = {
   endereco_entrega: string | null
   origem_pagamento: string | null
   status_pagamento: string | null
+  payload_pagamento: unknown
   pedido_itens: PedidoItemRow[] | null
 }
 
@@ -58,10 +61,15 @@ function mapOptionsFromJson(
 }
 
 function paymentLineForPedido(
-  order: Pick<PedidoRow, 'origem_pagamento' | 'status_pagamento'>
+  order: Pick<PedidoRow, 'origem_pagamento' | 'status_pagamento' | 'payload_pagamento'>
 ): string {
   if (order.origem_pagamento === 'counter') {
-    return 'Balcão (pago)'
+    const payload = order.payload_pagamento
+    const method =
+      payload && typeof payload === 'object'
+        ? (payload as { paymentMethod?: string }).paymentMethod
+        : null
+    return method === 'card_at_counter' ? 'Cartão no balcão' : 'Dinheiro no balcão'
   }
   if (
     order.origem_pagamento === 'cash_on_delivery' ||
@@ -143,7 +151,7 @@ export async function reprintPedidoKitchen(orderId: string) {
   const { data: order, error } = await supabase
     .from('pedidos')
     .select(
-      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
+      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, payload_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
     )
     .eq('id', orderId)
     .maybeSingle()
@@ -206,7 +214,7 @@ export async function printPedidoKitchen(orderId: string) {
   const { data: order, error } = await supabase
     .from('pedidos')
     .select(
-      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
+      'id, criado_em, valor_total, valor_pago, taxa_entrega, cliente_nome, cliente_telefone, tipo_atendimento, endereco_entrega, origem_pagamento, status_pagamento, payload_pagamento, pedido_itens(item_id, nome_item, quantidade, preco_unitario, subtotal, observacao, opcoes_selecionadas)'
     )
     .eq('id', orderId)
     .maybeSingle()
@@ -224,17 +232,21 @@ export async function printPedidoKitchen(orderId: string) {
   ] as string[]
   const categoryNameByItemId = new Map<string, string>()
 
+  const categoryIdByItemId = new Map<string, string | null>()
+
   if (itemIds.length > 0) {
     const { data: menuItems } = await supabase
       .from('itens_cardapio')
-      .select('id, categorias(nome)')
+      .select('id, categoria_id, categorias(nome)')
       .in('id', itemIds)
 
     for (const item of (menuItems ?? []) as Array<{
       id: string
+      categoria_id?: string | null
       categorias?: { nome?: string | null } | null
     }>) {
       categoryNameByItemId.set(item.id, item.categorias?.nome?.trim() || 'SEM CATEGORIA')
+      categoryIdByItemId.set(item.id, item.categoria_id ?? null)
     }
   }
 
@@ -243,14 +255,24 @@ export async function printPedidoKitchen(orderId: string) {
     categoryNameByItemId,
   })
 
-  const printJobId = await createPrintNodeRawJob({
+  const copies = calculateKitchenReceiptCopyCount({
+    fulfillmentType: typedOrder.tipo_atendimento === 'delivery' ? 'delivery' : 'take_out',
+    items: (typedOrder.pedido_itens ?? []).map((item) => ({
+      categoria_id: item.item_id ? categoryIdByItemId.get(item.item_id) : null,
+    })),
+    extraCopyCategoryIds: printCfg.extraCopyCategoryIds,
+    deliveryExtraCopies: printCfg.deliveryExtraCopies,
+  })
+
+  const printJobIds = await createKitchenReceiptPrintJobs({
     apiKey: printCfg.apiKey,
     printerId: printCfg.printerId,
     title: `Pedido #${orderNumber}`,
     content: receipt,
     source: 'Cadu Cakes & Lanches Checkout',
     idempotencyKey: `pedido-${orderId}`,
+    copies,
   })
 
-  return { printJobId, orderNumber }
+  return { printJobId: printJobIds[0] ?? 0, orderNumber }
 }

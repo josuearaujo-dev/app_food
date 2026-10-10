@@ -1,12 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateOrderTax } from '@/lib/order-tax'
-import { fetchCategoryNameMap } from '@/lib/receipt-category-map'
-import {
-  buildKitchenReceiptText,
-  calculateKitchenReceiptCopyCount,
-  createKitchenReceiptPrintJobs,
-  getPrintNodeConfig,
-} from '@/lib/printnode'
+import { scheduleKitchenPrint } from '@/lib/print-queue'
 
 export type ManualOrderPaymentMethod = 'cash' | 'card_at_counter'
 
@@ -43,10 +37,6 @@ export type CreateManualOrderResult = {
 
 function generateOrderNumber(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(-8).toUpperCase()
-}
-
-function paymentLine(method: ManualOrderPaymentMethod): string {
-  return method === 'card_at_counter' ? 'Cartão no balcão' : 'Dinheiro no balcão'
 }
 
 export async function createManualCounterOrder(
@@ -144,59 +134,9 @@ export async function createManualCounterOrder(
   }
 
   try {
-    const printCfg = await getPrintNodeConfig()
-    if (printCfg.enabled && printCfg.printerId) {
-      const categoryNameById = await fetchCategoryNameMap(
-        supabase,
-        safeItems.map((item) => item.categoria_id)
-      )
-      const receipt = buildKitchenReceiptText({
-        orderNumber: numeroPedido,
-        createdAtISO: nowIso,
-        customerName,
-        customerPhone: null,
-        fulfillmentType: 'take_out',
-        address: null,
-        items: safeItems.map((item) => ({
-          name: item.name,
-          categoryName: item.categoria_id ? categoryNameById.get(item.categoria_id) : null,
-          quantity: item.quantity,
-          unitAmount: item.unitAmount,
-          subtotal: Number((item.quantity * item.unitAmount).toFixed(2)),
-          observation: item.observation,
-          options: item.selectedOptions.map((op) => ({
-            label: op.label,
-            groupName: op.groupName,
-            groupType: op.groupType,
-          })),
-        })),
-        subtotal,
-        discount: 0,
-        deliveryFee: 0,
-        taxAmount,
-        total: payable,
-        currency: '$',
-        paymentLine: paymentLine(paymentMethod),
-      })
-      const copies = calculateKitchenReceiptCopyCount({
-        fulfillmentType: 'take_out',
-        items: safeItems,
-        extraCopyCategoryIds: printCfg.extraCopyCategoryIds,
-        deliveryExtraCopies: printCfg.deliveryExtraCopies,
-      })
-
-      await createKitchenReceiptPrintJobs({
-        apiKey: printCfg.apiKey,
-        printerId: printCfg.printerId,
-        title: `Pedido #${numeroPedido}`,
-        content: receipt,
-        source: 'Cadu Cakes & Lanches Balcão',
-        idempotencyKey: `pedido-${orderId}`,
-        copies,
-      })
-    }
+    await scheduleKitchenPrint(orderId)
   } catch (printError) {
-    console.error('[PrintNode] Falha ao imprimir pedido (balcão)', {
+    console.error('[PrintNode] Falha ao enfileirar pedido (balcão)', {
       orderId,
       error: printError instanceof Error ? printError.message : String(printError),
     })
