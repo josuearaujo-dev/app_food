@@ -766,6 +766,7 @@ function PayPalCheckoutPage() {
         customer: customerPayload(),
         cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
           id: item.id,
+          combo_id: item.isCombo || item.comboId ? item.comboId || item.id : null,
           name: item.nome,
           quantity,
           unitAmount: unitPrice,
@@ -789,6 +790,7 @@ function PayPalCheckoutPage() {
         customer: customerPayload(),
         cart: items.map(({ item, quantity, observation, unitPrice, selectedOptions }) => ({
           id: item.id,
+          combo_id: item.isCombo || item.comboId ? item.comboId || item.id : null,
           name: item.nome,
           quantity,
           unitAmount: unitPrice,

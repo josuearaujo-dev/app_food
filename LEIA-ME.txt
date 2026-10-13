@@ -1,23 +1,21 @@
-Pagamento dentro do WhatsApp v2.20.0
-=====================================
+Pedido com combo v2.20.1
+========================
 
-O print do cliente é o navegador do WhatsApp, com a seta "WhatsApp"
-no topo. A frase "This page couldn't load" é esse navegador caindo
-quando o formulário do cartão tenta abrir.
+O erro "pedido_itens_item_id_fkey" aparecia ao pagar um combo.
+O combo era gravado em item_id, e esse campo só aceita produto
+do cardápio.
 
-Agora, dentro do WhatsApp, a página de pagamento não carrega o
-formulário da Clover. Mostra o link e pede para abrir no navegador
-do celular pelo menu •••. No Android também aparece o botão que
-abre o Chrome.
+Agora o combo vai em combo_id e item_id fica vazio.
+Produto normal continua em item_id.
+Se o item saiu do cardápio, a tela avisa para atualizar o carrinho.
 
-No Safari e no Chrome o pagamento continua igual.
+Este pacote também leva a tela do WhatsApp do v2.20.0.
 
 Como aplicar
 ------------
 1) Copiar os arquivos mantendo o caminho, por cima do que já está no ar.
 2) Redeploy + hard refresh.
-3) Abrir o link de pagamento dentro do WhatsApp e conferir a tela
-   com o link para copiar, sem o formulário do cartão.
+3) Fazer um pedido de combo, no cartão e no dinheiro.
 
 Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.

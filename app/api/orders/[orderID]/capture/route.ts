@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseCustomerPayload } from '@/lib/checkout-customer'
 import { scheduleKitchenPrint } from '@/lib/print-queue'
+import { linksForOrderItems } from '@/lib/orders/order-item-links'
 
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === 'live'
@@ -40,6 +41,7 @@ type CaptureBody = {
   customer?: unknown
   cart?: Array<{
     id: string
+    combo_id?: string | null
     name: string
     quantity: number
     unitAmount: number
@@ -75,6 +77,7 @@ export async function POST(
 
     const safeItems = (body.cart ?? []).map((item) => ({
       id: item.id,
+      combo_id: item.combo_id ?? null,
       name: item.name,
       quantity: Math.max(1, Number(item.quantity) || 1),
       unitAmount: Math.max(0, Number(item.unitAmount) || 0),
@@ -181,12 +184,17 @@ export async function POST(
         localOrderId = insertedOrder?.id ?? null
 
         if (localOrderId && safeItems.length > 0) {
+          const itemLinks = await linksForOrderItems(
+            supabase,
+            safeItems.map((item) => ({ id: item.id, comboId: item.combo_id }))
+          )
           const { error: insertItemsError } = await supabase
             .from('pedido_itens')
             .insert(
-              safeItems.map((item) => ({
+              safeItems.map((item, index) => ({
                 pedido_id: localOrderId,
-                item_id: item.id,
+                item_id: itemLinks[index]?.item_id ?? null,
+                combo_id: itemLinks[index]?.combo_id ?? null,
                 nome_item: item.name,
                 quantidade: item.quantity,
                 preco_unitario: item.unitAmount,

@@ -3,6 +3,7 @@ import type { CustomerPayload } from '@/lib/checkout-customer'
 import type { CalculatedOrder } from '@/lib/checkout/calculate-order'
 import { centsToDollars } from '@/lib/checkout/validation'
 import { computePayableTotals } from '@/lib/checkout/order-totals'
+import { linksForOrderItems } from '@/lib/orders/order-item-links'
 
 export type LocalOrderRow = {
   id: string
@@ -42,6 +43,13 @@ export async function createPendingOrder(input: {
   const totalDollars = payable.total
   const deliveryFeeDollars = payable.deliveryFee
   const cartFingerprint = input.orderFingerprint ?? input.calculated.fingerprint
+  const itemLinks = await linksForOrderItems(
+    supabase,
+    input.calculated.items.map((item) => ({
+      id: item.itemId,
+      comboId: item.comboId,
+    }))
+  )
 
   const { data: order, error } = await supabase
     .from('pedidos')
@@ -85,9 +93,10 @@ export async function createPendingOrder(input: {
   }
 
   const { error: itemsError } = await supabase.from('pedido_itens').insert(
-    input.calculated.items.map((item) => ({
+    input.calculated.items.map((item, index) => ({
       pedido_id: order.id,
-      item_id: item.itemId,
+      item_id: itemLinks[index]?.item_id ?? null,
+      combo_id: itemLinks[index]?.combo_id ?? null,
       nome_item: item.productNameSnapshot,
       quantidade: item.quantity,
       preco_unitario: centsToDollars(item.unitPriceCents),

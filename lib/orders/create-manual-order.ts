@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateOrderTax } from '@/lib/order-tax'
 import { scheduleKitchenPrint } from '@/lib/print-queue'
+import { linksForOrderItems } from '@/lib/orders/order-item-links'
 
 export type ManualOrderPaymentMethod = 'cash' | 'card_at_counter'
 
@@ -114,11 +115,21 @@ export async function createManualCounterOrder(
 
   const orderId = insertedOrder.id
 
+  let itemLinks
+  try {
+    itemLinks = await linksForOrderItems(
+      supabase,
+      safeItems.map((item) => ({ id: item.id, comboId: item.combo_id }))
+    )
+  } catch (linkError) {
+    await supabase.from('pedidos').delete().eq('id', orderId)
+    throw linkError
+  }
   const { error: insertItemsError } = await supabase.from('pedido_itens').insert(
-    safeItems.map((item) => ({
+    safeItems.map((item, index) => ({
       pedido_id: orderId,
-      item_id: item.combo_id ? null : item.id,
-      combo_id: item.combo_id ?? null,
+      item_id: itemLinks[index]?.item_id ?? null,
+      combo_id: itemLinks[index]?.combo_id ?? null,
       nome_item: item.name,
       quantidade: item.quantity,
       preco_unitario: item.unitAmount,

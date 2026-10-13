@@ -13,6 +13,8 @@ export interface ItemCardapio {
   preco_riscado?: number | null
   imagem_url: string | null
   categoria_id: string | null
+  comboId?: string | null
+  isCombo?: boolean
   quantidade_info?: string | null
   tamanhos_disponiveis?: string | null
   ingredientes_info?: string | null

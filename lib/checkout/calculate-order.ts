@@ -8,6 +8,7 @@ import {
 
 export type CalculatedOrderItem = {
   itemId: string
+  comboId: string | null
   productNameSnapshot: string
   quantity: number
   unitPriceCents: number
@@ -106,11 +107,47 @@ export async function calculateOrderFromCart(
   }
 
   const productMap = new Map<string, DbItem>((products ?? []).map((p) => [p.id, p as DbItem]))
+  const missingIds = productIds.filter((id) => !productMap.has(id))
 
-  const { data: groups, error: groupsError } = await supabase
-    .from('item_opcao_grupos')
-    .select('id, item_id, tipo, nome, obrigatorio, min_escolhas, max_escolhas')
-    .in('item_id', productIds)
+  type DbCombo = { id: string; nome: string; preco: number; ativo: boolean | null }
+  const comboMap = new Map<string, DbCombo>()
+  const comboQtyByItem = new Map<string, Map<string, number>>()
+  if (missingIds.length > 0) {
+    const { data: combos, error: combosError } = await supabase
+      .from('combos')
+      .select('id, nome, preco, ativo')
+      .in('id', missingIds)
+    if (combosError) throw new OrderCalculationError('Falha ao validar combos.')
+    for (const combo of (combos ?? []) as DbCombo[]) comboMap.set(combo.id, combo)
+
+    const foundComboIds = [...comboMap.keys()]
+    if (foundComboIds.length > 0) {
+      const { data: comboLines, error: comboLinesError } = await supabase
+        .from('combo_itens')
+        .select('combo_id, item_id, quantidade')
+        .in('combo_id', foundComboIds)
+      if (comboLinesError) throw new OrderCalculationError('Falha ao validar combos.')
+      for (const line of comboLines ?? []) {
+        const qtyByItem = comboQtyByItem.get(line.combo_id) ?? new Map<string, number>()
+        qtyByItem.set(line.item_id, Math.max(1, Number(line.quantidade) || 1))
+        comboQtyByItem.set(line.combo_id, qtyByItem)
+      }
+    }
+  }
+
+  const groupItemIds = [
+    ...new Set([
+      ...productIds.filter((id) => productMap.has(id)),
+      ...[...comboQtyByItem.values()].flatMap((qtyByItem) => [...qtyByItem.keys()]),
+    ]),
+  ]
+
+  const { data: groups, error: groupsError } = groupItemIds.length
+    ? await supabase
+        .from('item_opcao_grupos')
+        .select('id, item_id, tipo, nome, obrigatorio, min_escolhas, max_escolhas')
+        .in('item_id', groupItemIds)
+    : { data: [], error: null }
 
   if (groupsError) {
     throw new OrderCalculationError('Falha ao validar opções do produto.')
@@ -140,10 +177,96 @@ export async function calculateOrderFromCart(
   const optionMap = new Map(options.map((o) => [o.id, o]))
   const groupMap = new Map(((groups ?? []) as DbGroup[]).map((g) => [g.id, g]))
 
+  const choiceIds = [
+    ...new Set(
+      cart.flatMap((line) =>
+        comboMap.has(line.id)
+          ? (line.selectedOptions ?? [])
+              .map((option) => option.optionId.split(':'))
+              .filter((parts) => parts.length === 2)
+              .map((parts) => parts[1])
+          : []
+      )
+    ),
+  ]
+  const choiceNames = new Map<string, string>()
+  if (choiceIds.length > 0) {
+    const { data: choiceRows } = await supabase.from('itens_cardapio').select('id, nome').in('id', choiceIds)
+    for (const row of choiceRows ?? []) choiceNames.set(row.id, row.nome)
+  }
+
   const items: CalculatedOrderItem[] = []
   let subtotalCents = 0
 
   for (const line of cart) {
+    const combo = comboMap.get(line.id)
+    if (combo) {
+      if (combo.ativo === false) {
+        throw new OrderCalculationError(`Produto indisponível: ${combo.nome}.`)
+      }
+      if (line.quantity <= 0) throw new OrderCalculationError('Quantidade inválida.')
+
+      const qtyByItem = comboQtyByItem.get(combo.id) ?? new Map<string, number>()
+      let optionsCents = 0
+      const selectedOptionsSnapshot: CalculatedOrderItem['selectedOptionsSnapshot'] = []
+
+      for (const ref of line.selectedOptions ?? []) {
+        const parts = ref.optionId.split(':')
+        if (parts.length === 2) {
+          selectedOptionsSnapshot.push({
+            optionId: ref.optionId,
+            groupId: parts[0],
+            groupType: 'extra',
+            groupName: 'Escolha',
+            label: choiceNames.get(parts[1]) ?? 'Escolha',
+            priceDeltaCents: 0,
+          })
+          continue
+        }
+        if (parts.length !== 3) {
+          throw new OrderCalculationError('Opção inválida no combo.')
+        }
+        const [componentId, groupId, optionUuid] = parts
+        const option = optionMap.get(optionUuid)
+        if (!option || option.ativo === false) {
+          throw new OrderCalculationError('Opção inválida ou inativa.')
+        }
+        const group = groupMap.get(option.grupo_id)
+        if (!group || group.id !== groupId || group.item_id !== componentId || !qtyByItem.has(componentId)) {
+          throw new OrderCalculationError('Opção não pertence ao combo.')
+        }
+        const deltaCents = dollarsToCents(Number(option.price_delta)) * (qtyByItem.get(componentId) ?? 1)
+        optionsCents += deltaCents
+        selectedOptionsSnapshot.push({
+          optionId: ref.optionId,
+          groupId: group.id,
+          groupType: group.tipo,
+          groupName: group.nome,
+          label: option.label,
+          priceDeltaCents: deltaCents,
+          info: option.detail_info ?? null,
+        })
+      }
+
+      const unitPriceCents = dollarsToCents(Number(combo.preco)) + optionsCents
+      const totalPriceCents = unitPriceCents * line.quantity
+      if (unitPriceCents < 0 || totalPriceCents <= 0) {
+        throw new OrderCalculationError('Total do item inválido.')
+      }
+      subtotalCents += totalPriceCents
+      items.push({
+        itemId: combo.id,
+        comboId: combo.id,
+        productNameSnapshot: combo.nome,
+        quantity: line.quantity,
+        unitPriceCents,
+        totalPriceCents,
+        observation: line.observation?.trim() ? line.observation.trim() : null,
+        selectedOptionsSnapshot,
+      })
+      continue
+    }
+
     const product = productMap.get(line.id)
     if (!product) {
       throw new OrderCalculationError('Produto inexistente no cardápio.')
@@ -212,6 +335,7 @@ export async function calculateOrderFromCart(
     subtotalCents += totalPriceCents
     items.push({
       itemId: product.id,
+      comboId: null,
       productNameSnapshot: product.nome,
       quantity: line.quantity,
       unitPriceCents,

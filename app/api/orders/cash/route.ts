@@ -5,6 +5,7 @@ import { getDeliveryFeeAmount, isStoreAcceptingOrders, listDeliveryLocations } f
 import { calculateOrderTax } from '@/lib/order-tax'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleKitchenPrint } from '@/lib/print-queue'
+import { linksForOrderItems } from '@/lib/orders/order-item-links'
 
 type CashOrderBody = {
   customer?: unknown
@@ -145,11 +146,25 @@ export async function POST(request: Request) {
     const localOrderId = insertedOrder.id
 
     if (safeItems.length > 0) {
+      let itemLinks
+      try {
+        itemLinks = await linksForOrderItems(
+          supabase,
+          safeItems.map((item) => ({ id: item.id, comboId: item.combo_id }))
+        )
+      } catch (linkError) {
+        await supabase.from('pedidos').delete().eq('id', localOrderId)
+        return NextResponse.json(
+          { error: linkError instanceof Error ? linkError.message : 'Item do carrinho inválido.' },
+          { status: 400 }
+        )
+      }
+
       const { error: insertItemsError } = await supabase.from('pedido_itens').insert(
-        safeItems.map((item) => ({
+        safeItems.map((item, index) => ({
           pedido_id: localOrderId,
-          item_id: item.combo_id ? null : item.id,
-          combo_id: item.combo_id ?? null,
+          item_id: itemLinks[index]?.item_id ?? null,
+          combo_id: itemLinks[index]?.combo_id ?? null,
           nome_item: item.name,
           quantidade: item.quantity,
           preco_unitario: item.unitAmount,
@@ -160,6 +175,7 @@ export async function POST(request: Request) {
       )
 
       if (insertItemsError) {
+        await supabase.from('pedidos').delete().eq('id', localOrderId)
         return NextResponse.json({ error: insertItemsError.message }, { status: 500 })
       }
     }

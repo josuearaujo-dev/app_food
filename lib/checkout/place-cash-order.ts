@@ -6,6 +6,7 @@ export type CustomerPaymentMethod = 'card' | 'cash'
 export function buildCashCartPayload(items: ReturnType<typeof useCart>['items']) {
   return items.map(({ item, quantity, observation, selectedOptions, unitPrice }) => ({
     id: item.id,
+    combo_id: item.isCombo || item.comboId ? item.comboId || item.id : null,
     name: item.nome,
     quantity,
     unitAmount: unitPrice,
