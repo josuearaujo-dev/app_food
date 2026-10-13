@@ -27,6 +27,8 @@ import {
 } from '@/lib/checkout/place-cash-order'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 import { useStoreStatus } from '@/lib/store-status-client'
+import { currentInAppBrowser } from '@/lib/in-app-browser'
+import { OpenInBrowser } from '@/components/checkout/open-in-browser'
 
 type SuccessOrder = {
   orderId: string
@@ -116,9 +118,27 @@ function cartPayload(items: ReturnType<typeof useCart>['items']) {
 }
 
 export default function PagamentoPage() {
+  const { t } = useLang()
+  const [inApp, setInApp] = useState<boolean | null>(null)
   const provider = (
     process.env.NEXT_PUBLIC_PAYMENT_PROVIDER ?? 'clover'
   ).toLowerCase() as PaymentProvider
+
+  useEffect(() => {
+    setInApp(currentInAppBrowser())
+  }, [])
+
+  if (inApp === null) {
+    return (
+      <main className="cadu-checkout mx-auto max-w-lg">
+        <p className="cadu-checkout-body text-sm text-[var(--cadu-muted)]">{t.paymentLoading}</p>
+      </main>
+    )
+  }
+
+  if (inApp) {
+    return <OpenInBrowser />
+  }
 
   if (provider === 'paypal') {
     return <PayPalCheckoutPage />

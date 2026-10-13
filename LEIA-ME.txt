@@ -1,21 +1,23 @@
-Pagamento sem esperar a impressora v2.19.1
-==========================================
+Pagamento dentro do WhatsApp v2.20.0
+=====================================
 
-O checkout esperava a PrintNode terminar. No pico a impressora demora
-ou recusa, e a tela de pagamento ficava travada mesmo com o cartão
-já cobrado.
+O print do cliente é o navegador do WhatsApp, com a seta "WhatsApp"
+no topo. A frase "This page couldn't load" é esse navegador caindo
+quando o formulário do cartão tenta abrir.
 
-Agora o pagamento só grava o pedido na fila e responde na hora.
-A impressão segue depois, um cupom por vez.
+Agora, dentro do WhatsApp, a página de pagamento não carrega o
+formulário da Clover. Mostra o link e pede para abrir no navegador
+do celular pelo menu •••. No Android também aparece o botão que
+abre o Chrome.
 
-Se o v2.19.0 ainda não foi aplicado, copie este pacote inteiro.
-Se já foi, basta substituir lib/print-queue.ts.
+No Safari e no Chrome o pagamento continua igual.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho.
+1) Copiar os arquivos mantendo o caminho, por cima do que já está no ar.
 2) Redeploy + hard refresh.
-3) Deixar o admin aberto no horário de movimento.
+3) Abrir o link de pagamento dentro do WhatsApp e conferir a tela
+   com o link para copiar, sem o formulário do cartão.
 
 Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.
