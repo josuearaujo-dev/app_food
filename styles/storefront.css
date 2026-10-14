@@ -1468,7 +1468,7 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   gap: 8px;
 }
 
-.cadu-checkout-auth-row a {
+.cadu-checkout-auth-row :is(a, button) {
   flex: 1;
   border-radius: 12px;
   padding: 10px 8px;
@@ -1476,6 +1476,8 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
+  border: 0;
+  cursor: pointer;
 }
 
 .cadu-checkout-auth-primary {
@@ -1672,7 +1674,7 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   margin-bottom: 10px;
 }
 
-.cadu-sidebar-auth a {
+.cadu-sidebar-auth :is(a, button) {
   flex: 1;
   border-radius: 10px;
   padding: 8px;
@@ -1680,14 +1682,16 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
+  border: 0;
+  cursor: pointer;
 }
 
-.cadu-sidebar-auth a:first-child {
+.cadu-sidebar-auth :is(a, button):first-child {
   background: var(--cadu-brown);
   color: white;
 }
 
-.cadu-sidebar-auth a:last-child {
+.cadu-sidebar-auth :is(a, button):last-child {
   border: 1px solid var(--cadu-line);
   color: var(--cadu-ink);
 }
@@ -2097,14 +2101,22 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
 
 /* Profile modal + panel */
 .cadu-profile-modal {
+  --cadu-ink: #531b04;
+  --cadu-muted: #7a4a35;
+  --cadu-line: #d5c0b3;
+  --cadu-page: #f6efea;
+  --cadu-brown: #531b04;
+  --cadu-pink: #fb5b77;
+  --cadu-surface: #fff;
   width: min(440px, 100%);
   max-height: min(90vh, 720px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   border-radius: 20px 20px 0 0;
-  background: var(--cadu-page);
-  box-shadow: 0 -8px 40px rgba(83, 27, 4, 0.2);
+  background: #f6efea;
+  color: #531b04;
+  box-shadow: 0 -8px 40px rgba(83, 27, 4, 0.28);
 }
 
 @media (min-width: 640px) {
@@ -2293,7 +2305,7 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
 
 .cadu-profile-auth-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
@@ -2464,13 +2476,16 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   color: var(--cadu-ink);
 }
 
-.cadu-profile-lookup input {
+.cadu-profile-lookup input,
+.cadu-account-field input {
   width: 100%;
-  border: 1px solid var(--cadu-line);
+  height: 44px;
+  flex: none;
+  border: 1px solid var(--cadu-line, #d5c0b3);
   border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 13px;
-  color: var(--cadu-ink);
+  padding: 0 12px;
+  font-size: 14px;
+  color: #531b04;
   background: #fff;
   outline: none;
 }
@@ -2484,6 +2499,107 @@ body[data-cadu-modal='open'] nav[aria-label='Main navigation'] {
   margin: 0;
   font-size: 12px;
   color: #b91c1c;
+}
+
+.cadu-account-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cadu-pink, #fb5b77);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cadu-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cadu-account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cadu-account-field > span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7a4a35;
+}
+
+.cadu-account-field > div {
+  position: relative;
+}
+
+.cadu-account-field > div svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #7a4a35;
+  pointer-events: none;
+}
+
+.cadu-account-field > div input {
+  padding-left: 38px;
+  padding-right: 40px;
+}
+
+.cadu-account-eye {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #7a4a35;
+  cursor: pointer;
+}
+
+.cadu-account-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #d5c0b3;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.cadu-account-checks label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #7a4a35;
+}
+
+.cadu-account-switch {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: #7a4a35;
+}
+
+.cadu-account-switch button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #531b04;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .cadu-store-closed-banner {

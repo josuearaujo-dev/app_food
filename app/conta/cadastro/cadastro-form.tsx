@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { registerCustomer } from '@/lib/auth/register-customer'
 import { Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react'
 import { useLang } from '@/lib/lang-context'
 import { StorefrontHeader } from '@/components/layout/storefront-header'
@@ -32,48 +32,27 @@ export function CadastroForm() {
     setErro(null)
     setInfo(null)
 
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+    const result = await registerCustomer({
+      nome,
+      telefone,
+      email,
       password: senha,
-      options: {
-        data: {
-          role: 'customer',
-          nome_completo: nome.trim(),
-          telefone: telefone.trim(),
-        },
-      },
+      aceitaSms,
+      aceitaEmail,
     })
 
-    if (error) {
-      setErro(error.message)
+    if (!result.ok) {
+      if (result.error === 'email_taken') setErro(t.authEmailTaken)
+      else if (result.error === 'weak_password') setErro(t.authWeakPassword)
+      else if (result.error === 'invalid') setErro(t.authSignupInvalid)
+      else if (result.error === 'signin_failed') setInfo(t.authAccountCreated)
+      else setErro(t.authSignupFailed)
       setLoading(false)
       return
     }
 
-    const user = data.user
-    if (user) {
-      const { error: perfilErr } = await supabase.from('cliente_perfis').upsert(
-        {
-          user_id: user.id,
-          nome_completo: nome.trim(),
-          telefone: telefone.trim(),
-        },
-        { onConflict: 'user_id' }
-      )
-      if (perfilErr) {
-        setErro(perfilErr.message)
-        setLoading(false)
-        return
-      }
-    }
-
-    if (data.session) {
-      router.push(nextPath.startsWith('/') ? nextPath : '/checkout/dados')
-      router.refresh()
-    } else {
-      setInfo(t.authAccountCreated)
-    }
+    router.push(nextPath.startsWith('/') ? nextPath : '/checkout/dados')
+    router.refresh()
     setLoading(false)
   }
 

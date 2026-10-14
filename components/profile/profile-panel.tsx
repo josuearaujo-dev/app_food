@@ -27,6 +27,8 @@ type OrderRow = CustomerOrderSummary & { displayNumber?: string }
 
 type ProfilePanelProps = {
   onClose?: () => void
+  onSignIn?: () => void
+  onSignUp?: () => void
   compact?: boolean
 }
 
@@ -42,7 +44,7 @@ function formatPhoneDisplay(raw: string | null | undefined): string | null {
   return raw.trim()
 }
 
-export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
+export function ProfilePanel({ onClose, onSignIn, onSignUp, compact = false }: ProfilePanelProps) {
   const { t, lang } = useLang()
   const supabase = createClient()
 
@@ -225,22 +227,14 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
         <div className="cadu-profile-auth-actions">
           <p className="cadu-profile-guest-hint">{t.profileGuestHint}</p>
           <div className="cadu-profile-auth-grid">
-            <Link
-              href="/conta/entrar?next=%2Fperfil"
-              onClick={() => onClose?.()}
-              className="cadu-profile-btn cadu-profile-btn--primary"
-            >
-              <LogIn size={16} />
-              {t.login}
-            </Link>
-            <Link
-              href="/conta/cadastro?next=%2Fperfil"
-              onClick={() => onClose?.()}
-              className="cadu-profile-btn cadu-profile-btn--ghost"
-            >
+            <button type="button" onClick={onSignUp} className="cadu-profile-btn cadu-profile-btn--primary">
               <UserPlus size={16} />
               {t.signup}
-            </Link>
+            </button>
+            <button type="button" onClick={onSignIn} className="cadu-profile-btn cadu-profile-btn--ghost">
+              <LogIn size={16} />
+              {t.login}
+            </button>
           </div>
         </div>
       )}
@@ -327,20 +321,24 @@ export function ProfilePanel({ onClose, compact = false }: ProfilePanelProps) {
               <p>{t.lookupOrder}</p>
             </div>
             <p className="cadu-profile-empty">{t.lookupOrderHint}</p>
-            <input
-              type="text"
-              value={lookupNumber}
-              onChange={(e) => setLookupNumber(e.target.value)}
-              placeholder={t.orderNumberLabel}
-              required
-            />
-            <input
-              type="email"
-              value={lookupEmail}
-              onChange={(e) => setLookupEmail(e.target.value)}
-              placeholder={t.orderEmailLabel}
-              required
-            />
+            <label className="cadu-account-field">
+              <span>{t.orderNumberLabel}</span>
+              <input
+                type="text"
+                value={lookupNumber}
+                onChange={(e) => setLookupNumber(e.target.value)}
+                required
+              />
+            </label>
+            <label className="cadu-account-field">
+              <span>{t.orderEmailLabel}</span>
+              <input
+                type="email"
+                value={lookupEmail}
+                onChange={(e) => setLookupEmail(e.target.value)}
+                required
+              />
+            </label>
             {lookupError && <p className="cadu-profile-error">{lookupError}</p>}
             <button
               type="submit"

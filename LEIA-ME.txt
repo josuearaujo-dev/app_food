@@ -1,21 +1,22 @@
-Pedido com combo v2.20.1
-========================
+Perfil, cadastro e versão nova v2.21.0
+========================================
 
-O erro "pedido_itens_item_id_fkey" aparecia ao pagar um combo.
-O combo era gravado em item_id, e esse campo só aceita produto
-do cardápio.
+O popup de perfil fica sólido, sem o cardápio aparecendo por trás.
+Criar conta e entrar abrem no mesmo popup, sem ir para outra página.
 
-Agora o combo vai em combo_id e item_id fica vazio.
-Produto normal continua em item_id.
-Se o item saiu do cardápio, a tela avisa para atualizar o carrinho.
+O erro "new row violates row-level security policy for table
+cliente_perfis" acontecia porque o navegador tentava gravar o perfil
+sem sessão. Agora o servidor grava o perfil.
 
-Este pacote também leva a tela do WhatsApp do v2.20.0.
+Cada página abre com ?v=20261014 e o navegador não guarda a HTML
+antiga. Na próxima alteração, troque o número em lib/app-version.ts.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho, por cima do que já está no ar.
-2) Redeploy + hard refresh.
-3) Fazer um pedido de combo, no cartão e no dinheiro.
+1) No SQL Editor do Supabase, rode scripts/052_cliente_perfis_rls.sql.
+2) Copie os arquivos mantendo o caminho, por cima do que já está no ar.
+3) Redeploy + hard refresh.
+4) Abra o perfil, toque em Criar conta e confira que o formulário
+   continua no popup. A URL deve terminar com ?v=20261014.
 
-Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.

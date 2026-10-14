@@ -2,19 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { useLang } from '@/lib/lang-context'
+import type { AccountMode } from '@/lib/profile-modal-context'
+import { AccountForm } from '@/components/profile/account-form'
 import { ProfilePanel } from '@/components/profile/profile-panel'
 
 type ProfileModalProps = {
   open: boolean
+  mode: AccountMode
+  onMode: (mode: AccountMode) => void
   onClose: () => void
 }
 
-export function ProfileModal({ open, onClose }: ProfileModalProps) {
+export function ProfileModal({ open, mode, onMode, onClose }: ProfileModalProps) {
   const { t } = useLang()
   const [mounted, setMounted] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [sessionKey, setSessionKey] = useState(0)
 
   useEffect(() => {
     setMounted(true)
@@ -65,8 +70,15 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
         <div className="cadu-modal-handle" aria-hidden />
         <header className="cadu-profile-modal-header">
           <div>
-            <p className="cadu-modal-kicker">{t.myAccount}</p>
-            <h2>{t.profileTitle}</h2>
+            {mode === 'profile' ? (
+              <p className="cadu-modal-kicker">{t.myAccount}</p>
+            ) : (
+              <button type="button" className="cadu-account-back" onClick={() => onMode('profile')}>
+                <ArrowLeft size={14} />
+                {t.back}
+              </button>
+            )}
+            <h2>{mode === 'login' ? t.login : mode === 'signup' ? t.signup : t.profileTitle}</h2>
           </div>
           <button
             type="button"
@@ -78,7 +90,24 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
           </button>
         </header>
         <div className="cadu-profile-modal-body">
-          <ProfilePanel compact onClose={requestClose} />
+          {mode === 'profile' ? (
+            <ProfilePanel
+              key={sessionKey}
+              compact
+              onClose={requestClose}
+              onSignIn={() => onMode('login')}
+              onSignUp={() => onMode('signup')}
+            />
+          ) : (
+            <AccountForm
+              mode={mode === 'signup' ? 'signup' : 'login'}
+              onMode={onMode}
+              onDone={() => {
+                onMode('profile')
+                setSessionKey((value) => value + 1)
+              }}
+            />
+          )}
         </div>
       </div>
     </div>,

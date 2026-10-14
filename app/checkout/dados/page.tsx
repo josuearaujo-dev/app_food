@@ -20,6 +20,8 @@ import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { useStoreStatus } from '@/lib/store-status-client'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
+import { AUTH_CHANGED_EVENT } from '@/lib/auth/register-customer'
+import { useProfileModal } from '@/lib/profile-modal-context'
 import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
 export default function CheckoutDadosPage() {
@@ -27,6 +29,7 @@ export default function CheckoutDadosPage() {
   const supabase = createClient()
   const { items, totalItems, totalPrice } = useCart()
   const { t } = useLang()
+  const { openAccount } = useProfileModal()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
   const trackedCheckout = useRef(false)
@@ -98,6 +101,11 @@ export default function CheckoutDadosPage() {
 
   useEffect(() => {
     loadSession()
+    function onAuth() {
+      void loadSession()
+    }
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuth)
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuth)
   }, [loadSession])
 
   useEffect(() => {
@@ -248,12 +256,12 @@ export default function CheckoutDadosPage() {
           <div className="cadu-checkout-card space-y-3">
             <p className="text-xs text-[var(--cadu-muted)]">{t.checkoutWantAccount}</p>
             <div className="cadu-checkout-auth-row">
-              <Link href="/conta/cadastro?next=%2Fcheckout%2Fdados" className="cadu-checkout-auth-primary">
+              <button type="button" onClick={() => openAccount('signup')} className="cadu-checkout-auth-primary">
                 {t.signup}
-              </Link>
-              <Link href="/conta/entrar?next=%2Fcheckout%2Fdados" className="cadu-checkout-auth-secondary">
+              </button>
+              <button type="button" onClick={() => openAccount('login')} className="cadu-checkout-auth-secondary">
                 {t.login}
-              </Link>
+              </button>
             </div>
           </div>
         )}

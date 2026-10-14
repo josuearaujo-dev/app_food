@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/bottom-nav'
 import { FloatingCartBar } from '@/components/floating-cart-bar'
 import { StorefrontTrackingGate } from '@/components/marketing/storefront-tracking-gate'
 import { getPublicMarketingConfig } from '@/lib/marketing/marketing.repository'
+import { APP_VERSION } from '@/lib/app-version'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -62,6 +63,11 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var v=${JSON.stringify(APP_VERSION)};var u=new URL(location.href);if(u.searchParams.get("v")===v)return;u.searchParams.set("v",v);location.replace(u.toString())}catch(e){}})();`,
+          }}
+        />
         <LangProvider>
           <CartProvider>
             <ProfileModalProvider>

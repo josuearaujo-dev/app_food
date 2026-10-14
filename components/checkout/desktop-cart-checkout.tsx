@@ -27,6 +27,8 @@ import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { CartRecommendations } from '@/components/storefront/cart-recommendations'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
+import { AUTH_CHANGED_EVENT } from '@/lib/auth/register-customer'
+import { useProfileModal } from '@/lib/profile-modal-context'
 import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { saveRecentOrder } from '@/lib/orders/guest-order-access'
@@ -46,6 +48,7 @@ export function DesktopCartCheckout() {
   const isDesktop = useMediaMinWidth(981)
   const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart()
   const { t, lang } = useLang()
+  const { openAccount } = useProfileModal()
   const supabase = createClient()
   const { deliveryFee, locations, loading: configLoading } = useCheckoutConfig()
   const { acceptingOrders, loading: storeStatusLoading } = useStoreStatus()
@@ -165,6 +168,11 @@ export function DesktopCartCheckout() {
 
   useEffect(() => {
     if (isDesktop) loadSession()
+    function onAuth() {
+      if (isDesktop) void loadSession()
+    }
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuth)
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuth)
   }, [isDesktop, loadSession])
 
   useEffect(() => {
@@ -402,8 +410,8 @@ export function DesktopCartCheckout() {
 
             {!userId && (
               <div className="cadu-sidebar-auth">
-                <Link href="/conta/cadastro">{t.signup}</Link>
-                <Link href="/conta/entrar">{t.login}</Link>
+                <button type="button" onClick={() => openAccount('signup')}>{t.signup}</button>
+                <button type="button" onClick={() => openAccount('login')}>{t.login}</button>
               </div>
             )}
 
