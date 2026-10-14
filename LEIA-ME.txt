@@ -1,22 +1,21 @@
-Perfil, cadastro e versão nova v2.21.0
-========================================
+Perfil no celular v2.21.1
+=========================
 
-O popup de perfil fica sólido, sem o cardápio aparecendo por trás.
-Criar conta e entrar abrem no mesmo popup, sem ir para outra página.
+No computador o cadastro seguia. No celular, a página de dados do
+pedido gravava o perfil direto do navegador e parava com o erro
+"new row violates row-level security policy for table cliente_perfis".
 
-O erro "new row violates row-level security policy for table
-cliente_perfis" acontecia porque o navegador tentava gravar o perfil
-sem sessão. Agora o servidor grava o perfil.
+Agora o celular grava o perfil pelo servidor, como o cadastro, e
+segue para o pagamento.
 
-Cada página abre com ?v=20261014 e o navegador não guarda a HTML
-antiga. Na próxima alteração, troque o número em lib/app-version.ts.
+Aplique por cima do v2.21.0. Se o v2.21.0 ainda não foi copiado,
+faça ele primeiro.
 
 Como aplicar
 ------------
-1) No SQL Editor do Supabase, rode scripts/052_cliente_perfis_rls.sql.
-2) Copie os arquivos mantendo o caminho, por cima do que já está no ar.
-3) Redeploy + hard refresh.
-4) Abra o perfil, toque em Criar conta e confira que o formulário
-   continua no popup. A URL deve terminar com ?v=20261014.
+1) Copiar os arquivos mantendo o caminho, por cima do que já está no ar.
+2) Redeploy + hard refresh.
+3) No celular, criar uma conta e continuar o pedido até o pagamento.
 
+Não precisa rodar SQL de novo.
 O .env.local NÃO entra neste pacote.

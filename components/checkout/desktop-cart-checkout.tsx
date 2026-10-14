@@ -27,7 +27,7 @@ import { FulfillmentSelector } from '@/components/checkout/fulfillment-selector'
 import { CartRecommendations } from '@/components/storefront/cart-recommendations'
 import { ProductCustomizeModal } from '@/components/storefront/product-customize-modal'
 import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
-import { AUTH_CHANGED_EVENT } from '@/lib/auth/register-customer'
+import { AUTH_CHANGED_EVENT, saveCustomerProfile } from '@/lib/auth/register-customer'
 import { useProfileModal } from '@/lib/profile-modal-context'
 import { computePayableTotalsFromDollars } from '@/lib/checkout/order-totals'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
@@ -248,17 +248,12 @@ export function DesktopCartCheckout() {
     }
 
     if (userId) {
-      await supabase.from('cliente_perfis').upsert(
-        {
-          user_id: userId,
-          nome_completo: c.nome,
-          telefone: c.telefone,
-          aceita_sms_atualizacoes_pedido: aceitaSms,
-          aceita_email_atualizacoes_pedido: aceitaEmail,
-          prefere_salvar_cartao_futuro: false,
-        },
-        { onConflict: 'user_id' }
-      )
+      await saveCustomerProfile({
+        nome: c.nome,
+        telefone: c.telefone,
+        aceitaSms,
+        aceitaEmail,
+      })
     }
 
     saveCheckoutCustomer(c)

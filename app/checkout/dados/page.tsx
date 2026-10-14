@@ -20,7 +20,7 @@ import { resolveClientDeliveryFee } from '@/lib/checkout/fulfillment'
 import { useCheckoutConfig } from '@/lib/checkout/use-checkout-config'
 import { useStoreStatus } from '@/lib/store-status-client'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
-import { AUTH_CHANGED_EVENT } from '@/lib/auth/register-customer'
+import { AUTH_CHANGED_EVENT, saveCustomerProfile } from '@/lib/auth/register-customer'
 import { useProfileModal } from '@/lib/profile-modal-context'
 import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 
@@ -162,22 +162,12 @@ export default function CheckoutDadosPage() {
     setSaving(true)
 
     if (userId) {
-      const { error: upErr } = await supabase.from('cliente_perfis').upsert(
-        {
-          user_id: userId,
-          nome_completo: c.nome,
-          telefone: c.telefone,
-          aceita_sms_atualizacoes_pedido: aceitaSms,
-          aceita_email_atualizacoes_pedido: aceitaEmail,
-          prefere_salvar_cartao_futuro: false,
-        },
-        { onConflict: 'user_id' }
-      )
-      if (upErr) {
-        setErro(upErr.message)
-        setSaving(false)
-        return
-      }
+      await saveCustomerProfile({
+        nome: c.nome,
+        telefone: c.telefone,
+        aceitaSms,
+        aceitaEmail,
+      })
     }
 
     saveCheckoutCustomer(c)

@@ -41,3 +41,17 @@ export async function registerCustomer(input: {
 export async function notifyAuthChanged() {
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT))
 }
+
+export async function saveCustomerProfile(input: {
+  nome: string
+  telefone: string
+  aceitaSms: boolean
+  aceitaEmail: boolean
+}) {
+  const response = await fetch('/api/conta/perfil', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return response.ok
+}
