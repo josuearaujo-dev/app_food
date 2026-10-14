@@ -20,7 +20,25 @@ export type CloverElementsApi = {
     styles?: Record<string, Record<string, string>>
   ) => {
     mount: (selector: string) => void
+    unmount?: () => void
     addEventListener: (event: string, handler: (event: unknown) => void) => void
+  }
+}
+
+export function releaseCloverFields(
+  elements: Array<{ unmount?: () => void }>,
+  selectors: string[]
+) {
+  for (const element of elements) {
+    try {
+      element.unmount?.()
+    } catch {
+      /* o iframe já saiu do DOM */
+    }
+  }
+  for (const selector of selectors) {
+    const id = selector.startsWith('#') ? selector.slice(1) : selector
+    document.getElementById(id)?.replaceChildren()
   }
 }
 

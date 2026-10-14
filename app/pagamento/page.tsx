@@ -28,6 +28,7 @@ import {
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
 import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 import { useStoreStatus } from '@/lib/store-status-client'
+import { releaseCloverFields } from '@/lib/checkout/clover-ui'
 import { currentInAppBrowser } from '@/lib/in-app-browser'
 import { OpenInBrowser } from '@/components/checkout/open-in-browser'
 
@@ -45,6 +46,7 @@ type CloverElements = {
     styles?: Record<string, Record<string, string>>
   ) => {
     mount: (selector: string) => void
+    unmount?: () => void
     addEventListener: (event: string, handler: (event: unknown) => void) => void
   }
 }
@@ -172,6 +174,8 @@ function CloverCheckoutPage() {
 
   const cloverRef = useRef<CloverSdk | null>(null)
   const mountedRef = useRef(false)
+  const cloverFieldsRef = useRef<Array<{ unmount?: () => void }>>([])
+  const customerReady = customerChecked && !!checkoutCustomer
   const payingLockRef = useRef(false)
   const trackedPayment = useRef(false)
   const trackedPurchase = useRef<string | null>(null)
@@ -238,7 +242,7 @@ function CloverCheckoutPage() {
       router.replace('/checkout/dados')
       return
     }
-    setCheckoutCustomer(c)
+    setCheckoutCustomer((prev) => prev ?? c)
     setCustomerChecked(true)
   }, [router, locations.length])
 
@@ -262,12 +266,19 @@ function CloverCheckoutPage() {
 
   useEffect(() => {
     if (paymentMethod !== 'card') {
+      releaseCloverFields(cloverFieldsRef.current, [
+        '#card-number',
+        '#card-date',
+        '#card-cvv',
+        '#card-postal-code',
+      ])
+      cloverFieldsRef.current = []
       cloverRef.current = null
       mountedRef.current = false
       setFieldsReady(false)
       return
     }
-    if (!customerChecked || !checkoutCustomer || !sdkLoaded || !hasPublicConfig) return
+    if (!customerReady || !sdkLoaded || !hasPublicConfig) return
     if (!window.Clover || mountedRef.current || items.length === 0) return
 
     mountedRef.current = true
@@ -283,6 +294,7 @@ function CloverCheckoutPage() {
       const cardDate = elements.create('CARD_DATE', FIELD_STYLES)
       const cardCvv = elements.create('CARD_CVV', FIELD_STYLES)
       const cardPostal = elements.create('CARD_POSTAL_CODE', FIELD_STYLES)
+      cloverFieldsRef.current = [cardNumber, cardDate, cardCvv, cardPostal]
 
       cardNumber.mount('#card-number')
       cardDate.mount('#card-date')
@@ -314,14 +326,20 @@ function CloverCheckoutPage() {
     }
 
     return () => {
+      releaseCloverFields(cloverFieldsRef.current, [
+        '#card-number',
+        '#card-date',
+        '#card-cvv',
+        '#card-postal-code',
+      ])
+      cloverFieldsRef.current = []
       cloverRef.current = null
       mountedRef.current = false
       setFieldsReady(false)
     }
   }, [
     paymentMethod,
-    customerChecked,
-    checkoutCustomer,
+    customerReady,
     sdkLoaded,
     hasPublicConfig,
     publicToken,
@@ -399,7 +417,15 @@ function CloverCheckoutPage() {
 
     try {
       const prepared = await ensurePreparedOrder()
-      const tokenResult = await cloverRef.current.createToken()
+      const clover = cloverRef.current
+      if (!clover) return
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      let tokenResult = await clover.createToken()
+      if (tokenResult.errors && cloverRef.current === clover) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        tokenResult = await clover.createToken()
+      }
       if (tokenResult.errors) {
         const messages = Object.values(tokenResult.errors).filter(Boolean)
         setError(messages[0] ?? t.paymentCheckCard)

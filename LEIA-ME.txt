@@ -1,21 +1,19 @@
-Pagamento depois dos detalhes v2.21.2
-=======================================
+Cartão preenchido e "Card number is required" v2.21.3
+======================================================
 
-Ao sair da tela de detalhes, a página de pagamento quebrava com
-"setTrackingUser is not defined". O botão de continuar não seguia.
+O número aparecia no campo, mas o pagamento lia outro formulário
+vazio da Clover, montado por cima do primeiro. A Clover respondia
+que o número era obrigatório.
 
-O aviso do Facebook (ERR_BLOCKED_BY_CLIENT) é o bloqueador de
-anúncio do celular. Não é esse erro.
-
-A versão da página passou para ?v=20261014-2 para o celular
-buscar o arquivo novo.
+Agora fica um único formulário. A versão da página passou para
+?v=20261014-3.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho, por cima do v2.21.1.
+1) Copiar os arquivos mantendo o caminho, por cima do v2.21.2.
 2) Redeploy + hard refresh.
-3) No celular, preencher os detalhes e continuar até o pagamento.
-   A URL deve terminar com ?v=20261014-2.
+3) No celular, preencher o cartão de novo e tocar em Pay & confirm.
+   A URL deve terminar com ?v=20261014-3.
 
 Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.

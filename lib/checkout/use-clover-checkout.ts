@@ -10,6 +10,7 @@ import {
   buildCartPayload,
   CLOVER_FIELD_STYLES,
   cloverMountIds,
+  releaseCloverFields,
   type CloverElementsApi,
   type CloverSdk,
 } from '@/lib/checkout/clover-ui'
@@ -60,6 +61,7 @@ export function useCloverCheckout({
 
   const cloverRef = useRef<CloverSdk | null>(null)
   const mountedRef = useRef(false)
+  const cloverFieldsRef = useRef<Array<{ unmount?: () => void }>>([])
   const payingLockRef = useRef(false)
   const mountIds = useMemo(() => cloverMountIds(mountPrefix), [mountPrefix])
 
@@ -111,6 +113,7 @@ export function useCloverCheckout({
       const cardCvv = elements.create('CARD_CVV', CLOVER_FIELD_STYLES)
       const cardPostal = elements.create('CARD_POSTAL_CODE', CLOVER_FIELD_STYLES)
 
+      cloverFieldsRef.current = [cardNumber, cardDate, cardCvv, cardPostal]
       cardNumber.mount(mountIds.number)
       cardDate.mount(mountIds.date)
       cardCvv.mount(mountIds.cvv)
@@ -141,6 +144,8 @@ export function useCloverCheckout({
     }
 
     return () => {
+      releaseCloverFields(cloverFieldsRef.current, Object.values(mountIds))
+      cloverFieldsRef.current = []
       cloverRef.current = null
       mountedRef.current = false
       setFieldsReady(false)
@@ -193,7 +198,15 @@ export function useCloverCheckout({
         setPreparedOrder(next)
         return next
       })()
-      const tokenResult = await cloverRef.current.createToken()
+      const clover = cloverRef.current
+      if (!clover) return
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
+      await new Promise((resolve) => setTimeout(resolve, 80))
+      let tokenResult = await clover.createToken()
+      if (tokenResult.errors && cloverRef.current === clover) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        tokenResult = await clover.createToken()
+      }
       if (tokenResult.errors) {
         const messages = Object.values(tokenResult.errors).filter(Boolean)
         setError(messages[0] ?? t.paymentCheckCard)
