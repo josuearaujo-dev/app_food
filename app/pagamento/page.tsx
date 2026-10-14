@@ -26,6 +26,7 @@ import {
   type CustomerPaymentMethod,
 } from '@/lib/checkout/place-cash-order'
 import { trackCartFunnel } from '@/lib/marketing/cart-bridge'
+import { setTrackingUser } from '@/lib/marketing/storefront-tracker'
 import { useStoreStatus } from '@/lib/store-status-client'
 import { currentInAppBrowser } from '@/lib/in-app-browser'
 import { OpenInBrowser } from '@/components/checkout/open-in-browser'

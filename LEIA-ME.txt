@@ -1,21 +1,21 @@
-Perfil no celular v2.21.1
-=========================
+Pagamento depois dos detalhes v2.21.2
+=======================================
 
-No computador o cadastro seguia. No celular, a página de dados do
-pedido gravava o perfil direto do navegador e parava com o erro
-"new row violates row-level security policy for table cliente_perfis".
+Ao sair da tela de detalhes, a página de pagamento quebrava com
+"setTrackingUser is not defined". O botão de continuar não seguia.
 
-Agora o celular grava o perfil pelo servidor, como o cadastro, e
-segue para o pagamento.
+O aviso do Facebook (ERR_BLOCKED_BY_CLIENT) é o bloqueador de
+anúncio do celular. Não é esse erro.
 
-Aplique por cima do v2.21.0. Se o v2.21.0 ainda não foi copiado,
-faça ele primeiro.
+A versão da página passou para ?v=20261014-2 para o celular
+buscar o arquivo novo.
 
 Como aplicar
 ------------
-1) Copiar os arquivos mantendo o caminho, por cima do que já está no ar.
+1) Copiar os arquivos mantendo o caminho, por cima do v2.21.1.
 2) Redeploy + hard refresh.
-3) No celular, criar uma conta e continuar o pedido até o pagamento.
+3) No celular, preencher os detalhes e continuar até o pagamento.
+   A URL deve terminar com ?v=20261014-2.
 
-Não precisa rodar SQL de novo.
+Não precisa rodar SQL.
 O .env.local NÃO entra neste pacote.
